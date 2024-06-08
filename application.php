@@ -77,7 +77,7 @@ final class ClipBoard extends CodersApp{
             }            
         }
         $this->header('error', 'text/plain');
-        print '{"error":"invalid id :D"}';
+        print sprintf('{"error":"invalid id [%s]"}',$id);
         return FALSE;
     }
     /**
@@ -99,12 +99,25 @@ final class ClipBoard extends CodersApp{
      * @param string $id
      * @return array
      */
-    private final function data($id){
-        return array(
-            'id' => 'abcdefghijk',
-            'type' => 'image/png',
-            'attachment' => false,
+    private static final function _search( $id ){
+        $data = array(
+            'abc' => array(
+                'id' => 'abc',
+                'name' => 'image',
+                'type' => 'image/png',
+                'attachment' => false,            
+            )
         );
+        return isset($data[$id]) ? $data[$id] : array();
+    }
+    /**
+     * @param string $id
+     * @return array
+     */
+    private final function data($id){
+        
+        return self::_search( $id ); 
+        
         global $wpdb;
         $sql = sprintf( "SELECT * FROM `%s_clipboard` WHERE `id`='%s'", $wpdb->prefix,$id );
         $result = $wpdb->get_results($sql, ARRAY_A);
