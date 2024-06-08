@@ -11,15 +11,34 @@ final class ClipBoard extends CodersApp{
         //dependencies?
         parent::__construct($root);
     }
+    
+    /**
+     * 
+     */
+    protected function adminMenu() {
+        return array(
+            'name' => __('ClipBoard', 'coders_clipboard'),
+            'title' => __('ClipBoard', 'coders_clipboard'),
+            'capability' => 'administrator',
+            'slug' => 'clipboard',
+            'icon' => 'dashicons-art',
+            'position' => 200,
+            'children' => array(
+                array(
+                    'name' => __('Settings', 'coders_clipboard'),
+                    'title' => __('Settings', 'coders_clipboard'),
+                    'capability' => 'administrator',
+                    'slug' => 'settings',
+                )
+            ),
+        );
+    }    
+    
     /**
      * @param string $action
      * @return bool
      */
-    protected final function run($action = '') {
-        
-        if( strlen($action) < 1 ){
-            $action = 'main';
-        }
+    public final function run($action = '') {
         
         return is_admin() || $action === 'main' ? parent::run($action) : $this->source( $action );
     }
