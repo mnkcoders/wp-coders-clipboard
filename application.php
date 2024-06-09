@@ -73,10 +73,10 @@ final class ClipBoard extends CodersApp {
      * @return bool
      */
     public final function source($id) {
-        
+
         $resource = Resource::load($id);
-        
-        if( !is_null($resource)){
+
+        if (!is_null($resource)) {
             $resource->source();
             return TRUE;
         }
@@ -251,17 +251,17 @@ final class Resource {
      * @param bool $forceAttachment
      * @return bool
      */
-    public final function source( $forceAttachment = false ) {
+    public final function source($forceAttachment = false) {
         if ($this->ready()) {
             $buffer = $this->storage($this->ID);
             if (strlen($buffer) && $this->ready()) {
-                $this->header($this->name, $this->type, $this->isAttachment() || $forceAttachment );
+                $this->header($this->name, $this->type, $this->isAttachment() || $forceAttachment);
                 print $buffer;
                 return TRUE;
             }
         }
         $this->header('error', 'text/plain');
-        print sprintf('{"error":"invalid id [%s]"}', $this->ID );
+        print sprintf('{"error":"invalid id [%s]"}', $this->ID);
         return FALSE;
     }
 
@@ -356,7 +356,7 @@ final class Resource {
         // Unserialize the data
         //$data = unserialize($serialized_data);
         $data = $this->_data;
-        
+
         $ts = date('Y-m-d H:i:s');
 
         // Prepare the data for insertion
@@ -370,10 +370,10 @@ final class Resource {
             'order' => isset($data['order']) ? (int) $data['order'] : 0,
             'role' => strlen($data['role_name']) ? $data['role_name'] : '',
             'created' => strlen($data['created']) ? $data['created'] : $ts
-            //'created' => strlen($data['created']) ? $data['created'] : current_time('mysql')
+                //'created' => strlen($data['created']) ? $data['created'] : current_time('mysql')
         );
 
-        try{
+        try {
             // Insert the data into the database
             $wpdb->insert($clipboard, $input);
 
@@ -384,10 +384,9 @@ final class Resource {
 
             if ($wpdb->insert_id > 0) {
                 //
-            }            
-        }
-        catch (Exception $ex) {
-                return new WP_Error('db_insert_error', $ex->getMessage(), $wpdb->last_error);
+            }
+        } catch (Exception $ex) {
+            return new WP_Error('db_insert_error', $ex->getMessage(), $wpdb->last_error);
         }
         return $this;
     }
@@ -400,12 +399,12 @@ final class Resource {
 
         return md5(strlen($name) ? $name . strval($variation) : uniqid('YmdHis', true));
     }
-    
+
     /**
      * @return bool
      */
-    public final function isAttachment(){
-        switch($this->type){
+    public final function isAttachment() {
+        switch ($this->type) {
             case 'image/png':
             case 'image/gif':
             case 'image/jpg':
@@ -531,8 +530,6 @@ final class Resource {
         return $save ? $resource->save() : $resource;
     }
 }
-
-
 
 
 
