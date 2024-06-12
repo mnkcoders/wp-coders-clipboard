@@ -1,6 +1,4 @@
-<?php
-
-defined('ABSPATH') or die;
+<?php defined('ABSPATH') or die;
 
 /**
  * ClipBoard Class
@@ -176,8 +174,8 @@ final class Resource {
      * @param string $name
      * @return mixed
      */
-    public function __call($name) {
-        return $this->get($name);
+    public function __call($name, $args ) {
+        return $this->get($name , count($args) ? $args[0] : '' );
     }
 
     /**
