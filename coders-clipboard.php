@@ -30,6 +30,11 @@ register_activation_hook(__FILE__, function() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP) $charset_collate;";
 
     dbDelta($sql);
+    //check the upload directory
+    $uploads = Clipboard::dir();
+    if( !file_exists($uploads)){
+        wp_mkdir_p($uploads);
+    }
 });
 
 register_deactivation_hook(__FILE__, function() {
