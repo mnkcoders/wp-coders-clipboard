@@ -1,0 +1,129 @@
+
+
+
+#wpbody-content{
+    
+}
+
+#wpbody-content .coders-clipboard{
+    
+}
+
+#wpbody-content .coders-clipboard .container{
+    overflow: hidden;
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: 2px;
+}
+#wpbody-content .coders-clipboard > .container{
+    margin: 20px 0;
+    padding: 0;
+}
+#wpbody-content .coders-clipboard > .container.separator{
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+#wpbody-content .coders-clipboard .container.solid{
+    background-color: rgba(255,255,255,0.25);
+    box-shadow: 0 0 8px rgba(0,0,0,0.1);
+}
+#wpbody-content .coders-clipboard .container > .half{
+    display: inline-block;
+    width: 50%;
+    float: left;
+}
+#wpbody-content .coders-clipboard > .container:after{
+    clear:both;
+    display: block;
+    height: 0;
+    content: '';
+}
+#wpbody-content .coders-clipboard .container.centered{
+    text-align: center;
+}
+#wpbody-content .coders-clipboard .container .block{
+    padding: 10px;
+    margin: 10px 0;
+    display: block;
+    
+    letter-spacing: 1px;
+    font-weight: 500;
+    color: rgba(0,0,0,0.5);
+}
+#wpbody-content .coders-clipboard .container .block.inline{
+    display: inline-block;
+}
+#wpbody-content .coders-clipboard .container .block.solid{
+    background-color: rgba(255,255,255,0.25);
+}
+
+#wpbody-content .coders-clipboard .container.media{
+    animation: ease-in 200ms;
+}
+#wpbody-content .coders-clipboard .container.media.collapsed{
+    height: 300px;
+}
+
+#wpbody-content .coders-clipboard .container.media img{
+    width: 100%;
+    heigth: auto;
+}
+#wpbody-content .coders-clipboard .container ul.path{
+    margin: 10px 0 20px;
+}
+#wpbody-content .coders-clipboard .container ul.path > li.node{
+    display: inline-block;
+    cursor: default;
+}
+#wpbody-content .coders-clipboard .container ul.path > li.node:not(:last-child):after{
+    content: '|';
+    display: inline-block;
+    color: rgba(0,0,0,0.25);
+    margin: 0 4px;
+}
+
+#wpbody-content .coders-clipboard > .collections{
+    position: relative;
+}
+#wpbody-content .coders-clipboard > .collections:after{
+    clear:both;
+    display: block;
+    height: 0;
+    content: '';
+}
+
+#wpbody-content .coders-clipboard > .collections > li.item{
+    
+    display: inline-block;
+    vertical-align: top;
+    float: left;
+    width: 22%;
+    margin: 0 4% 4% 0;
+    padding-bottom: 22%;
+    position: relative;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(0,0,0,0.1);
+}
+#wpbody-content .coders-clipboard > .collections > li.item:nth-child(4n){
+    margin-right: 0;
+}
+
+#wpbody-content .coders-clipboard > .collections > li.item > .content{
+    display: block;
+    position: absolute;
+    
+    overflow: hidden;
+    top: 0; left: 0; right: 0; bottom: 0;    
+}
+#wpbody-content .coders-clipboard > .collections > li.item > .content > img{
+    width: 100%;
+    height: auto;
+}
+#wpbody-content .coders-clipboard > .collections > li.fullwitdh{
+    width: 100%;
+    display: block;
+    clear: both;
+}
+
+
+
