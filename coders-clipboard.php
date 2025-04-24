@@ -10,105 +10,15 @@
  * Class: Clipboard
  * **************************************************************************** */
 
-// Activation Hook
-register_activation_hook(__FILE__, function() {
-    flush_rewrite_rules();
-
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    global $wpdb;
-
-    $charset_collate = $wpdb->get_charset_collate();
-    $sql = "CREATE TABLE " . Clipboard::table() .
-        " ( id VARCHAR(64) NOT NULL PRIMARY KEY,
-        parent_id VARCHAR(64) DEFAULT NULL,
-        name VARCHAR(32) NOT NULL,
-        type VARCHAR(24) DEFAULT 'application/octet-stream',
-        title VARCHAR(32) NOT NULL,
-        description TEXT,
-        layout VARCHAR(24) DEFAULT 'default',
-        acl VARCHAR(16) DEFAULT 'private',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP) $charset_collate;";
-
-    dbDelta($sql);
-    //check the upload directory
-    $uploads = Clipboard::path();
-    if( !file_exists($uploads)){
-        wp_mkdir_p($uploads);
-    }
-});
-
-register_deactivation_hook(__FILE__, function() {
-    flush_rewrite_rules();
-});
-
-// Rewrite Rules
-add_action('init', function() {
-    //flush_rewrite_rules();
-    
-    add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
-    add_rewrite_rule('^clipboard/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]', 'top');
-    add_rewrite_rule('^clipboards/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view', 'top');
-    //add_rewrite_rule('^clipboards/?$', 'index.php?clipboards=1', 'top');
-    
-    add_shortcode('clipboard_view', function($atts){
-        $atts = shortcode_atts(['id' => ''], $atts);
-        ob_start();
-        Clipboard::display($atts['id']);
-        return ob_get_clean();
-    });
-
-    
-    if(is_admin()){
-        add_action( 'admin_init',function(){
-            require_once sprintf('%s/admin.php',plugin_dir_path(__FILE__));
-        });
-
-        add_action('admin_menu', function () {
-            add_menu_page(
-                    __('Coders Clipboard', 'coders_clipboard'),
-                    __('Clipboard', 'coders_clipboard'),
-                    'upload_files', // or 'manage_options' if more restricted
-                    'coders-clipboard',
-                    function () {
-                ClipboardAdmin::display();
-                //require_once __DIR__ . '/admin.php'; // This will instantiate ClipboardAdmin
-            },
-                    'dashicons-format-gallery',
-                    80
-            );
-        });        
-    }
-});
-
-add_filter('query_vars', function($vars) {
-    $vars[] = 'clipboard_id';
-    //$vars[] = 'clipboards';
-    $vars[] = 'mode';
-    return $vars;
-});
-
-
-// Redirect Handler
-//add_action('template_redirect', ['Clipboard', 'handle_request']);
-add_action('template_redirect', function(){
-    //$id = isset($_GET['id']) ? sanitize_text_field($_GET['id']) : null;
-    $id = get_query_var('clipboard_id');
-    if( $id ){
-        $mode = get_query_var('mode');
-        if($mode === 'view' ){
-            Clipboard::display( $id );
-        }
-        else{
-            Clipboard::attach( $id );
-        }
-        exit;                    
-    }
-});
-
-
 
 // Clipboard Class
 class Clipboard {
+    
+    /**
+     * @var \ClipboardContent
+     */
+    private $_content = null;
+    
     /**
      * 
      */
@@ -179,20 +89,37 @@ class Clipboard {
     public function __call($name, $arguments) {
         switch (true) {
             case preg_match('/^is_/', $name):
-                return $this->is(substr($name, 3),$arguments);
+                return $this->__run('is'.substr($name, 3), false, $arguments);
+                //return $this->is(substr($name, 3),$arguments);
             case preg_match('/^has_/', $name):
-                return $this->has(substr($name, 4));
+                return $this->__run('has'.substr($name, 4), false, $arguments);
+                //return $this->has(substr($name, 4));
             case preg_match('/^count_/', $name):
-                return $this->count(substr($name, 6));
+                return $this->__run('count'.substr($name, 6), 0, $arguments);
+                //return $this->count(substr($name, 6));
             case preg_match('/^list_/', $name):
-                return $this->list(substr($name, 5));
+                return $this->__run('list'.substr($name, 5), array(), $arguments);
+                //return $this->list(substr($name, 5));
             case preg_match('/^get_/', $name):
-                return $this->get(substr($name, 4),$arguments);
+                return $this->__run('get'.substr($name, 4), '', $arguments);
+                //return $this->get(substr($name, 4),$arguments);
             case preg_match('/^view_/', $name):
-                return $this->view(substr($name, 5)) ;
+                return $this->__render(substr($name, 5), is_admin() ? 'admin' : 'public') ;
+            case preg_match('/^part_/', $name):
+                return $this->__part(substr($name, 5), is_admin() ? 'admin' : 'public') ;
         }
         return sprintf('<!-- INVALID INPUT %s -->', $name);
     }
+    /**
+     * @param string $call
+     * @param mixed $default
+     * @param array $arguments
+     * @return mixed
+     */
+    protected final function __run( $call , $default = false , $arguments = array()){
+        return method_exists($this, $call) ? $this->$call( $arguments ) : $default;
+    }
+
     /**
      * @param string $name
      * @param array $arguments
@@ -259,13 +186,19 @@ class Clipboard {
     /**
      * @return Boolean
      */
+    public final function isReady(){
+        return !is_null($this->_content);
+    }
+    /**
+     * @return Boolean
+     */
     public function isImage( $args = array() ){
         return stripos(count($args) ? $args[0] : $this->type, 'image/') === 0;
     }
     /**
      * @return Boolean
      */
-    public function denied(){
+    private function isDenied(){
         return $this->acl !== 'public' && !$this->isAdmin();
     }
     /**
@@ -348,12 +281,21 @@ class Clipboard {
             }
     }
     /**
+     * @param string $part
+     * @param string $path
+     * @return string
+     */
+    protected function __part( $part = '' , $path = 'public'){
+        require $this->__render( $part , $path . '/parts');
+    }
+
+    /**
      * @param String $view
      * @param Boolean $path
      * @return String 
      */
-    public function view( $view = 'default' , $path = 'public' ) {
-        return sprintf('%shtml/%s/%s.php',plugin_dir_path(__FILE__), $path , $view);
+    protected function __render( $view = 'default' , $path = 'public' ) {
+        return self::assetPath(sprintf('html/%s/%s.php', $path , $view));
     }
     /**
      * 
@@ -386,7 +328,7 @@ class Clipboard {
         if (!$this->isValid()) {
             return $this->error404();
         }
-        if ( $this->denied()) {
+        if ( $this->isDenied()) {
             return $this->errorDenied();
         }
         if (!$this->exists()) {
@@ -462,7 +404,7 @@ class Clipboard {
     public static function display( $content = '' ){
         $clipboard = new ClipBoard( $content );
         if($clipboard->isValid()){
-            $view = $clipboard->view();
+            $view = $clipboard->__render();
             if( file_exists($view) ){
                 include $view;
             }
@@ -731,7 +673,7 @@ class ClipBoardContent{
      * @param type $id
      * @return \ClipBoardContent
      */
-    public static final function load( $id = '' ){
+    public static function load( $id = '' ){
         global $wpdb;
         if(strlen($id)){
             $table = self::table();
@@ -794,4 +736,88 @@ class ClipBoardContent{
 
 
 
+
+
+// Activation Hook
+register_activation_hook(__FILE__, function() {
+    flush_rewrite_rules();
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    
+    ClipBoardContent::install();
+
+    //check the upload directory
+    $uploads = Clipboard::path();
+    if( !file_exists($uploads)){
+        wp_mkdir_p($uploads);
+    }
+});
+
+register_deactivation_hook(__FILE__, function() {
+    flush_rewrite_rules();
+});
+
+// Rewrite Rules
+add_action('init', function() {
+    //flush_rewrite_rules();
+    
+    add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
+    add_rewrite_rule('^clipboard/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]', 'top');
+    add_rewrite_rule('^clipboards/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view', 'top');
+    //add_rewrite_rule('^clipboards/?$', 'index.php?clipboards=1', 'top');
+    
+    add_shortcode('clipboard_view', function($atts){
+        $atts = shortcode_atts(['id' => ''], $atts);
+        ob_start();
+        Clipboard::display($atts['id']);
+        return ob_get_clean();
+    });
+
+    
+    if(is_admin()){
+        add_action( 'admin_init',function(){
+            require_once sprintf('%s/admin.php',plugin_dir_path(__FILE__));
+        });
+
+        add_action('admin_menu', function () {
+            add_menu_page(
+                    __('Coders Clipboard', 'coders_clipboard'),
+                    __('Clipboard', 'coders_clipboard'),
+                    'upload_files', // or 'manage_options' if more restricted
+                    'coders-clipboard',
+                    function () {
+                ClipboardAdmin::display();
+                //require_once __DIR__ . '/admin.php'; // This will instantiate ClipboardAdmin
+            },
+                    'dashicons-format-gallery',
+                    80
+            );
+        });        
+    }
+});
+
+add_filter('query_vars', function($vars) {
+    $vars[] = 'clipboard_id';
+    //$vars[] = 'clipboards';
+    $vars[] = 'mode';
+    return $vars;
+});
+
+
+// Redirect Handler
+//add_action('template_redirect', ['Clipboard', 'handle_request']);
+add_action('template_redirect', function(){
+    //$id = isset($_GET['id']) ? sanitize_text_field($_GET['id']) : null;
+    $id = get_query_var('clipboard_id');
+    if( $id ){
+        $mode = get_query_var('mode');
+        if($mode === 'view' ){
+            Clipboard::display( $id );
+        }
+        else{
+            Clipboard::attach( $id );
+        }
+        exit;                    
+    }
+});
 

@@ -41,7 +41,7 @@ class ClipboardAdmin extends Clipboard {
      */
     private final function page($page = 'default') {
 
-        $view = $this->view($page, 'admin');
+        $view = $this->__render($page, 'admin');
 
         if (file_exists($view)) {
             include $view;
@@ -259,7 +259,19 @@ class ClipboardAdminContent extends ClipBoardContent {
         }
         return $uploaded;
     }
-
+    
+    /**
+     * @global wpdb $wpdb
+     * @param type $id
+     * @return \ClipBoardContent
+     */
+    public static final function load( $id = '' ){
+        $item = parent::load($id);
+        if( !is_null($item)){
+            return new ClipboardAdminContent($item->content());
+        }
+        return null;
+    }
 }
 
 /**
@@ -368,9 +380,37 @@ class ClipboardUploader {
 
 }
 
-add_action('admin_post_cod_clipboard_upload', function() {
+add_action('admin_post_clipboard_upload', function() {
 
     $id = filter_input(INPUT_POST, 'parent_id') ?? '';
+
+    $uploaded = ClipboardAdmin::upload(ClipboardUploader::upload()->files(), $id);
+    $redirect = array(
+        'page' => 'coders-clipboard',
+        'upload' => 'success',
+        'count' => $uploaded,
+    );
+
+    if (strlen($id)) {
+        $redirect['id'] = $id;
+    }
+
+    wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
+    exit;
+});
+
+add_action('admin_post_clipboard_update', function() {
+
+    $post = filter_input_array(INPUT_POST);
+    
+    if( isset($post['id'])){
+        $content = ClipboardAdminContent::load($post['id']);
+        if(!is_null($content)){
+            if( $content->override($post)->update()){
+                //send to admin notifier
+            }
+        }
+    }
 
     $uploaded = ClipboardAdmin::upload(ClipboardUploader::upload()->files(), $id);
     $redirect = array(
