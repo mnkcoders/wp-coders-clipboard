@@ -31,7 +31,7 @@ register_activation_hook(__FILE__, function() {
 
     dbDelta($sql);
     //check the upload directory
-    $uploads = Clipboard::dir();
+    $uploads = Clipboard::uploads();
     if( !file_exists($uploads)){
         wp_mkdir_p($uploads);
     }
@@ -270,7 +270,7 @@ class Clipboard {
      * @return Boolean
      */
     public function denied(){
-        return !$this->isValid() || $this->acl !== 'public';
+        return $this->acl !== 'public' && !$this->isAdmin();
     }
     /**
      * @return String[]
@@ -433,7 +433,7 @@ class Clipboard {
      * @return String
      */
     private function path(){
-        return self::dir($this->id);
+        return self::uploads($this->id);
         //return CLIPBOARD_UPLOAD_DIR . '/' . $this->id;
     }
     /**
@@ -480,16 +480,16 @@ class Clipboard {
     /**
      * @return {String}
      */
-    public static function dir( $path = '' ){
-        return strlen($path) ?
-            sprintf('%s/clipboard/%s',wp_upload_dir()['basedir'],$path) :
+    public static function uploads( $id = '' ){
+        return strlen($id) ?
+            sprintf('%s/clipboard/%s',wp_upload_dir()['basedir'],$id) :
             sprintf('%s/clipboard',wp_upload_dir()['basedir']);
     }
     /**
      * @return {String}
      */
     public static function url( $url = ''){
-        return strlen($path) ?
+        return strlen($url) ?
              sprintf('%s/clipboard/%s',wp_upload_dir()['baseurl'],$url) :
              sprintf('%s/clipboard',wp_upload_dir()['baseurl']);
     }
@@ -523,6 +523,12 @@ class Clipboard {
         $url = plugin_dir_url(__FILE__);
         
         return strlen($content) ? $url.$content : $url;
+    }
+    /**
+     * @return  boolean
+     */
+    public static final function isAdmin(){
+        return current_user_can( 'administrator' );
     }
 }
     

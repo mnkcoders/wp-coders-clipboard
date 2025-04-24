@@ -16,7 +16,7 @@
                     <?php print __('Drag or select your files here to upload!', 'coders_clipboard'); ?>                        
                 </button>
                 <?php if ($this->is_valid()) : ?>
-                    <input type="hidden" name="parent_id" value="<?php print $this->id ?>"
+                    <input type="hidden" name="parent_id" value="<?php print $this->id ?>">
                 <?php endif; ?>
             </form>
         </div>
@@ -45,9 +45,10 @@
                         </li>
                     <?php endforeach; ?>
                 </ul>
-
-
-                <span class="block solid"><?php print $this->name ?></span>
+                <span class="block solid">
+                    <a class="dashicons dashicons-search right" href="<?php print $this->get_link() ?>" target="_blank"></a>
+                    <?php print $this->name ?>
+                </span>
                 <span class="block solid"><?php print $this->description ?></span>
                 <span class="block solid"><?php print $this->layout ?></span>
                 <span class="block solid"><?php print $this->acl ?></span>
@@ -57,6 +58,8 @@
                 <img src="<?php print $this->get_url() ?>" alt="<?php print $this->name ?>" title="<?php print $this->title ?>">
             </div>
         </div>
+    <?php else: ?>
+        <p><a class="button primary right" href="<?php print '#' ?>"><?php  print __('Find lost files','coders_clipboard') ?></a></p>
     <?php endif; ?>
 
 
