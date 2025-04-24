@@ -31,7 +31,7 @@ register_activation_hook(__FILE__, function() {
 
     dbDelta($sql);
     //check the upload directory
-    $uploads = Clipboard::uploads();
+    $uploads = Clipboard::path();
     if( !file_exists($uploads)){
         wp_mkdir_p($uploads);
     }
@@ -80,16 +80,12 @@ add_action('init', function() {
     }
 });
 
-
-
 add_filter('query_vars', function($vars) {
     $vars[] = 'clipboard_id';
     //$vars[] = 'clipboards';
     $vars[] = 'mode';
     return $vars;
 });
-
-
 
 
 // Redirect Handler
@@ -303,7 +299,6 @@ class Clipboard {
             }
             else{
                 return array(
-                    '' => __('Clipboards','coders_clipboard'),
                     $this->id => $this->title );
             }
         }
@@ -419,7 +414,7 @@ class Clipboard {
         header('Content-Type: ' . $this->type);
         header('Content-Disposition: ' . $this->disposition() . '; filename=' . $this->filename());
         header('Content-Length: ' . $this->size());
-        readfile($this->path());
+        readfile($this->getPath());
         exit;
     }
     /**
@@ -432,15 +427,15 @@ class Clipboard {
     /**
      * @return String
      */
-    private function path(){
-        return self::uploads($this->id);
+    private function getPath(){
+        return self::path($this->id);
         //return CLIPBOARD_UPLOAD_DIR . '/' . $this->id;
     }
     /**
      * @return Int
      */
     public function size(){
-        return $this->exists() ? filesize($this->path()) : 0;
+        return $this->exists() ? filesize($this->getPath()) : 0;
     }
     /**
      * @return String
@@ -452,7 +447,7 @@ class Clipboard {
      * @return Boolean
      */
     protected function exists(){
-        return file_exists($this->path());
+        return file_exists($this->getPath());
     }
     /**
      * @param string $id
@@ -480,10 +475,10 @@ class Clipboard {
     /**
      * @return {String}
      */
-    public static function uploads( $id = '' ){
+    public static function path( $id = '' ){
         return strlen($id) ?
-            sprintf('%s/clipboard/%s',wp_upload_dir()['basedir'],$id) :
-            sprintf('%s/clipboard',wp_upload_dir()['basedir']);
+            sprintf('%s/clipboard/content/%s',wp_upload_dir()['basedir'],$id) :
+            sprintf('%s/clipboard/content',wp_upload_dir()['basedir']);
     }
     /**
      * @return {String}
@@ -532,4 +527,271 @@ class Clipboard {
     }
 }
     
+/**
+ * 
+ */
+class ClipBoardContent{
+    /**
+     * @var array
+     */
+    private $_content = array(
+        'id' => '',
+        'name' => '',
+        'type' => '',
+        'title' => '',
+        'description' => '',
+        'acl' => '',
+        'layout' => 'default',
+        'created_at' => '',
+        'parent_id' => '',        
+    );
+    /**
+     * @type {String[]} Item cache
+     */
+    private $_collection = [];
+    
+    /**
+     * @param array $input
+     */
+    protected function __construct( $input = array()) {
+        
+        $this->_content['created_at'] = self::timestamp();
+        $this->populate( $input );
+    }
+    /**
+     * @return String 
+     */
+    public static final function timestamp(){
+        return date('Y-m-d H:i:s');
+    }
+    /**
+     * @param array $input
+     */
+    protected function populate( $input = [] ){
+        foreach( $input as $field => $value ){
+            if( isset($this->_content[$field])){
+                $this->_content[$field] = $value;
+            }
+        }
+    }
+    /**
+     * @param string $name
+     * @return string
+     */
+    public function __get( $name ){
+        return $this->has($name) ? $this->_content[$name] : '';
+    }
+    /**
+     * @param string $name
+     * @param array $arguments
+     * @return string
+     */
+    public function __call( $name  ,$arguments ){
+        switch(true){
+            case preg_match('/^is_/', $name):
+                $is = 'is'.substr($name, 3);
+                return method_exists($this, $is) ? $this->$is( $arguments ) : false;
+            case preg_match('/^get_/', $name):
+                $get = 'get'.substr($name, 4);
+                return method_exists($this, $get) ? $this->$get( $arguments ) : '';
+            case preg_match('/^list_/', $name):
+                $list = 'list'.substr($name, 5);
+                return method_exists($this, $list) ? $this->$list( $arguments ) : array();
+            case preg_match('/^count_/', $name):
+                $count = 'count'.substr($name, 6);
+                return method_exists($this, $count) ? $this->$count( $arguments ) : 0;
+        }
+        return '';
+    }
+    /**
+     * @param string $attribute
+     * @return boolean
+     */
+    public function has( $attribute = '' ){
+        return strlen($attribute) && array_key_exists($attribute, $this->_content);
+    }
+    /**
+     * @return array
+     */
+    public final function content(){
+        return $this->_content;
+    }
+    /**
+     * @param boolean $refresh
+     * @return array
+     */
+    protected function collection( $refresh = false ){
+        if( $refresh ){
+            $this->_collection = self::list($this->id);
+        }
+        return $this->_collection;
+    }    
+    /**
+     * @return  STring Description
+     */
+    public final function getUrl( ){
+        return Clipboard::LINK( $this->id );
+    }
+    /**
+     * @return Boolean
+     */
+    public final function isValid(){
+        return strlen($this->id) > 0;
+    }
+    /**
+     * @return Boolean
+     */
+    public function isDenied(){
+        return $this->acl !== 'public' && !$this->isAdmin();
+    }
+    /**
+     * @return Boolean
+     */
+    public function isImage( $args = array() ){
+        return stripos(count($args) ? $args[0] : $this->type, 'image/') === 0;
+    }
+    /**
+     * @return Boolean
+     */
+    public function isInline(){
+        $inline_types = ['image/', 'text/', 'application/pdf'];
+        foreach ($inline_types as $type_prefix) {
+            if (stripos($this->type, $type_prefix) === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+    /**
+     * @return String
+     */
+    public function getFilename(){
+        $extension = explode('/', $this->type)[1] ?? 'bin';
+        return preg_replace('/[^a-zA-Z0-9_-]/', '_', basename($this->name)) . '.' . $extension;
+    }
+    /**
+     * @return String
+     */
+    private function getPath(){
+        return Clipboard::path($this->id);
+    }
+    /**
+     * @return Int
+     */
+    public function getSize(){
+        return $this->exists() ? filesize($this->getPath()) : 0;
+    }
+    /**
+     * @return String
+     */
+    public function getDisposition(){
+        return $this->isInline() ? 'inline' : 'attachment';
+    }
+    /**
+     * @return Boolean
+     */
+    protected function isAvailable(){
+        return file_exists($this->getPath());
+    }
+    /**
+     * @return Int
+     */
+    public function countItems(){
+        return count($this->collection());
+    }    
+    /**
+     * @return array
+     */
+    public function listParents(){
+        if( $this->isValid()){
+            if(strlen($this->parent_id) ){
+                //$parent = new Clipboard($this->parent_id);
+                $parent = self::load($this->parent_id);
+                $path = $parent->listParents();
+                $path[ $this->id] = $this->title;
+                return $path;
+            }
+            else{
+                return array(
+                    $this->id => $this->title );
+            }
+        }
+        return array();
+    }
+    /**
+     * @return array
+     */
+    public function listItems(){
+        return $this->collection(true);
+    }
+
+    
+    /**
+     * @global wpdb $wpdb
+     * @param type $id
+     * @return \ClipBoardContent
+     */
+    public static final function load( $id = '' ){
+        global $wpdb;
+        if(strlen($id)){
+            $table = self::table();
+            $content = $wpdb->get_row($wpdb->prepare("SELECT * FROM `$table` WHERE `id`='%s'",$id));
+            return !is_null($content) ? new ClipBoardContent($content) : array();
+        }
+        return null;
+    }
+    /**
+     * @global wpdb $wpdb
+     * @param string $id
+     * @return array
+     */
+    protected static function list( $id = '' ){
+        global $wpdb;
+        //$collection = array();
+        $table = self::table();
+        
+        $list = $wpdb->get_results( strlen($id) ?
+                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id`='%s'", $id):
+                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id` IS NULL")
+                , ARRAY_A );
+        
+        if(!is_null($list)){
+            foreach($list as $content ){
+                $collection[$content['id']] = new ClipBoardContent($content);
+            }
+        }
+        return $collection;
+    }    
+
+    /**
+     * @global wpdb $wpdb
+     */
+    public static final function install(){
+        global $wpdb;
+
+        $charset_collate = $wpdb->get_charset_collate();
+
+        $sql = "CREATE TABLE " . self::table() .
+            " ( id VARCHAR(64) NOT NULL PRIMARY KEY,
+            parent_id VARCHAR(64) DEFAULT NULL,
+            name VARCHAR(32) NOT NULL,
+            type VARCHAR(24) DEFAULT 'application/octet-stream',
+            title VARCHAR(32) NOT NULL,
+            description TEXT,
+            layout VARCHAR(24) DEFAULT 'default',
+            acl VARCHAR(16) DEFAULT 'private',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP) $charset_collate;";
+
+        dbDelta($sql);        
+    }
+    /**
+     * @return string
+     */
+    public static final function table(){
+        return $GLOBALS['wpdb']->prefix . 'clipboard_items';
+    }
+}
+
+
+
 

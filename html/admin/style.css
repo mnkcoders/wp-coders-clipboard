@@ -50,12 +50,26 @@
     font-weight: 500;
     color: rgba(0,0,0,0.5);
 }
+#wpbody-content .coders-clipboard .container .block:after{
+    clear:both;
+    content :'';
+    display: block;
+}
 #wpbody-content .coders-clipboard .container .block.inline{
     display: inline-block;
 }
 #wpbody-content .coders-clipboard .container .block.solid{
     background-color: rgba(255,255,255,0.25);
 }
+#wpbody-content .coders-clipboard .container .block.edit:before{
+    font-family: 'Dashicons';
+    content: '\f464';
+    display: inline-block;
+    margin-right: 5px;
+    font-size: 20px;
+    vertical-align: middle;
+}
+
 
 #wpbody-content .coders-clipboard .container.media{
     animation: ease-in 200ms;
@@ -125,5 +139,24 @@
     clear: both;
 }
 
+
+
+#wpbody-content .coders-clipboard .container .form-input{
+    width: 100%;
+    border: none;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    background-color: transparent;
+    transition: ease-in 200ms;
+}
+
+#wpbody-content .coders-clipboard .container .form-input:hover,
+#wpbody-content .coders-clipboard .container .form-input:active,
+#wpbody-content .coders-clipboard .container .form-input:focus{
+    background-color: rgba(255,255,255,0.9)
+}
+#wpbody-content .coders-clipboard .container .form-input:focus{
+    outline: none;
+}
 
 
