@@ -41,6 +41,7 @@ class Clipboard {
     /**
      * @param String $id 
      */
+    //protected function __construct( \ClipBoardContent $content = null ){
     protected function __construct( $id  = ''){
         
         $this->_data['created_at'] = self::timestamp();
@@ -542,9 +543,23 @@ class ClipBoardContent{
             case preg_match('/^count_/', $name):
                 $count = 'count'.substr($name, 6);
                 return method_exists($this, $count) ? $this->$count( $arguments ) : 0;
+            case preg_match('/^action_/', $name):
+                return $this->__action( substr($name, 7) , $arguments);
         }
         return '';
     }
+    /**
+     * @param string $action
+     * @param array $arguments
+     * @return string
+     */
+    protected function __action( $action , $arguments = array()){
+        $class = '';
+        $url = '';
+        $text = '';
+        return sprintf('<a class="%s" href="%s">%s</a>',$class,$url,$text);
+    }
+
     /**
      * @param string $attribute
      * @return boolean
@@ -718,7 +733,7 @@ class ClipBoardContent{
             parent_id VARCHAR(64) DEFAULT NULL,
             name VARCHAR(32) NOT NULL,
             type VARCHAR(24) DEFAULT 'application/octet-stream',
-            title VARCHAR(32) NOT NULL,
+            title VARCHAR(48) NOT NULL,
             description TEXT,
             layout VARCHAR(24) DEFAULT 'default',
             acl VARCHAR(16) DEFAULT 'private',
@@ -784,15 +799,20 @@ add_action('init', function() {
                     __('Coders Clipboard', 'coders_clipboard'),
                     __('Clipboard', 'coders_clipboard'),
                     'upload_files', // or 'manage_options' if more restricted
-                    'coders-clipboard',
-                    function () {
-                ClipboardAdmin::display();
-                //require_once __DIR__ . '/admin.php'; // This will instantiate ClipboardAdmin
-            },
+                    'coders_clipboard',
+                    function () { ClipboardAdmin::display(); },
                     'dashicons-format-gallery',
                     80
             );
-        });        
+            add_submenu_page(
+                'coders_clipboard',
+                __('Settings','coders_clipboard'),
+                __('Settings','coders_clipboard'),
+                'manage_options',
+                'coders_clipboard_settings',
+                function () { ClipboardAdmin::display('settings'); }
+                );
+        });
     }
 });
 

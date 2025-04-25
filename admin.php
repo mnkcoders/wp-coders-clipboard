@@ -27,12 +27,12 @@ class ClipboardAdmin extends Clipboard {
     }
 
     /**
-     * @param Stsring $content
+     * @param Stsring $page
      */
-    public static final function display($content = '') {
+    public static final function display($page = '') {
         $id = filter_input(INPUT_GET, 'id');
         $clipboard = new ClipboardAdmin(!is_null($id) ? $id : '');
-        $clipboard->page(strlen($content) ? $content : 'default' );
+        $clipboard->page(strlen($page) ? $page : 'default' );
     }
 
     /**
@@ -84,7 +84,7 @@ class ClipboardAdmin extends Clipboard {
     protected final function getPost($ids = array()) {
         //return parent::getLink($ids);
         return add_query_arg([
-            'page' => 'coders-clipboard',
+            'page' => 'coders_clipboard',
             'id' => $ids[0],
                 ], admin_url('admin.php'));
     }
@@ -99,22 +99,24 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @global type $wpdb
      * @param array $file
-     * @param string $parent_id Description
      * @return boolean
      */
-    protected static final function save($file = array(), $parent_id = '') {
+    protected static final function save($file = array()) {
         if (count($file)) {
             global $wpdb;
 
             $table = ClipBoard::table();
+            
+            $parent_id = isset($file['parent_id']) && strlen($file['parent_id']) ? $file['parent_id'] : null;
 
+            $name = mb_strimwidth($file['name'],0,32);
             $data = array(
                 'id' => $file['id'],
-                'name' => sanitize_file_name($file['name']),
-                'title' => $file['name'],
+                'name' => sanitize_file_name($name),
+                'title' => $name,
                 'description' => '',
                 'type' => $file['type'],
-                'parent_id' => strlen($parent_id) ? $parent_id : null,
+                'parent_id' => $parent_id,
                 'acl' => 'private',
                 'created_at' => current_time('mysql'),
             );
@@ -132,20 +134,80 @@ class ClipboardAdmin extends Clipboard {
 
     /**
      * @param array $files
-     * @param string $parent_id
+     * @param string $id
      * @return boolean
      */
-    public static final function upload($files = array(), $parent_id = '') {
+    public static final function upload($files = array(), $id = '') {
 
+        $parent_id = '';
         $count = 0;
         foreach ($files as $file) {
-            if (self::save($file, $parent_id)) {
+            $file['parent_id'] = strlen($parent_id) > 0 ? $parent_id : $id;
+            if (self::save($file)) {
                 $count++;
+            }
+            if(strlen($parent_id) === 0){
+                //now set all files into the first uploaded file (collection header)
+                $parent_id = $file['id'];
             }
         }
         return $count === count($files);
     }
-
+    /**
+     * @param array $input
+     */
+    public static final function action( $input = array() ){
+        $action = array_key_exists('action', $input) ? $input['action'] : '';
+        $id = array_key_exists('id', $input) ? $input['id'] : '';
+        $output = array();
+        switch ($action ){
+            case 'upload':
+                $count = ClipboardAdminContent::upload( $input['upload'] , $id );
+                $output['count'] = $count;
+                break;
+            case 'update':
+                $content = ClipboardAdminContent::load($id);
+                if (!is_null($content) && $content->override($input)->update()) {
+                    $output[$action] = 'done';
+                }
+                break;
+            case 'remove':
+                $content = ClipboardAdminContent::load($id);
+                if (!is_null($content) && $content->remove()) {
+                    $output[$action] = 'done';
+                }
+                break;
+            case 'sort':
+                $content = ClipboardAdminContent::load($id);
+                //get here the required position indexes
+                if (!is_null($content) && $content->sort()) {
+                    $output[$action] = 'done';
+                }
+                break;
+            case 'moveup':
+                $content = ClipboardAdminContent::load($id);
+                //get here the upper parent Id
+                if (!is_null($content) && $content->moveup()) {
+                    $output[$action] = 'done';
+                }
+                break;
+            case 'moveto':
+                $content = ClipboardAdminContent::load($id);
+                //get here the selected container id
+                if (!is_null($content) && $content->moveto()) {
+                    $output[$action] = 'done';
+                }
+                break;
+            case 'clear_content':
+                $output['page'] = 'settings';
+                if( ClipboardAdminContent::resetContent() ){
+                    $output[$action] = 'done';
+                }
+                break;
+        }
+        
+        return array();
+    }
 }
 
 /**
@@ -212,7 +274,12 @@ class ClipboardAdminContent extends ClipBoardContent {
         }
         return false;
     }
-
+    /**
+     * @return boolean
+     */
+    public final function remove(){
+        return false;
+    }
     /**
      * @global wpdb $wpdb
      * @return boolean
@@ -247,12 +314,21 @@ class ClipboardAdminContent extends ClipBoardContent {
     }
 
     /**
+     * @param string $from Description
+     * @param string $id Description
      * @return \ClipboardAdminContent[]
      */
-    public static final function upload() {
+    public static final function upload( $from = 'upload', $id = '' ) {
         $uploaded = array();
-        foreach (ClipboardUploader::upload()->files() as $files) {
-            $content = new ClipboardAdminContent($files);
+        $parent_id = '';
+        foreach (ClipboardUploader::upload($from)->files() as $file) {
+            //set the first parent id to the parsed ID
+            $file['parent_id'] = strlen($parent_id) ? $parent_id : $id;
+            //then set the next to the first file ID
+            if(strlen($parent_id) === 0){
+                $parent_id = $file['id'];
+            }
+            $content = new ClipboardAdminContent($file);
             if ($content->save()) {
                 $uploaded[$content->id] = $content;
             }
@@ -272,6 +348,36 @@ class ClipboardAdminContent extends ClipBoardContent {
         }
         return null;
     }
+    /**
+     * @global wpdb $wpdb
+     * @return boolean
+     */
+    public static final function resetContent() {
+        global $wpdb;
+        $done = 0;
+        // 1. Truncate DB table
+        $result = $wpdb->query(sprintf('TRUNCATE TABLE `%s`', self::table()));
+
+        if ($result !== false) {
+            $done++;
+        }
+
+
+        // 2. Delete files from uploads/clipboard
+        $folder = Clipboard::path();
+
+        if (file_exists($folder)) {
+            $files = glob($folder . '/*');
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+            $done++;
+        }
+        return $done > 1;
+    }
+
 }
 
 /**
@@ -353,9 +459,9 @@ class ClipboardUploader {
     /**
      * @return \ClipboardUploader
      */
-    public static final function upload() {
+    public static final function upload($from = 'upload') {
 
-        $input = self::import('upload');
+        $input = self::import($from);
 
         $files = array();
 
@@ -383,11 +489,11 @@ class ClipboardUploader {
 add_action('admin_post_clipboard_upload', function() {
 
     $id = filter_input(INPUT_POST, 'parent_id') ?? '';
+    $uploaded = ClipboardAdmin::upload( ClipboardUploader::upload()->files(), $id);
 
-    $uploaded = ClipboardAdmin::upload(ClipboardUploader::upload()->files(), $id);
     $redirect = array(
-        'page' => 'coders-clipboard',
-        'upload' => 'success',
+        'page' => 'coders_clipboard',
+        'upload' => $uploaded > 0 ? 'success' : 'failure',
         'count' => $uploaded,
     );
 
@@ -402,21 +508,21 @@ add_action('admin_post_clipboard_upload', function() {
 add_action('admin_post_clipboard_update', function() {
 
     $post = filter_input_array(INPUT_POST);
-    
-    if( isset($post['id'])){
-        $content = ClipboardAdminContent::load($post['id']);
+    $id = array_key_exists('id', $post) ? $post['id'] : '';
+    $updated = false;
+    if(strlen($id)){
+        $content = ClipboardAdminContent::load($id);
         if(!is_null($content)){
             if( $content->override($post)->update()){
                 //send to admin notifier
+                $updated = true;
             }
         }
     }
 
-    $uploaded = ClipboardAdmin::upload(ClipboardUploader::upload()->files(), $id);
     $redirect = array(
-        'page' => 'coders-clipboard',
-        'upload' => 'success',
-        'count' => $uploaded,
+        'page' => 'coders_clipboard',
+        'update' => $updated ? 'success' : 'failure',
     );
 
     if (strlen($id)) {
@@ -425,6 +531,22 @@ add_action('admin_post_clipboard_update', function() {
 
     wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
     exit;
+});
+
+add_action('admin_post_clipboard_action', function() {
+    if ( ! current_user_can('upload_files') ) {
+        wp_die(__('Unauthorized', 'coders_clipboard'));
+    }
+    $post = filter_input_array(INPUT_POST) ?? array();
+    
+    $redirect = ClipboardAdmin::action($post);
+    
+    if( !array_key_exists('page', $redirect)){
+        $redirect['page'] = 'coders_clipboard';
+    }
+    
+    wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
+    exit;        
 });
 
 
