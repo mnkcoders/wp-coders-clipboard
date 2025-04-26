@@ -33,12 +33,11 @@ class ClipboardAdmin extends Clipboard {
         $input = filter_input_array(INPUT_GET) ?? array();
         
         if(array_key_exists('task', $input)){
-            self::task($input);
+            $input = self::task($input);
         }
-        else{
-            $clipboard = new ClipboardAdmin(array_key_exists('id', $input) ? $input['id'] : '' );
-            $clipboard->page(strlen($page) ? $page : 'default' , $input);
-        }        
+        $id = array_key_exists('id', $input) ? $input['id'] : '';
+        $clipboard = new ClipboardAdmin( $id );
+        $clipboard->page(strlen($page) ? $page : 'default' , $input);
     }
 
     /**
@@ -46,7 +45,7 @@ class ClipboardAdmin extends Clipboard {
      * @return ClipboardAdmin
      */
     private final function page($page = 'default' , $input = array()) {
-
+        
         $view = $this->__render($page, 'admin');
 
         if (file_exists($view)) {
@@ -152,7 +151,19 @@ class ClipboardAdmin extends Clipboard {
 
         return $uploaded;
     }    
+    /**
+     * @param array $input
+     */
+    public static final function redirect( $input = array()){
+        if( !array_key_exists('page', $input)){
+            $input['page'] = 'coders_clipboard';
+        }
 
+        ClipboardAdmin::registerMessages();
+
+        wp_redirect(add_query_arg($input, admin_url('admin.php')));
+        exit;
+    }
     /**
      * @param array $input
      */
@@ -211,25 +222,8 @@ class ClipboardAdmin extends Clipboard {
                 break;
         }
         
-        return array();
-    }
-    
-    
-    /**
-     * 
-     */
-    public static final function registerMessages(){
-        if( count(self::messages())){
-            foreach( self::messages() as $message ){
-                $content = $message['content'];
-                $type = $message['type'];
-                add_action( 'admin_notices', function() use ( $content,$type){
-                    $class = 'is-dismissible notice notice-'. $type;
-                    printf('<div class="%s"><p>%s</p></div>',$class , $content);
-                });
-            }
-        }
-    }    
+        return $output;
+    } 
 }
 
 
@@ -357,10 +351,12 @@ add_action('admin_post_clipboard_upload', function() {
     if (strlen($id)) {
         $redirect['id'] = $id;
     }
-    
-    ClipboardAdmin::registerMessages();
 
-    wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
+    if (!array_key_exists('page', $input)) {
+        $input['page'] = 'coders_clipboard';
+    }
+    
+    wp_redirect(add_query_arg($input, admin_url('admin.php')));
     exit;
 });
 
@@ -460,5 +456,22 @@ add_action('admin_menu', function () {
             __('Settings', 'coders_clipboard'),
             'manage_options',
             'coders_clipboard_settings',
-            function () { ClipboardAdmin::display('settings'); } );
+            function () { ClipboardAdmin::display('settings'); });
+});
+
+
+add_action('admin_init', function() {
+
+    //ClipboardAdmin::addMessage('Hello!!');
+
+    if (count(ClipboardAdmin::messages())) {
+        foreach (ClipboardAdmin::messages() as $message) {
+            $content = $message['content'];
+            $type = $message['type'];
+            add_action('admin_notices', function() use ( $content, $type) {
+                $class = 'is-dismissible notice notice-' . $type;
+                printf('<div class="%s"><p>%s</p></div>', $class, $content);
+            });
+        }
+    }
 });
