@@ -11,76 +11,56 @@
  * **************************************************************************** */
 
 
-// Clipboard Class
+/**
+ * 
+ */
 class Clipboard {
-    
+    /**
+     * @var array
+     */
+    static $_messages = array();    
     /**
      * @var \ClipboardContent
      */
     private $_content = null;
-    
-    /**
-     * 
-     */
-    private $_data = array(
-        'id' => '',
-        'name' => '',
-        'type' => '',
-        'title' => '',
-        'description' => '',
-        'acl' => '',
-        'layout' => 'default',
-        'created_at' => '',
-        'parent_id' => '',
-    );
+
     /**
      * @type {String[]} Item cache
      */
-    private $_items = [];
+    private $_collectionCache = [];
     
     /**
      * @param String $id 
      */
-    //protected function __construct( \ClipBoardContent $content = null ){
-    protected function __construct( $id  = ''){
-        
-        $this->_data['created_at'] = self::timestamp();
+    protected function __construct( $id = '' ){
         
         if(strlen($id)){
-            $this->populate(self::load($id) );
-            $this->addItems(self::children($this->id));
-            //$this->_items = $this->children();            
+            $this->_content = ClipboardContent::load($id);
         }
     }
-    /**
-     * @return String 
-     */
-    public static final function timestamp(){
-        return date('Y-m-d H:i:s');
-    }
-    
-    protected function populate( $input = [] ){
-        foreach( $input as $field => $value ){
-            if( isset($this->_data[$field])){
-                $this->_data[$field] = $value;
-            }
-        }
-    }
+
     /**
      * @param String[] $items
      * @return Clipboard
      */
     protected function addItems( $items = array() ){
         foreach( $items as $id  => $atts ){
-            $this->_items[$id] = $atts;
+            $this->_collectionCache[$id] = $atts;
         }
         return $this;
+    }
+    /**
+     * 
+     * @return \ClipboardContent
+     */
+    protected final function content(){
+        return $this->_content;
     }
     /**
      * @return String
      */
     public function __get( $name ){
-        return $this->has($name) ? $this->_data[$name] : '';
+        return $this->hasContent() ? $this->content()->$name : '';
     }
     /**
      * @param string $name
@@ -91,26 +71,51 @@ class Clipboard {
         switch (true) {
             case preg_match('/^is_/', $name):
                 return $this->__run('is'.substr($name, 3), false, $arguments);
-                //return $this->is(substr($name, 3),$arguments);
             case preg_match('/^has_/', $name):
                 return $this->__run('has'.substr($name, 4), false, $arguments);
-                //return $this->has(substr($name, 4));
             case preg_match('/^count_/', $name):
                 return $this->__run('count'.substr($name, 6), 0, $arguments);
-                //return $this->count(substr($name, 6));
             case preg_match('/^list_/', $name):
                 return $this->__run('list'.substr($name, 5), array(), $arguments);
-                //return $this->list(substr($name, 5));
             case preg_match('/^get_/', $name):
                 return $this->__run('get'.substr($name, 4), '', $arguments);
-                //return $this->get(substr($name, 4),$arguments);
             case preg_match('/^view_/', $name):
                 return $this->__render(substr($name, 5), is_admin() ? 'admin' : 'public') ;
             case preg_match('/^part_/', $name):
                 return $this->__part(substr($name, 5), is_admin() ? 'admin' : 'public') ;
+            case preg_match('/^link_/', $name):
+                return $this->__link(substr($name, 5), $arguments ) ;
+            case preg_match('/^action_/', $name):
+                return $this->__action(substr($name, 7), $arguments ) ;
         }
         return sprintf('<!-- INVALID INPUT %s -->', $name);
     }
+    /**
+     * @param string $action
+     * @param array $request
+     * @return string
+     */
+    protected function __action( $action , $request = array()){
+        $call = 'action'.$action;
+        if(method_exists($this,$call)){
+            return $this->$call($request);
+        }
+        return $this->__link($action,$request);
+    }
+
+    /**
+     * @param string $action
+     * @param array $request
+     * @return string
+     */
+    protected function __link( $action , $request = array()){
+        $query = array();
+        foreach ($request as $var => $val ){
+            $query[] = sprintf('%s=%s',$var,$val);
+        }
+        $url = count($query) ? $action . '?' . implode('&', $query) : $action;
+        return self::LINK($url);
+    }    
     /**
      * @param string $call
      * @param mixed $default
@@ -119,52 +124,6 @@ class Clipboard {
      */
     protected final function __run( $call , $default = false , $arguments = array()){
         return method_exists($this, $call) ? $this->$call( $arguments ) : $default;
-    }
-
-    /**
-     * @param string $name
-     * @param array $arguments
-     * @return string|int|array|bool
-     */
-    private final function get( $name , $arguments = array()){
-        $call = 'get' . $name;
-        if(method_exists($this, $call)){
-            return $this->$call( $arguments );
-        }
-        return $this->__get($name);
-    }
-
-
-    /**
-     * @param String $name
-     * @return int
-     */
-    private final function list($name) {
-        $call = 'list' . $name;
-        return method_exists($this,$call) ? $this->$call() : array();
-    }
-    /**
-     * @param String $name
-     * @return int
-     */
-    private final function count($name) {
-        $call = 'count' . $name;
-        return method_exists($this,$call) ? $this->$call() : 0;
-    }
-    /**
-     * @param String $name
-     * @param array $args
-     * @return boolean
-     */
-    private final function is($name , $args = array()) {
-        $call = 'is' . $name;
-        return method_exists($this,$call) ? $this->$call($args) : false;
-    }
-    /**
-     * @return Boolean
-     */
-    private function has( $name ){
-        return isset($this->_data[$name]);
     }
     /**
      * @return  STring Description
@@ -182,12 +141,12 @@ class Clipboard {
      * @return Boolean
      */
     public final function isValid(){
-        return strlen($this->id) > 0;
+        return $this->hasContent();
     }
     /**
      * @return Boolean
      */
-    public final function isReady(){
+    private final function hasContent(){
         return !is_null($this->_content);
     }
     /**
@@ -200,87 +159,38 @@ class Clipboard {
      * @return Boolean
      */
     private function isDenied(){
-        return $this->acl !== 'public' && !$this->isAdmin();
+        return !self::isAdmin() && $this->acl !== 'public';
     }
     /**
-     * @return String[]
+     * @return array
      */
-    public function listItems(){
-        return $this->_items;
+    public function listCollection(){
+        return $this->hasContent() ? $this->content()->listItems() : $this->loadCollection();
+    }
+    /**
+     * @return array
+     */
+    protected function loadCollection(){
+        if( count($this->_collectionCache) === 0){
+            $this->_collectionCache = ClipboardContent::list();
+        }
+        return $this->_collectionCache;
     }
     /**
      * @return array
      */
     public function listPath(){
-        return $this->hierarchy();
+        return $this->hasContent() ? $this->content()->listParents() : array();
     }
     /**
      * @return Int
      */
     public function countItems(){
-        return count($this->listItems());
-    }
-    /**
-     * @return array
-     */
-    protected function hierarchy(){
-        if( $this->isValid()){
-            if(strlen($this->parent_id) ){
-                $parent = new Clipboard($this->parent_id);
-                $path = $parent->hierarchy();
-                $path[ $this->id] = $this->title;
-                return $path;
-            }
-            else{
-                return array(
-                    $this->id => $this->title );
-            }
-        }
-        return array();
+        return count($this->listCollection());
     }
 
-    /**
-     * @return Array
-     */
-    protected static function load($id) {
-        global $wpdb;
-        $table = Clipboard::table();
-        $results = $wpdb->get_row($wpdb->prepare("SELECT * FROM `$table` WHERE `id`='%s'",$id));
-        return !is_null($results) ? $results : array();
-    }
-    /**
-     * @global wpdb $wpdb
-     * @param string $id
-     * @return array
-     */
-    protected static function parent( $id ){
-        global $wpdb;
-        $table = Clipboard::table();
-        $results = $wpdb->get_row($wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id`='%s'",$id));
-        return !is_null($results) ? $results : array();
-    }
 
-    /**
-     * @return String[]
-     */
-    protected static function children( $id = '' ){
-            global $wpdb;
-            $table = Clipboard::table();
-            $list = $wpdb->get_results( strlen($id) ?
-                    //$wpdb->prepare("SELECT `id`,`title` FROM `$table` WHERE `parent_id`='%s'", $id):
-                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id`='%s'", $id):
-                    //$wpdb->prepare("SELECT `id`,`title` FROM `$table` WHERE `parent_id` IS NULL")
-                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id` IS NULL")
-                ,ARRAY_A );
-            
-            if( !is_null($list)){
-                $output = array();
-                foreach($list as $row){
-                    $output[$row['id']] = $row;
-                }
-                return $output;
-            }
-    }
+
     /**
      * @param string $part
      * @param string $path
@@ -301,14 +211,14 @@ class Clipboard {
     /**
      * 
      */
-    public function error404(){
+    public static function error404(){
             status_header(404);
             wp_die(__('Clipboard item not found.', 'coders_clipboard'));
     }
     /**
      * 
      */
-    public function errorDenied(){
+    public static function errorDenied(){
             status_header(403);
             echo __('Access denied.', 'coders_clipboard');
             exit;
@@ -316,88 +226,35 @@ class Clipboard {
     /**
      * 
      */    
-    public function errorInvalid(){
+    public static function errorInvalid(){
             status_header(404);
             echo __('File not found.', 'coders_clipboard');
             exit;
-    }
-
-    /**
-     * 
-     */
-    public function content() {
-        if (!$this->isValid()) {
-            return $this->error404();
-        }
-        if ( $this->isDenied()) {
-            return $this->errorDenied();
-        }
-        if (!$this->exists()) {
-            return $this->errorInvalid();
-        }
-        $this->serve();
-    }    
-    /**
-     * @return Boolean
-     */
-    public function inline(){
-        $inline_types = ['image/', 'text/', 'application/pdf'];
-        foreach ($inline_types as $type_prefix) {
-            if (stripos($this->type, $type_prefix) === 0) {
-                return true;
-            }
-        }
-        return false;
-    }
-    /**
-     * 
-     */
-    private function serve(){
-        header('Content-Description: File Transfer');
-        header('Content-Type: ' . $this->type);
-        header('Content-Disposition: ' . $this->disposition() . '; filename=' . $this->filename());
-        header('Content-Length: ' . $this->size());
-        readfile($this->getPath());
-        exit;
-    }
-    /**
-     * @return String
-     */
-    private function filename(){
-        $extension = explode('/', $this->type)[1] ?? 'bin';
-        return preg_replace('/[^a-zA-Z0-9_-]/', '_', basename($this->name)) . '.' . $extension;
-    }
-    /**
-     * @return String
-     */
-    private function getPath(){
-        return self::path($this->id);
-        //return CLIPBOARD_UPLOAD_DIR . '/' . $this->id;
-    }
-    /**
-     * @return Int
-     */
-    public function size(){
-        return $this->exists() ? filesize($this->getPath()) : 0;
-    }
-    /**
-     * @return String
-     */
-    public function disposition(){
-        return $this->inline() ? 'inline' : 'attachment';
-    }
-    /**
-     * @return Boolean
-     */
-    protected function exists(){
-        return file_exists($this->getPath());
     }
     /**
      * @param string $id
      */
     public static function attach( $id ){
-        $clipboard = new ClipBoard( $id );
-        $clipboard->content();
+        $clipboard = ClipboardContent::load($id);
+
+        if (is_null($clipboard)) {
+            return self::error404();
+        }
+        if ( !$clipboard->isValid()) {
+            return self::error404();
+        }
+        if ( $clipboard->isDenied()) {
+            return self::errorDenied();
+        }
+        if (!$clipboard->isAvailable()) {
+            return self::errorInvalid();
+        }
+        header('Content-Description: File Transfer');
+        header('Content-Type: ' . $clipboard->type);
+        header('Content-Disposition: ' . $clipboard->getDisposition() . '; filename=' . $clipboard->getFilename());
+        header('Content-Length: ' . $clipboard->getSize());
+        readfile($clipboard->getPath());
+        exit;        
     }
     /**
      * @param string $content
@@ -410,7 +267,7 @@ class Clipboard {
                 include $view;
             }
             else {
-                $clipboard->errorInvalid();
+                self::errorInvalid();
             }
         }
     }
@@ -424,19 +281,11 @@ class Clipboard {
             sprintf('%s/clipboard/content',wp_upload_dir()['basedir']);
     }
     /**
-     * @return {String}
-     */
-    public static function url( $url = ''){
-        return strlen($url) ?
-             sprintf('%s/clipboard/%s',wp_upload_dir()['baseurl'],$url) :
-             sprintf('%s/clipboard',wp_upload_dir()['baseurl']);
-    }
-    /**
-     * @param String $id
+     * @param String $url
      * @return String
      */
-    public static final function LINK( $id = ''){
-        return get_site_url(null, 'clipboard/' . $id);
+    public static final function LINK( $url = ''){
+        return get_site_url(null, 'clipboard/' . $url);
     }
     /**
      * @return {String}
@@ -468,12 +317,30 @@ class Clipboard {
     public static final function isAdmin(){
         return current_user_can( 'administrator' );
     }
+    
+    
+    /**
+     * @param string $content
+     * @param string $type
+     */
+    public static final function addMessage( $content , $type = 'info'){
+        self::$_messages[] = array( 'content' => $content , 'type' => $type );
+    }
+    /**
+     * @return array
+     */
+    public static final function messages(){
+        return self::$_messages;
+    }    
 }
     
 /**
  * 
  */
-class ClipBoardContent{
+class ClipboardContent{
+    
+    private $_updated = false;
+    
     /**
      * @var array
      */
@@ -496,8 +363,7 @@ class ClipBoardContent{
     /**
      * @param array $input
      */
-    protected function __construct( $input = array()) {
-        
+    public function __construct( $input = array()) {
         $this->_content['created_at'] = self::timestamp();
         $this->populate( $input );
     }
@@ -518,12 +384,34 @@ class ClipBoardContent{
         }
     }
     /**
+     * @param array $input
+     * @return \ClipboardContent
+     */
+    protected function override($input = array()) {
+        foreach (['id', 'created_at'] as $key){
+            unset($input[$key]);            
+        }
+        $this->populate($input);
+        $this->_updated = count($input);
+        return $this;
+    }        
+    /**
      * @param string $name
      * @return string
      */
     public function __get( $name ){
         return $this->has($name) ? $this->_content[$name] : '';
     }
+    /**
+     * @param string $name
+     * @param string $value
+     */
+    public function __set( $name , $value = ''){
+        if( $this->isValid() && $this->has($name) && $name !== 'id'){
+            $this->_content[$name] = $value;
+        }
+    }
+
     /**
      * @param string $name
      * @param array $arguments
@@ -534,6 +422,11 @@ class ClipBoardContent{
             case preg_match('/^is_/', $name):
                 $is = 'is'.substr($name, 3);
                 return method_exists($this, $is) ? $this->$is( $arguments ) : false;
+            case preg_match('/^has_/', $name):
+                $has = 'has'.substr($name, 4);
+                return method_exists($this, $has) ?
+                        $this->$has( $arguments ) :
+                        $this->has($has);
             case preg_match('/^get_/', $name):
                 $get = 'get'.substr($name, 4);
                 return method_exists($this, $get) ? $this->$get( $arguments ) : '';
@@ -543,35 +436,21 @@ class ClipBoardContent{
             case preg_match('/^count_/', $name):
                 $count = 'count'.substr($name, 6);
                 return method_exists($this, $count) ? $this->$count( $arguments ) : 0;
-            case preg_match('/^action_/', $name):
-                return $this->__action( substr($name, 7) , $arguments);
         }
         return '';
-    }
-    /**
-     * @param string $action
-     * @param array $arguments
-     * @return string
-     */
-    protected function __action( $action , $arguments = array()){
-        $class = '';
-        $url = '';
-        $text = '';
-        return sprintf('<a class="%s" href="%s">%s</a>',$class,$url,$text);
-    }
-
-    /**
-     * @param string $attribute
-     * @return boolean
-     */
-    public function has( $attribute = '' ){
-        return strlen($attribute) && array_key_exists($attribute, $this->_content);
     }
     /**
      * @return array
      */
     public final function content(){
         return $this->_content;
+    }
+    /**
+     * @param string $attribute
+     * @return boolean
+     */
+    public function has( $attribute = '' ){
+        return strlen($attribute) && array_key_exists($attribute, $this->content());
     }
     /**
      * @param boolean $refresh
@@ -583,6 +462,97 @@ class ClipBoardContent{
         }
         return $this->_collection;
     }    
+    
+    /**
+     * @return string
+     */
+    protected final function defaultAcl() {
+        return 'private';
+    }
+
+    /**
+     * @global wpdb $wpdb
+     * @return boolean
+     */
+    public final function update() {
+        global $wpdb;
+        if ($this->isValid() && $this->isUpdated()) {
+            $data = array(
+                'name' => sanitize_file_name($this->name),
+                'title' => sanitize_text_field($this->title),
+                'description' => sanitize_textarea_field($this->description),
+                'acl' => sanitize_text_field($this->acl),
+                'layout' => sanitize_text_field($this->layout),
+            );
+
+            $result = $wpdb->update(self::table(), $data, array('id' => $this->id));
+
+            if ( $result !== false ) {
+                $this->_updated = false;
+                return true;
+            }
+            error_log('Clipboard update failed: ' . $wpdb->last_error);
+        }
+        return false;
+    }
+    /**
+     * @global wpdb $wpdb
+     * @return boolean
+     */
+    public final function create() {
+        if ($this->isValid()) {
+            global $wpdb;
+
+            $table = self::table();
+
+            $name = mb_strimwidth($this->name,0,32);
+            $content = array(
+                'id' => $this->id,
+                'name' => sanitize_file_name($name),
+                'title' => $name,
+                'description' => '',
+                'type' => $this->type,
+                'parent_id' => strlen($this->parent_id) ? $this->parent_id : null,
+                'acl' => $this->defaultAcl(),
+                'created_at' => current_time('mysql'),
+            );
+            $this->name = $name;
+            $this->title = $name;
+            
+            // Insert into database
+            $result = $wpdb->insert($table, $content);
+
+            if ($result === false) {
+                Clipboard::addMessage($wpdb->last_error);
+            }
+
+            return $result !== false;
+        }
+        return false;
+    }
+    /**
+     * @global wpdb $wpdb
+     * @return boolean
+     */
+    public final function remove(){
+        
+        global $wpdb;
+        
+        $deleted = $wpdb->delete( self::table(),array('id'=> $this->id) );
+        
+        if($deleted !== false){
+            $path = $this->getPath();
+            if(file_exists($path)){
+                unlink($path);
+            }
+            return true;
+        }
+        ClipboardAdmin::addMessage(__('Unable to remove this item','coders_clipboard'));
+        return false;
+    }
+    
+    
+    
     /**
      * @return  STring Description
      */
@@ -599,13 +569,19 @@ class ClipBoardContent{
      * @return Boolean
      */
     public function isDenied(){
-        return $this->acl !== 'public' && !$this->isAdmin();
+        return !Clipboard::isAdmin() && $this->acl !== 'public';        
     }
+    /**
+     * @return boolean
+     */
+    public final function isUpdated(){
+        return $this->_updated;
+    }    
     /**
      * @return Boolean
      */
-    public function isImage( $args = array() ){
-        return stripos(count($args) ? $args[0] : $this->type, 'image/') === 0;
+    public function isImage( ){
+        return stripos( $this->type, 'image/') === 0;
     }
     /**
      * @return Boolean
@@ -629,14 +605,14 @@ class ClipBoardContent{
     /**
      * @return String
      */
-    private function getPath(){
+    public function getPath(){
         return Clipboard::path($this->id);
     }
     /**
      * @return Int
      */
     public function getSize(){
-        return $this->exists() ? filesize($this->getPath()) : 0;
+        return $this->isAvailable() ? filesize($this->getPath()) : 0;
     }
     /**
      * @return String
@@ -647,7 +623,7 @@ class ClipBoardContent{
     /**
      * @return Boolean
      */
-    protected function isAvailable(){
+    public function isAvailable(){
         return file_exists($this->getPath());
     }
     /**
@@ -681,19 +657,27 @@ class ClipBoardContent{
     public function listItems(){
         return $this->collection(true);
     }
+    
+    
+    
+    
+    
+    
+    
+    
 
     
     /**
      * @global wpdb $wpdb
      * @param type $id
-     * @return \ClipBoardContent
+     * @return \ClipboardContent
      */
     public static function load( $id = '' ){
         global $wpdb;
         if(strlen($id)){
             $table = self::table();
-            $content = $wpdb->get_row($wpdb->prepare("SELECT * FROM `$table` WHERE `id`='%s'",$id));
-            return !is_null($content) ? new ClipBoardContent($content) : array();
+            $content = $wpdb->get_row($wpdb->prepare("SELECT * FROM `$table` WHERE `id`='%s'",$id) , ARRAY_A);
+            return !is_null($content) ? new ClipboardContent($content) : null;
         }
         return null;
     }
@@ -702,9 +686,9 @@ class ClipBoardContent{
      * @param string $id
      * @return array
      */
-    protected static function list( $id = '' ){
+    public static function list( $id = '' ){
         global $wpdb;
-        //$collection = array();
+        $collection = array();
         $table = self::table();
         
         $list = $wpdb->get_results( strlen($id) ?
@@ -714,7 +698,7 @@ class ClipBoardContent{
         
         if(!is_null($list)){
             foreach($list as $content ){
-                $collection[$content['id']] = new ClipBoardContent($content);
+                $collection[$content['id']] = new ClipboardContent($content);
             }
         }
         return $collection;
@@ -742,6 +726,35 @@ class ClipBoardContent{
         dbDelta($sql);        
     }
     /**
+     * @global wpdb $wpdb
+     * @return boolean
+     */
+    public static final function resetContent() {
+        global $wpdb;
+        $done = 0;
+        // 1. Truncate DB table
+        $result = $wpdb->query(sprintf('TRUNCATE TABLE `%s`', self::table()));
+
+        if ($result !== false) {
+            $done++;
+        }
+
+
+        // 2. Delete files from uploads/clipboard
+        $folder = Clipboard::path();
+
+        if (file_exists($folder)) {
+            $files = glob($folder . '/*');
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+            $done++;
+        }
+        return $done > 1;
+    }    
+    /**
      * @return string
      */
     public static final function table(){
@@ -759,7 +772,7 @@ register_activation_hook(__FILE__, function() {
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     
-    ClipBoardContent::install();
+    ClipboardContent::install();
 
     //check the upload directory
     $uploads = Clipboard::path();

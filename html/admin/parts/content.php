@@ -43,7 +43,7 @@
     </span>
     <span class="block">
         <a class="button" target="_self" href="<?php print $this->action_delete() ?>"><?php print __('delete', 'coders_clipboard') ?></a>
-        <button class="button-primary right" type="submit" name="action" value="clipboard_update"><?php
+        <button class="button-primary right" type="submit" name="task" value="update"><?php
             print __('Update', 'coders_clipboard');
             ?></button>
     </span>

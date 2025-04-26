@@ -3,21 +3,20 @@
 defined('ABSPATH') or die;
 
 /**
- * @class ClipBoardAdmin
+ * @class ClipboardAdmin
  */
 class ClipboardAdmin extends Clipboard {
     
-    static $_messages = array();
-
-    protected function __construct($id = '') {
+    //static $_messages = array();
+    /**
+     * 
+     * @param String $id
+     */
+    protected function __construct( $id = '') {
 
         parent::__construct($id);
-
-        if (!$this->isValid()) {
-            //load the root gallery items
-            $this->addItems(self::children());
-        }
     }
+
     /**
      * @param string $name
      * @return string
@@ -31,16 +30,22 @@ class ClipboardAdmin extends Clipboard {
      * @param Stsring $page
      */
     public static final function display($page = '') {
-        $id = filter_input(INPUT_GET, 'id');
-        $clipboard = new ClipboardAdmin(!is_null($id) ? $id : '');
-        $clipboard->page(strlen($page) ? $page : 'default' );
+        $input = filter_input_array(INPUT_GET) ?? array();
+        
+        if(array_key_exists('task', $input)){
+            self::task($input);
+        }
+        else{
+            $clipboard = new ClipboardAdmin(array_key_exists('id', $input) ? $input['id'] : '' );
+            $clipboard->page(strlen($page) ? $page : 'default' , $input);
+        }        
     }
 
     /**
      * @param String $page
      * @return ClipboardAdmin
      */
-    private final function page($page = 'default') {
+    private final function page($page = 'default' , $input = array()) {
 
         $view = $this->__render($page, 'admin');
 
@@ -49,9 +54,38 @@ class ClipboardAdmin extends Clipboard {
         } else {
             printf('<p>:( %s</p>', $view);
         }
+
         return $this;
     }
 
+    /**
+     * @param string $action
+     * @param array $request
+     * @return string
+     */
+    protected final function __link($action, $request = array()) {
+        //parent::__link($action, $arguments);
+        
+        if(!array_key_exists('page', $request)){
+            $request['page'] = 'coders_clipboard';
+        }
+        $request['task'] = $action;
+        
+        return add_query_arg($request, admin_url('admin.php'));
+    }     
+    /**
+     * @return string
+     */
+    protected final function actionDelete(){
+        $request = array('id'=> $this->id);
+        if( strlen($this->parent_id)){
+            $request['context_id'] = $this->parent_id;
+        }
+        return $this->__link('delete',$request);
+    }
+
+
+    
     /**
      * @return array
      */
@@ -76,7 +110,6 @@ class ClipboardAdmin extends Clipboard {
                 //add more roles here
         );
     }
-
     /**
      * 
      * @param string $ids
@@ -94,114 +127,86 @@ class ClipboardAdmin extends Clipboard {
      * @return string
      */
     protected final function getForm() {
-        return admin_url('admin-post.php');
+        return admin_url('admin-post.php?action=clipboard_action');
     }
 
     /**
-     * @global type $wpdb
-     * @param array $file
-     * @return boolean
+     * @param string $from Description
+     * @param string $id Description
+     * @return \ClipboardContent[]
      */
-    protected static final function save($file = array()) {
-        if (count($file)) {
-            global $wpdb;
-
-            $table = ClipBoard::table();
-            
-            $parent_id = isset($file['parent_id']) && strlen($file['parent_id']) ? $file['parent_id'] : null;
-
-            $name = mb_strimwidth($file['name'],0,32);
-            $data = array(
-                'id' => $file['id'],
-                'name' => sanitize_file_name($name),
-                'title' => $name,
-                'description' => '',
-                'type' => $file['type'],
-                'parent_id' => $parent_id,
-                'acl' => 'private',
-                'created_at' => current_time('mysql'),
-            );
-            // Insert into database
-            $result = $wpdb->insert($table, $data);
-
-            if ($result === false) {
-                var_dump($wpdb->last_error);
-            }
-
-            return $result !== false;
-        }
-        return false;
-    }
-
-    /**
-     * @param array $files
-     * @param string $id
-     * @return boolean
-     */
-    public static final function upload($files = array(), $id = '') {
-        //$parent_id = '';
-        $file['parent_id'] = $id;
-        $count = 0;
-        foreach ($files as $file) {
+    private static final function upload( $from = 'upload', $id = '' ) {
+        $uploaded = array();
+        foreach (ClipboardUploader::upload($from)->files() as $file) {
+            //set the first parent id to the parsed ID
             $file['parent_id'] = $id;
-            if (self::save($file)) {
-                $count++;
+            $content = new ClipboardContent($file);
+            if ($content->create()) {
+                $uploaded[$content->id] = $content;
             }
+            //then set the next to the first file ID
             if(strlen($id) === 0){
                 $id = $file['id'];
             }
         }
-        return $count === count($files);
-    }
+
+        return $uploaded;
+    }    
+
     /**
      * @param array $input
      */
-    public static final function action( $input = array() ){
-        $action = array_key_exists('action', $input) ? $input['action'] : '';
+    public static final function task( $input = array() ){
+        $task = array_key_exists('task', $input) ? $input['task'] : '';
         $id = array_key_exists('id', $input) ? $input['id'] : '';
+        $context_id = array_key_exists('context_id', $input) ? $input['context_id'] : '';
         $output = array();
-        switch ($action ){
+        if( strlen($id) || strlen($context_id)){
+            $output['id'] = strlen($context_id) ? $context_id : $id;
+        }
+        
+        switch ($task ){
             case 'upload':
-                $count = ClipboardAdminContent::upload( $input['upload'] , $id );
-                $output['count'] = $count;
+                $uploaded = self::upload( 'upload' , $id );
+                $output['count'] = count($uploaded);
                 break;
             case 'update':
-                $content = ClipboardAdminContent::load($id);
+                $content = ClipboardContent::load($id);
                 if (!is_null($content) && $content->override($input)->update()) {
-                    $output[$action] = 'done';
+                    $output[$task] = 'done';
                 }
                 break;
-            case 'remove':
-                $content = ClipboardAdminContent::load($id);
+            case 'delete':
+                $content = ClipboardContent::load($id);
                 if (!is_null($content) && $content->remove()) {
-                    $output[$action] = 'done';
+                    $output[$task] = 'done';
                 }
                 break;
             case 'sort':
-                $content = ClipboardAdminContent::load($id);
+                $content = ClipboardContent::load($id);
                 //get here the required position indexes
                 if (!is_null($content) && $content->sort()) {
-                    $output[$action] = 'done';
+                    $output[$task] = 'done';
                 }
                 break;
             case 'moveup':
-                $content = ClipboardAdminContent::load($id);
+                $content = ClipboardContent::load($id);
                 //get here the upper parent Id
                 if (!is_null($content) && $content->moveup()) {
-                    $output[$action] = 'done';
+                    $output[$task] = 'done';
                 }
                 break;
             case 'moveto':
-                $content = ClipboardAdminContent::load($id);
+                $content = ClipboardContent::load($id);
                 //get here the selected container id
                 if (!is_null($content) && $content->moveto()) {
-                    $output[$action] = 'done';
+                    $output[$task] = 'done';
                 }
                 break;
-            case 'clear_content':
+            case 'nuke':
                 $output['page'] = 'settings';
-                if( ClipboardAdminContent::resetContent() ){
-                    $output[$action] = 'done';
+                if( ClipboardContent::resetContent() ){
+                    $output[$task] = 'done';
                 }
                 break;
         }
@@ -210,19 +215,6 @@ class ClipboardAdmin extends Clipboard {
     }
     
     
-    /**
-     * @param string $content
-     * @param string $type
-     */
-    public static final function addMessage( $content , $type = 'info'){
-        self::$_messages[] = array( 'content' => $content , 'type' => $type );
-    }
-    /**
-     * @return array
-     */
-    public static final function messages(){
-        return self::$_messages;
-    }
     /**
      * 
      */
@@ -240,173 +232,6 @@ class ClipboardAdmin extends Clipboard {
     }    
 }
 
-/**
- * 
- */
-class ClipboardAdminContent extends ClipBoardContent {
-
-    private $_updated = false;
-    
-    /**
-     * @param array $input
-     */
-    protected final function __construct($input = array()) {
-
-        parent::__construct($input);
-    }
-
-    /**
-     * @param array $input
-     * @return \ClipboardAdminContent
-     */
-    protected function override($input = array()) {
-        foreach (['id', 'created_at'] as $key)
-            unset($input[$key]);
-        $this->populate($input);
-        $this->_updated = true;
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    protected final function defaultAcl() {
-        return 'private';
-    }
-    /**
-     * @return boolean
-     */
-    protected final function updated(){
-        return $this->_updated;
-    }
-
-    /**
-     * @return boolean
-     */
-    public final function update() {
-        global $wpdb;
-        if ($this->isValid() && $this->updated()) {
-            $data = array(
-                'name' => sanitize_file_name($this->name),
-                'title' => sanitize_text_field($this->title),
-                'description' => sanitize_textarea_field($this->description),
-                'acl' => sanitize_text_field($this->acl),
-                'layout' => sanitize_text_field($this->layout),
-            );
-
-            $result = $wpdb->update(self::table(), $data, array('id' => $this->id));
-
-            if ( $result !== false ) {
-                $this->_updated = false;
-                return true;
-            }
-            error_log('Clipboard update failed: ' . $wpdb->last_error);
-        }
-        return false;
-    }
-    /**
-     * @return boolean
-     */
-    public final function remove(){
-        return false;
-    }
-    /**
-     * @global wpdb $wpdb
-     * @return boolean
-     */
-    private final function save() {
-        if ($this->isValid()) {
-            global $wpdb;
-
-            $table = self::table();
-
-            $content = array(
-                'id' => $this->id,
-                'name' => sanitize_file_name($this->name),
-                'title' => $this->name,
-                'description' => '',
-                'type' => $this->type,
-                'parent_id' => strlen($this->parent_id) ? $this->parent_id : null,
-                'acl' => $this->defaultAcl(),
-                'created_at' => current_time('mysql'),
-            );
-            // Insert into database
-            $result = $wpdb->insert($table, $content);
-
-            if ($result === false) {
-                var_dump($wpdb->last_error);
-                die;
-            }
-
-            return $result !== false;
-        }
-        return false;
-    }
-
-    /**
-     * @param string $from Description
-     * @param string $id Description
-     * @return \ClipboardAdminContent[]
-     */
-    public static final function upload( $from = 'upload', $id = '' ) {
-        $uploaded = array();
-        foreach (ClipboardUploader::upload($from)->files() as $file) {
-            //set the first parent id to the parsed ID
-            $file['parent_id'] = $id;
-            $content = new ClipboardAdminContent($file);
-            if ($content->save()) {
-                $uploaded[$content->id] = $content;
-            }
-            //then set the next to the first file ID
-            if(strlen($id) === 0){
-                $id = $file['id'];
-            }
-        }
-        return $uploaded;
-    }
-    
-    /**
-     * @global wpdb $wpdb
-     * @param type $id
-     * @return \ClipBoardContent
-     */
-    public static final function load( $id = '' ){
-        $item = parent::load($id);
-        if( !is_null($item)){
-            return new ClipboardAdminContent($item->content());
-        }
-        return null;
-    }
-    /**
-     * @global wpdb $wpdb
-     * @return boolean
-     */
-    public static final function resetContent() {
-        global $wpdb;
-        $done = 0;
-        // 1. Truncate DB table
-        $result = $wpdb->query(sprintf('TRUNCATE TABLE `%s`', self::table()));
-
-        if ($result !== false) {
-            $done++;
-        }
-
-
-        // 2. Delete files from uploads/clipboard
-        $folder = Clipboard::path();
-
-        if (file_exists($folder)) {
-            $files = glob($folder . '/*');
-            foreach ($files as $file) {
-                if (is_file($file)) {
-                    unlink($file);
-                }
-            }
-            $done++;
-        }
-        return $done > 1;
-    }
-}
 
 /**
  * Upload Manager for new contents
@@ -480,8 +305,6 @@ class ClipboardUploader {
             }
         } catch (Exception $ex) {
             ClipboardAdmin::addMessage($ex->getMessage(),'error');
-            //var_dump($ex->getMessage());
-            //die;
         }
         return false;
     }
@@ -520,6 +343,8 @@ class ClipboardUploader {
 
 add_action('admin_post_clipboard_upload', function() {
 
+    die('use clipboard_action instead');
+    
     $id = filter_input(INPUT_POST, 'parent_id') ?? '';
     $uploaded = ClipboardAdmin::upload( ClipboardUploader::upload()->files(), $id);
 
@@ -545,7 +370,7 @@ add_action('admin_post_clipboard_update', function() {
     $id = array_key_exists('id', $post) ? $post['id'] : '';
     $updated = false;
     if(strlen($id)){
-        $content = ClipboardAdminContent::load($id);
+        $content = ClipboardContent::load($id);
         if(!is_null($content)){
             if( $content->override($post)->update()){
                 //send to admin notifier
@@ -575,7 +400,7 @@ add_action('admin_post_clipboard_action', function() {
     }
     $post = filter_input_array(INPUT_POST) ?? array();
     
-    $redirect = ClipboardAdmin::action($post);
+    $redirect = ClipboardAdmin::task($post);
     
     if( !array_key_exists('page', $redirect)){
         $redirect['page'] = 'coders_clipboard';
@@ -627,20 +452,13 @@ add_action('admin_menu', function () {
             __('Clipboard', 'coders_clipboard'),
             'upload_files', // or 'manage_options' if more restricted
             'coders_clipboard',
-            function () {
-        ClipboardAdmin::display();
-    },
-            'dashicons-format-gallery',
-            80
-    );
+            function () { ClipboardAdmin::display(); },
+            'dashicons-format-gallery',80);
     add_submenu_page(
             'coders_clipboard',
             __('Settings', 'coders_clipboard'),
             __('Settings', 'coders_clipboard'),
             'manage_options',
             'coders_clipboard_settings',
-            function () {
-        ClipboardAdmin::display('settings');
-    }
-    );
+            function () { ClipboardAdmin::display('settings'); } );
 });
