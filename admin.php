@@ -6,6 +6,8 @@ defined('ABSPATH') or die;
  * @class ClipBoardAdmin
  */
 class ClipboardAdmin extends Clipboard {
+    
+    static $_messages = array();
 
     protected function __construct($id = '') {
 
@@ -16,7 +18,6 @@ class ClipboardAdmin extends Clipboard {
             $this->addItems(self::children());
         }
     }
-
     /**
      * @param string $name
      * @return string
@@ -138,17 +139,16 @@ class ClipboardAdmin extends Clipboard {
      * @return boolean
      */
     public static final function upload($files = array(), $id = '') {
-
-        $parent_id = '';
+        //$parent_id = '';
+        $file['parent_id'] = $id;
         $count = 0;
         foreach ($files as $file) {
-            $file['parent_id'] = strlen($parent_id) > 0 ? $parent_id : $id;
+            $file['parent_id'] = $id;
             if (self::save($file)) {
                 $count++;
             }
-            if(strlen($parent_id) === 0){
-                //now set all files into the first uploaded file (collection header)
-                $parent_id = $file['id'];
+            if(strlen($id) === 0){
+                $id = $file['id'];
             }
         }
         return $count === count($files);
@@ -208,6 +208,36 @@ class ClipboardAdmin extends Clipboard {
         
         return array();
     }
+    
+    
+    /**
+     * @param string $content
+     * @param string $type
+     */
+    public static final function addMessage( $content , $type = 'info'){
+        self::$_messages[] = array( 'content' => $content , 'type' => $type );
+    }
+    /**
+     * @return array
+     */
+    public static final function messages(){
+        return self::$_messages;
+    }
+    /**
+     * 
+     */
+    public static final function registerMessages(){
+        if( count(self::messages())){
+            foreach( self::messages() as $message ){
+                $content = $message['content'];
+                $type = $message['type'];
+                add_action( 'admin_notices', function() use ( $content,$type){
+                    $class = 'is-dismissible notice notice-'. $type;
+                    printf('<div class="%s"><p>%s</p></div>',$class , $content);
+                });
+            }
+        }
+    }    
 }
 
 /**
@@ -320,17 +350,16 @@ class ClipboardAdminContent extends ClipBoardContent {
      */
     public static final function upload( $from = 'upload', $id = '' ) {
         $uploaded = array();
-        $parent_id = '';
         foreach (ClipboardUploader::upload($from)->files() as $file) {
             //set the first parent id to the parsed ID
-            $file['parent_id'] = strlen($parent_id) ? $parent_id : $id;
-            //then set the next to the first file ID
-            if(strlen($parent_id) === 0){
-                $parent_id = $file['id'];
-            }
+            $file['parent_id'] = $id;
             $content = new ClipboardAdminContent($file);
             if ($content->save()) {
                 $uploaded[$content->id] = $content;
+            }
+            //then set the next to the first file ID
+            if(strlen($id) === 0){
+                $id = $file['id'];
             }
         }
         return $uploaded;
@@ -377,7 +406,6 @@ class ClipboardAdminContent extends ClipBoardContent {
         }
         return $done > 1;
     }
-
 }
 
 /**
@@ -451,7 +479,9 @@ class ClipboardUploader {
                     return true;
             }
         } catch (Exception $ex) {
-            var_dump($ex->getMessage());
+            ClipboardAdmin::addMessage($ex->getMessage(),'error');
+            //var_dump($ex->getMessage());
+            //die;
         }
         return false;
     }
@@ -477,13 +507,15 @@ class ClipboardUploader {
                     //$files[$upload['id']] = $upload;
                     $files[] = $upload;
                 } else {
-                    return new WP_Error('upload_failed', 'Failed to move uploaded file.');
+                    ClipboardAdmin::addMessage(
+                            __('Failed to move uploaded file','coders_clipboard') . ' ' . $upload['name'],
+                            'error');
+                    //return new WP_Error('upload_failed', 'Failed to move uploaded file.');
                 }
             }
         }
         return new ClipboardUploader($files);
     }
-
 }
 
 add_action('admin_post_clipboard_upload', function() {
@@ -500,6 +532,8 @@ add_action('admin_post_clipboard_upload', function() {
     if (strlen($id)) {
         $redirect['id'] = $id;
     }
+    
+    ClipboardAdmin::registerMessages();
 
     wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
     exit;
@@ -528,6 +562,8 @@ add_action('admin_post_clipboard_update', function() {
     if (strlen($id)) {
         $redirect['id'] = $id;
     }
+    
+    ClipboardAdmin::registerMessages();
 
     wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
     exit;
@@ -544,6 +580,8 @@ add_action('admin_post_clipboard_action', function() {
     if( !array_key_exists('page', $redirect)){
         $redirect['page'] = 'coders_clipboard';
     }
+
+    ClipboardAdmin::registerMessages();
     
     wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
     exit;        
@@ -581,3 +619,28 @@ add_action('admin_enqueue_scripts', function( $hook ) {
     ]);
 });
 
+
+
+add_action('admin_menu', function () {
+    add_menu_page(
+            __('Coders Clipboard', 'coders_clipboard'),
+            __('Clipboard', 'coders_clipboard'),
+            'upload_files', // or 'manage_options' if more restricted
+            'coders_clipboard',
+            function () {
+        ClipboardAdmin::display();
+    },
+            'dashicons-format-gallery',
+            80
+    );
+    add_submenu_page(
+            'coders_clipboard',
+            __('Settings', 'coders_clipboard'),
+            __('Settings', 'coders_clipboard'),
+            'manage_options',
+            'coders_clipboard_settings',
+            function () {
+        ClipboardAdmin::display('settings');
+    }
+    );
+});

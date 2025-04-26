@@ -790,29 +790,12 @@ add_action('init', function() {
 
     
     if(is_admin()){
-        add_action( 'admin_init',function(){
+        require_once sprintf('%s/admin.php',plugin_dir_path(__FILE__));
+        /*add_action( 'admin_init',function(){
             require_once sprintf('%s/admin.php',plugin_dir_path(__FILE__));
-        });
-
-        add_action('admin_menu', function () {
-            add_menu_page(
-                    __('Coders Clipboard', 'coders_clipboard'),
-                    __('Clipboard', 'coders_clipboard'),
-                    'upload_files', // or 'manage_options' if more restricted
-                    'coders_clipboard',
-                    function () { ClipboardAdmin::display(); },
-                    'dashicons-format-gallery',
-                    80
-            );
-            add_submenu_page(
-                'coders_clipboard',
-                __('Settings','coders_clipboard'),
-                __('Settings','coders_clipboard'),
-                'manage_options',
-                'coders_clipboard_settings',
-                function () { ClipboardAdmin::display('settings'); }
-                );
-        });
+        });*/
+        
+     
     }
 });
 

@@ -46,5 +46,5 @@
         <button class="button-primary right" type="submit" name="action" value="clipboard_update"><?php
             print __('Update', 'coders_clipboard');
             ?></button>
-    </span
+    </span>
 </form>
