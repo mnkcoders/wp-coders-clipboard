@@ -18,7 +18,7 @@
     <span class="block solid edit">
         <select id="id_layout" class="form-input" name="layout">
             <?php foreach ($this->list_layouts() as $layout => $label) : ?>
-                <option value="<?php print $layout ?>" <?php print $this->get_layout( $layout )  ?>><?php print $label ?></option>
+                <option value="<?php print $layout ?>" <?php print $this->get_currentLayout( $layout )  ?>><?php print $label ?></option>
             <?php endforeach; ?>
         </select>
     </span>

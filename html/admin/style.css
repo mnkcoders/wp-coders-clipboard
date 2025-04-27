@@ -98,6 +98,9 @@
 #wpbody-content .coders-clipboard .container.media{
     animation: ease-in 200ms;
 }
+#wpbody-content .coders-clipboard .container.media.compact{
+    max-height: 400px;
+}
 #wpbody-content .coders-clipboard .container.media.collapsed{
     height: 300px;
 }
@@ -105,6 +108,15 @@
 #wpbody-content .coders-clipboard .container.media img{
     width: 100%;
     height: auto;
+}
+#wpbody-content .coders-clipboard .container.media.landscape img{
+    width: auto;
+    height: 100%;
+}
+#wpbody-content .coders-clipboard .container.media > .content{
+    display: block ;
+    width: 100%;
+    height: 100%;
 }
 #wpbody-content .coders-clipboard ul.inline > li{
     display: inline-block;

@@ -172,7 +172,7 @@ class ClipboardAdmin extends Clipboard {
      * @param string $layout
      * @return string
      */
-    protected final function getLayout( $layout ){
+    protected final function getCurrentLayout( $layout ){
         $item = is_array($layout) ? $layout[0] : $layout;
         return $this->isValid() && $this->content()->layout === $item ? 'selected' : '';
     }
@@ -191,10 +191,15 @@ class ClipboardAdmin extends Clipboard {
      */
     private static final function upload( $from = 'upload', $id = '' ) {
         $uploaded = array();
+        $slot = 0;
         foreach (ClipboardUploader::upload($from)->files() as $file) {
             //set the first parent id to the parsed ID
             $file['parent_id'] = $id;
+            $file['tags'] = array();
+            $file['slot'] = $slot++;
+            
             $content = new ClipboardContent($file);
+            $content->tagImageSize();
             if ($content->create()) {
                 $uploaded[$content->id] = $content;
             }

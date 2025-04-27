@@ -12,7 +12,7 @@
                 <?php $this->part_path() ?>
                 <?php $this->part_content() ?>
             </div>
-            <div class="container media half">
+            <div class="container media half compact">
                 <?php $this->part_attachment() ?>
             </div>
         </div>
@@ -22,6 +22,6 @@
     <?php endif; ?>
     <!-- UPLOADER -->
     <?php $this->part_uploader() ?>
-    <?php $this->part_collections() ?>
+    <?php $this->part_items() ?>
 </div>
 

@@ -57,6 +57,23 @@ class Clipboard {
         return $this->_content;
     }
     /**
+     * @return \Clipboard
+     */
+    protected function view(){
+        
+        $view = $this->getLayout();
+
+        if (file_exists($view)) {
+            include $view;
+        } else {
+            $error = $this->__render('error');
+            include $error;
+            //printf('<p>:( %s</p>', $view);
+        }
+
+        return $this;        
+    }
+    /**
      * @return String
      */
     public function __get( $name ){
@@ -128,8 +145,14 @@ class Clipboard {
     /**
      * @return  STring Description
      */
-    public final function getLink( $ids = array() ){
-        return self::LINK( count($ids) ? $ids[0] : $this->id );
+    public final function getLink(  ){
+        return self::LINK( $this->id );
+    }
+    /**
+     * @return string
+     */
+    public function getClipboard(){
+        return self::CLIPBOARD( $this->id );
     }
     /**
      * @return  STring Description
@@ -144,10 +167,24 @@ class Clipboard {
         return $this->isValid() ? $this->content()->id : '';
     }
     /**
+     * @return string
+     */
+    protected function getLayout(){
+        return $this->__render('default');
+        //return $this->__render($this->isValid() ? $this->content()->layout : 'default' );
+    }
+
+    /**
      * @return Boolean
      */
     public final function isValid(){
         return $this->hasContent();
+    }
+    /**
+     * @return boolean
+     */
+    public final function isFullPage(){
+        return true;
     }
     /**
      * @return Boolean
@@ -158,9 +195,9 @@ class Clipboard {
     /**
      * @return Boolean
      */
-    public function isImage( $args = array() ){
+    /*public function isImage( $args = array() ){
         return stripos(count($args) ? $args[0] : $this->type, 'image/') === 0;
-    }
+    }*/
     /**
      * @return Boolean
      */
@@ -218,24 +255,21 @@ class Clipboard {
      * 
      */
     public static function error404(){
+            self::addMessage(__('Clipboard not found.', 'coders_clipboard'),'error');
             status_header(404);
-            wp_die(__('Clipboard item not found.', 'coders_clipboard'));
+            var_dump(self::messages());
+            //echo __('File not found.', 'coders_clipboard');
+            //wp_die(__('Clipboard item not found.', 'coders_clipboard'));
+            exit;        
     }
     /**
      * 
      */
     public static function errorDenied(){
-            status_header(403);
-            echo __('Access denied.', 'coders_clipboard');
-            exit;
-    }
-    /**
-     * 
-     */    
-    public static function errorInvalid(){
-            status_header(404);
-            echo __('File not found.', 'coders_clipboard');
-            exit;
+        self::addMessage(__('Access denied.', 'coders_clipboard'),'error');
+        status_header(403);
+        //echo __('Access denied.', 'coders_clipboard');
+        exit;
     }
     /**
      * @param string $id
@@ -253,7 +287,7 @@ class Clipboard {
             return self::errorDenied();
         }
         if (!$clipboard->isAvailable()) {
-            return self::errorInvalid();
+            return self::error404();
         }
         header('Content-Description: File Transfer');
         header('Content-Type: ' . $clipboard->type);
@@ -263,18 +297,19 @@ class Clipboard {
         exit;        
     }
     /**
-     * @param string $content
+     * @param string $id
      */
-    public static function display( $content = '' ){
-        $clipboard = new ClipBoard( $content );
-        if($clipboard->isValid()){
-            $view = $clipboard->__render();
-            if( file_exists($view) ){
-                include $view;
-            }
-            else {
-                self::errorInvalid();
-            }
+    public static function display( $id = '' ){
+        $clipboard = new Clipboard($id);
+        
+        if( $clipboard->isFullPage() ){
+            wp_head();
+        }
+        
+        $clipboard->view();
+        
+        if( $clipboard->isFullPage()){
+            wp_footer();
         }
     }
 
@@ -292,6 +327,13 @@ class Clipboard {
      */
     public static final function LINK( $url = ''){
         return get_site_url(null, 'clipboard/' . $url);
+    }
+    /**
+     * @param String $url
+     * @return String
+     */
+    public static final function CLIPBOARD( $url = ''){
+        return get_site_url(null, 'clipboards/' . $url);
     }
     /**
      * @return {String}
@@ -338,6 +380,19 @@ class Clipboard {
     public static final function messages(){
         return self::$_messages;
     }    
+    
+    /**
+     * @param string $role
+     * @return boolean
+     */
+    public static final function requestPermission( $role = '' ){
+        
+        return self::isAdmin() || $role === 'public';
+
+        //if(apply_filters('gateguard_permission', false )){
+        //    return true;
+        //}
+    }    
 }
     
 /**
@@ -360,6 +415,7 @@ class ClipboardContent{
         'layout' => 'default',
         'parent_id' => '',        
         'slot' => 0,
+        'tags' => '',
         'created_at' => '',
     );
     /**
@@ -401,7 +457,27 @@ class ClipboardContent{
         $this->populate($input);
         $this->_updated = count($input);
         return $this;
-    }        
+    }
+    /**
+     * @return String[]
+     */
+    public function listTags(){
+        return explode(' ',$this->tags);
+    }
+    /**
+     * @param string $tag
+     * @return \ClipboardContent
+     */
+    public function tag( $tag = '' ){
+        if( strlen($tag) && !in_array($tag, $this->listTags())){
+            $tags = $this->_content['tags'] . ' ' . $tag;
+            if(strlen($tags) < 25 ){
+                $this->_content['tags'] = $tags;
+                $this->_updated = true;
+            }
+        }
+        return $this;
+    }
     /**
      * @param string $name
      * @return string
@@ -525,6 +601,8 @@ class ClipboardContent{
                 'type' => $this->type,
                 'parent_id' => strlen($this->parent_id) ? $this->parent_id : null,
                 'acl' => $this->defaultAcl(),
+                'slot' => 0,
+                'tags' => '',
                 'created_at' => current_time('mysql'),
             );
             $this->name = $name;
@@ -606,6 +684,17 @@ class ClipboardContent{
         }
         return $count;
     }
+    /**
+     * @return boolean
+     */
+    public final function tagImageSize(){
+        if($this->isImage()){
+            $size = getimagesize($this->getPath());
+            $this->tag( count($size) > 1 && $size[0] > $size[1] ? 'landscape' : 'portrait');
+            return true;
+        }
+        return false;
+    }
 
     /**
      * @return  STring Description
@@ -613,6 +702,12 @@ class ClipboardContent{
     public final function getUrl( ){
         return Clipboard::LINK( $this->id );
     }
+    /**
+     * @return string
+     */
+    public function getClipboard(){
+        return Clipboard::CLIPBOARD( $this->id );
+    }    
     /**
      * @return int
      */
@@ -626,6 +721,14 @@ class ClipboardContent{
         return $this->slot + 1;
     }
     /**
+     * @return string
+     */
+    public final function getCss(){
+        $className = $this->listTags();
+        $className[] = $this->isMedia() ? 'media' : 'attachment';
+        return implode(' ' ,$className);
+    }
+    /**
      * @return Boolean
      */
     public final function isValid(){
@@ -635,7 +738,7 @@ class ClipboardContent{
      * @return Boolean
      */
     public function isDenied(){
-        return !Clipboard::isAdmin() && $this->acl !== 'public';        
+        return !Clipboard::requestPermission($this->acl);
     }
     /**
      * @return boolean
@@ -648,6 +751,12 @@ class ClipboardContent{
      */
     public function isImage( ){
         return stripos( $this->type, 'image/') === 0;
+    }
+    /**
+     * @return Boolean
+     */
+    public function isMedia( ){
+        return $this->isImage();
     }
     /**
      * @return Boolean
@@ -860,6 +969,7 @@ class ClipboardContent{
             layout VARCHAR(24) DEFAULT 'default',
             acl VARCHAR(16) DEFAULT 'private',
             slot INT DEFAULT '0',
+            tags VARCHAR(24) DEFAULT '',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP) $charset_collate;";
 
         dbDelta($sql);        
