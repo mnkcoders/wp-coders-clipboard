@@ -2,9 +2,6 @@
 
 <h1 class="wp-heading-inline">
     <span><?php print get_admin_page_title() ?></span>
-    <?php if (!$this->is_valid()) : ?>
-        <a class="dashicons dashicons-search" href="<?php print '#' ?>"></a>
-    <?php endif; ?>
 </h1>
 
 <div class="wrap coders-clipboard main">
@@ -24,12 +21,7 @@
         </div>
     <?php endif; ?>
     <!-- UPLOADER -->
-    <div class="fullwitdh container solid">
-        <div class="fullwitdh drag-drop container ">
-            <?php $this->part_uploader() ?>
-        </div>
-    </div>
-
+    <?php $this->part_uploader() ?>
     <?php $this->part_collections() ?>
 </div>
 

@@ -82,9 +82,49 @@ class ClipboardAdmin extends Clipboard {
         }
         return $this->__link('delete',$request);
     }
+    /**
+     * @return string
+     */
+    protected final function actionPropagate(){
+        $request = array('id'=>$this->id);
+        return $this->__link('propagate',$request);
+    }
+    /**
+     * @return string
+     */
+    protected final function actionRecover(){
+        $request = array('id'=>$this->id);
+        return $this->__link('recover',$request);
+    }
+    /**
+     * @return string
+     */
+    protected final function actionArrange(){
+        $request = array('id'=>$this->id);
+        return $this->__link('arrange',$request);
+    }
+    /**
+     * @return string
+     */
+    protected final function actionSort( $args = array()){
+        if( count($args) > 1 ){
+            return $this->__link('after',array(
+                'id' => $args[0],
+                'index' => $args[1],
+                'context_id' => $this->isValid() ? $this->content()->id : '',
+            ));            
+        }
+        return '#';
+    }
+    /**
+     * @return string
+     */
+    protected final function actionRenameAll(){
+        $request = array('id'=>$this->id);
+        return $this->__link('renameall',$request);
+    }
 
-
-    
+        
     /**
      * @return array
      */
@@ -128,7 +168,22 @@ class ClipboardAdmin extends Clipboard {
     protected final function getForm() {
         return admin_url('admin-post.php?action=clipboard_action');
     }
-
+    /**
+     * @param string $layout
+     * @return string
+     */
+    protected final function getLayout( $layout ){
+        $item = is_array($layout) ? $layout[0] : $layout;
+        return $this->isValid() && $this->content()->layout === $item ? 'selected' : '';
+    }
+    /**
+     * @param string $role
+     * @return string
+     */
+    protected final function getRole( $role ){
+        $item = is_array($role) ? $role[0] : $role;
+        return $this->isValid() && $this->content()->acl === $item ? 'selected' : '';
+    }
     /**
      * @param string $from Description
      * @param string $id Description
@@ -194,10 +249,12 @@ class ClipboardAdmin extends Clipboard {
                 }
                 break;
             case 'sort':
-                $content = ClipboardContent::load($id);
-                //get here the required position indexes
-                if (!is_null($content) && $content->sort()) {
+                $item = ClipboardContent::load($id);
+                $index = isset($input['index']) ? $input['index'] : 0;
+                if (!is_null($item)) {
+                    $count = $item->sort($index);
                     $output[$task] = 'done';
+                    $output['count'] = $count;
                 }
                 break;
             case 'moveup':
@@ -212,6 +269,35 @@ class ClipboardAdmin extends Clipboard {
                 //get here the selected container id
                 if (!is_null($content) && $content->moveto()) {
                     $output[$task] = 'done';
+                }
+                break;
+            case 'recover':
+                $count = ClipboardContent::fetchLost($id);
+                if( $count ){
+                    $output[$task] = 'done';
+                    $output['count'] = $count;
+                }
+                break;
+            case 'renameall':
+                $count = ClipboardContent::renameAll($id);
+                if( $count ){
+                    $output[$task] = 'done';
+                    $output['count'] = $count;
+                }
+                break;
+            case 'propagate':
+                $count = ClipboardContent::propagateLayouts($id);
+                if( $count ){
+                    $output[$task] = 'done';
+                    $output['count'] = $count;
+                }
+                break;
+            case 'arrange':
+                $item = ClipboardContent::load($id);
+                if( !is_null($item) ){
+                    $count = $item->arrange();
+                    $output[$task] = 'done';
+                    $output['count'] = $count;
                 }
                 break;
             case 'nuke':
@@ -402,8 +488,6 @@ add_action('admin_post_clipboard_action', function() {
         $redirect['page'] = 'coders_clipboard';
     }
 
-    ClipboardAdmin::registerMessages();
-    
     wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
     exit;        
 });

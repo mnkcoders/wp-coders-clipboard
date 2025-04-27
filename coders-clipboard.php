@@ -138,6 +138,12 @@ class Clipboard {
         return self::LINK( $this->id );
     }
     /**
+     * @return string
+     */
+    public function getId(){
+        return $this->isValid() ? $this->content()->id : '';
+    }
+    /**
      * @return Boolean
      */
     public final function isValid(){
@@ -352,8 +358,9 @@ class ClipboardContent{
         'description' => '',
         'acl' => '',
         'layout' => 'default',
-        'created_at' => '',
         'parent_id' => '',        
+        'slot' => 0,
+        'created_at' => '',
     );
     /**
      * @type {String[]} Item cache
@@ -387,7 +394,7 @@ class ClipboardContent{
      * @param array $input
      * @return \ClipboardContent
      */
-    protected function override($input = array()) {
+    public function override($input = array()) {
         foreach (['id', 'created_at'] as $key){
             unset($input[$key]);            
         }
@@ -408,7 +415,10 @@ class ClipboardContent{
      */
     public function __set( $name , $value = ''){
         if( $this->isValid() && $this->has($name) && $name !== 'id'){
-            $this->_content[$name] = $value;
+            if( $this->$name !== $value ){
+                $this->_content[$name] = $value;
+                $this->_updated = true;                
+            }
         }
     }
 
@@ -478,11 +488,12 @@ class ClipboardContent{
         global $wpdb;
         if ($this->isValid() && $this->isUpdated()) {
             $data = array(
-                'name' => sanitize_file_name($this->name),
-                'title' => sanitize_text_field($this->title),
-                'description' => sanitize_textarea_field($this->description),
+                'name' => sanitize_file_name(trim($this->name)),
+                'title' => sanitize_text_field(trim($this->title)),
+                'description' => sanitize_textarea_field(trim($this->description)),
                 'acl' => sanitize_text_field($this->acl),
                 'layout' => sanitize_text_field($this->layout),
+                'slot' => $this->slot,
             );
 
             $result = $wpdb->update(self::table(), $data, array('id' => $this->id));
@@ -491,7 +502,7 @@ class ClipboardContent{
                 $this->_updated = false;
                 return true;
             }
-            error_log('Clipboard update failed: ' . $wpdb->last_error);
+            ClipboardAdmin::addMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
         }
         return false;
     }
@@ -550,14 +561,69 @@ class ClipboardContent{
         ClipboardAdmin::addMessage(__('Unable to remove this item','coders_clipboard'));
         return false;
     }
-    
-    
-    
+    /**
+     * @global wpdb $wpdb
+     * @param int $index
+     * @return boolean
+     */
+    public final function sort( $index = 0 ){
+        global $wpdb;
+        if ($this->isValid()) {
+
+            $result1 = $wpdb->update(
+                    self::table(),
+                    array('slot' => $index),
+                    array('id' => $this->id));
+            
+            $result2 = $wpdb->update(
+                    self::table(),
+                    array('slot'=>$this->slot),
+                    array('parent_id'=>$this->parent_id,'slot'=>$index));
+
+            if ( $result1 !== false ) {
+                $this->_updated = false;
+                return true;
+            }
+            ClipboardAdmin::addMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+        }
+        return false;        
+    }
+    /**
+     * 
+     * @global wpdb $wpdb
+     * @return int
+     */
+    public final function arrange(  ){
+        $count = 0;
+        if ($this->isValid()) {
+            $index = 0;
+            foreach($this->listItems() as $item ){
+                $item->slot = $index++;
+                if( $item->update() ){
+                    $count++;
+                }
+            }
+        }
+        return $count;
+    }
+
     /**
      * @return  STring Description
      */
     public final function getUrl( ){
         return Clipboard::LINK( $this->id );
+    }
+    /**
+     * @return int
+     */
+    public final function getBefore(){
+        return $this->slot > 0 ? $this->slot - 1 : 0;
+    }
+    /**
+     * @return int
+     */
+    public final function getAfter(){
+        return $this->slot + 1;
     }
     /**
      * @return Boolean
@@ -664,9 +730,81 @@ class ClipboardContent{
     
     
     
-    
+    /**
+     * @param string $parent_id
+     * @return int
+     */
+    public static final function propagateLayouts( $parent_id = ''){
+        $count = 0;
+        $content = self::load($parent_id);
+        if( !is_null($content)){
+            $layout = $content->layout;
+            $role = $content->acl;
+            foreach( $content->listItems() as $item ){
+                $item->layout = $layout;
+                $item->acl = $role;
+                if($item->update()){
+                    $count++;                    
+                }
+            }
+        }
+        return $count;
+    }
+    /**
+     * @param string $parent_id
+     * @return int
+     */
+    public static final function renameAll( $parent_id = ''){
+        $count = 0;
+        $content = self::load($parent_id);
+        if( !is_null($content)){
+            $name = $content->name;
+            $title = $content->title;
+            foreach( $content->listItems() as $item ){
+                $item->name = $name;
+                $item->title = $title;
+                if($item->update()){
+                    $count++;                    
+                }
+            }
+        }
+        return $count;
+    }
+    /**
+     * @param string $parent_id
+     * @return int
+     */
+    public static final function fetchLost( $parent_id = ''){
+        $count = 0;
+        $folder = Clipboard::path();
+        $files = scandir($folder);
 
-    
+        foreach ($files as $id) {
+            if ($id === '.' || $id === '..') continue;
+
+            $path = $folder . $id;
+            $name = __('Found file','coders_clipboard');
+
+            if (is_file($path)) {
+                $mime_type = mime_content_type($path);
+
+                $item = new ClipboardContent(array(
+                    'id' => $id,
+                    'parent_id' => $parent_id,
+                    'type' => $mime_type,
+                    'name' => $name,
+                    'title' => $name,
+                    'description' => '',
+                    'created_at' => ClipboardContent::timestamp(),
+                ));
+                if( $item->create() ){
+                    $count++;
+                }
+            }
+        }        
+        return $count;
+    }
+
     /**
      * @global wpdb $wpdb
      * @param type $id
@@ -692,8 +830,8 @@ class ClipboardContent{
         $table = self::table();
         
         $list = $wpdb->get_results( strlen($id) ?
-                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id`='%s'", $id):
-                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id` IS NULL")
+                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id`='%s' ORDER BY `slot`", $id):
+                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id` IS NULL ORDER BY `slot`")
                 , ARRAY_A );
         
         if(!is_null($list)){
@@ -721,6 +859,7 @@ class ClipboardContent{
             description TEXT,
             layout VARCHAR(24) DEFAULT 'default',
             acl VARCHAR(16) DEFAULT 'private',
+            slot INT DEFAULT '0',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP) $charset_collate;";
 
         dbDelta($sql);        

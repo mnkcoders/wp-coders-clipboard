@@ -9,6 +9,10 @@
     
 }
 
+#wpbody-content .coders-clipboard .container label > input[type="file"]{
+    display: none;
+}
+
 #wpbody-content .coders-clipboard .container{
     overflow: hidden;
     padding: 20px;
@@ -27,11 +31,17 @@
     background-color: rgba(255,255,255,0.25);
     box-shadow: 0 0 8px rgba(0,0,0,0.1);
 }
-#wpbody-content .coders-clipboard .container > .half{
+#wpbody-content .coders-clipboard .container.half{
     display: inline-block;
     width: 50%;
     float: left;
 }
+
+#wpbody-content .coders-clipboard .container .right{
+    float:right;
+}
+
+
 #wpbody-content .coders-clipboard > .container:after{
     clear:both;
     display: block;
@@ -41,6 +51,10 @@
 #wpbody-content .coders-clipboard .container.centered{
     text-align: center;
 }
+#wpbody-content .coders-clipboard .container .button.wide{
+    min-width: 200px;
+    padding: 10px 20px;
+}
 #wpbody-content .coders-clipboard .container .block{
     padding: 10px;
     margin: 10px 0;
@@ -49,6 +63,7 @@
     letter-spacing: 1px;
     font-weight: 500;
     color: rgba(0,0,0,0.5);
+    position: relative;
 }
 #wpbody-content .coders-clipboard .container .block:after{
     clear:both;
@@ -61,15 +76,24 @@
 #wpbody-content .coders-clipboard .container .block.solid{
     background-color: rgba(255,255,255,0.25);
 }
-#wpbody-content .coders-clipboard .container .block.edit:before{
+#wpbody-content .coders-clipboard .container .block.edit:after{
     font-family: 'Dashicons';
     content: '\f464';
     display: inline-block;
     margin-right: 5px;
     font-size: 20px;
     vertical-align: middle;
+    position: absolute;
+    right: 0;
+    top: calc(50% - 10px);
+    opacity: 0;
+    transition: opacity ease-in 200ms;
+    transition: right ease-in 160ms;
 }
-
+#wpbody-content .coders-clipboard .container .block.edit:hover:after{
+    opacity: 1;
+    right: 10px;
+}
 
 #wpbody-content .coders-clipboard .container.media{
     animation: ease-in 200ms;
@@ -80,7 +104,10 @@
 
 #wpbody-content .coders-clipboard .container.media img{
     width: 100%;
-    heigth: auto;
+    height: auto;
+}
+#wpbody-content .coders-clipboard ul.inline > li{
+    display: inline-block;
 }
 #wpbody-content .coders-clipboard .container ul.path{
     margin: 10px 0 20px;
@@ -133,6 +160,31 @@
     width: 100%;
     height: auto;
 }
+#wpbody-content .coders-clipboard > .collections > li.item > .content > img + .cover{
+    display: flex;
+    box-sizing: border-box;
+    padding: 4px;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255,255,255,0.85);
+    opacity: 0;
+    transition: opacity ease-in 200ms;
+    
+    color: #3a3a3a;
+    justify-content: center;  /* Center horizontally */
+    align-items: center;      /* Center vertically */
+    flex-direction: column;   /* If you want multiple lines stacked */
+    
+    text-align: center;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    word-wrap: normal;
+    z-index: 1;
+}
+#wpbody-content .coders-clipboard > .collections > li.item > .content:hover > img + .cover{
+    opacity: 1;
+}
 #wpbody-content .coders-clipboard > .collections > li.fullwitdh{
     width: 100%;
     display: block;
@@ -146,14 +198,28 @@
     border: none;
     border-radius: 2px;
     letter-spacing: 1px;
-    background-color: transparent;
+    background-color: rgba(255,255,255,0.65);
     transition: ease-in 200ms;
+    min-height: 38px;
+    box-sizing: border-box;
+    padding: 4px 8px;
+}
+#wpbody-content .coders-clipboard .container .form-input.half{
+    width: 50%;
+}
+#wpbody-content .coders-clipboard .container .form-input.half:nth-child(2n){
+    float: right;
+}
+#wpbody-content .coders-clipboard .container .form-input.header{
+    background-color: transparent;
+    font-size: x-large;
 }
 
 #wpbody-content .coders-clipboard .container .form-input:hover,
 #wpbody-content .coders-clipboard .container .form-input:active,
 #wpbody-content .coders-clipboard .container .form-input:focus{
-    background-color: rgba(255,255,255,0.9)
+    box-shadow: 0 0 8px rgba(0,0,0,0.1) !important;
+    background-color: #ffffff !important;
 }
 #wpbody-content .coders-clipboard .container .form-input:focus{
     outline: none;
