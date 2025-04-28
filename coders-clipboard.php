@@ -911,7 +911,7 @@ class ClipboardContent{
             $title = $content->title;
             foreach( $content->listItems() as $item ){
                 $item->name = $name;
-                $item->title = sprintf('%s (%s)',$title,$item->slot+1);
+                $item->title = $title;
                 if($item->update()){
                     $count++;                    
                 }
