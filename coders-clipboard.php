@@ -115,7 +115,7 @@ class Clipboard {
     protected function __action( $action , $request = array()){
         $call = 'action'.$action;
         if(method_exists($this,$call)){
-            return $this->$call($request);
+            return $this->$call(...$request);
         }
         return $this->__link($action,$request);
     }
@@ -189,8 +189,14 @@ class Clipboard {
     /**
      * @return Boolean
      */
-    private final function hasContent(){
+    protected final function hasContent(){
         return !is_null($this->_content);
+    }
+    /**
+     * @return Boolean
+     */
+    protected function hasParent(){
+        return $this->hasContent() && $this->content()->hasParent();
     }
     /**
      * @return Boolean
@@ -386,12 +392,12 @@ class Clipboard {
      * @return boolean
      */
     public static final function requestPermission( $role = '' ){
-        
-        return self::isAdmin() || $role === 'public';
 
-        //if(apply_filters('gateguard_permission', false )){
-        //    return true;
-        //}
+        $tier = apply_filters('coders_clipboard_tier','');
+        
+        return self::isAdmin() ||
+                $role === 'public' ||
+                $role === $tier;
     }    
 }
     
@@ -441,7 +447,7 @@ class ClipboardContent{
      */
     protected function populate( $input = [] ){
         foreach( $input as $field => $value ){
-            if( isset($this->_content[$field])){
+            if( isset($this->_content[$field]) && !is_null($value)){
                 $this->_content[$field] = $value;
             }
         }
@@ -470,9 +476,9 @@ class ClipboardContent{
      */
     public function tag( $tag = '' ){
         if( strlen($tag) && !in_array($tag, $this->listTags())){
-            $tags = $this->_content['tags'] . ' ' . $tag;
+            $tags = $this->tags . ' ' . $tag;
             if(strlen($tags) < 25 ){
-                $this->_content['tags'] = $tags;
+                $this->tags = $tags;
                 $this->_updated = true;
             }
         }
@@ -623,6 +629,27 @@ class ClipboardContent{
      * @global wpdb $wpdb
      * @return boolean
      */
+    public final function moveto( $parent_id = '') {
+        global $wpdb;
+        if ($this->isValid()) {
+            $data = array(
+                'parent_id' => strlen($parent_id) ? $parent_id : null,
+                //'slot' => 0,
+            );
+
+            $result = $wpdb->update(self::table(), $data, array('id' => $this->id));
+            if ( $result !== false ) {
+                $this->_updated = false;
+                return true;
+            }
+            ClipboardAdmin::addMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+        }
+        return false;
+    }    
+    /**
+     * @global wpdb $wpdb
+     * @return boolean
+     */
     public final function remove(){
         
         global $wpdb;
@@ -690,7 +717,8 @@ class ClipboardContent{
     public final function tagImageSize(){
         if($this->isImage()){
             $size = getimagesize($this->getPath());
-            $this->tag( count($size) > 1 && $size[0] > $size[1] ? 'landscape' : 'portrait');
+            $mode = count($size) > 1 && $size[0] > $size[1] ? 'landscape' : 'portrait';
+            $this->tag( $mode );
             return true;
         }
         return false;
@@ -802,10 +830,22 @@ class ClipboardContent{
         return file_exists($this->getPath());
     }
     /**
+     * @return Boolean
+     */
+    public final function hasParent(){
+        return strlen($this->parent_id) > 0;
+    }
+    /**
+     * @return Boolean
+     */
+    public final function hasItems(){
+        return $this->countItems() > 0;
+    }
+    /**
      * @return Int
      */
     public function countItems(){
-        return count($this->collection());
+        return count($this->collection(true));
     }    
     /**
      * @return array
@@ -871,7 +911,7 @@ class ClipboardContent{
             $title = $content->title;
             foreach( $content->listItems() as $item ){
                 $item->name = $name;
-                $item->title = $title;
+                $item->title = sprintf('%s (%s)',$title,$item->slot+1);
                 if($item->update()){
                     $count++;                    
                 }
@@ -1085,4 +1125,5 @@ add_action('template_redirect', function(){
         exit;                    
     }
 });
+
 

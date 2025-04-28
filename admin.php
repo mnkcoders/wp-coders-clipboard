@@ -73,12 +73,31 @@ class ClipboardAdmin extends Clipboard {
         return add_query_arg($request, admin_url('admin.php'));
     }     
     /**
+     * @param string $id
+     * @param string $parent_id
      * @return string
      */
-    protected final function actionDelete(){
-        $request = array('id'=> $this->id);
-        if( strlen($this->parent_id)){
-            $request['context_id'] = $this->parent_id;
+    protected final function actionMove( $id = '', $parent_id = '' ){
+        if(strlen($id)){
+            $request = array('id'=> $id);
+            if(strlen($parent_id)){
+                $request['parent_id'] = $parent_id;
+            }
+            if( $this->hasContent() ){
+                $request['context_id'] = $this->id;
+            }
+            return $this->__link('move',$request);
+        }
+        return '';
+    }
+    /**
+     * @return string
+     */
+    protected final function actionDelete($id=''){
+        $request = array('id'=> $id);
+        if( $this->hasContent()){
+            $context = $this->id !== $id ? $this->id : $this->parent_id;
+            $request['context_id'] = $context;
         }
         return $this->__link('delete',$request);
     }
@@ -106,13 +125,16 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @return string
      */
-    protected final function actionSort( $args = array()){
-        if( count($args) > 1 ){
-            return $this->__link('after',array(
-                'id' => $args[0],
-                'index' => $args[1],
-                'context_id' => $this->isValid() ? $this->content()->id : '',
-            ));            
+    protected final function actionSort( $id = '', $slot = 0 ){
+        if(strlen($id) && $slot ){
+            $request = array(
+                'id' => $id,
+                'slot' => $slot,
+            );
+            if( $this->isValid() ){
+                $request['context_id'] = $this->parent_id;
+            }            
+            return $this->__link('sort', $request);            
         }
         return '#';
     }
@@ -143,11 +165,17 @@ class ClipboardAdmin extends Clipboard {
      * @return array
      */
     protected final function listRoles() {
-        return array(
+        $roles = array(
             'private' => __('Private', 'coders_clipboard'),
             'public' => __('Public', 'coders_clipboard'),
-                //add more roles here
         );
+        $tiers = apply_filters('coders_clipboard_tiers',array());
+        foreach($tiers as $tier => $name){
+            if( !isset($roles[$tier])){
+                $roles[$tier] = $name;
+            }
+        }
+        return $roles;
     }
     /**
      * 
@@ -195,7 +223,6 @@ class ClipboardAdmin extends Clipboard {
         foreach (ClipboardUploader::upload($from)->files() as $file) {
             //set the first parent id to the parsed ID
             $file['parent_id'] = $id;
-            $file['tags'] = array();
             $file['slot'] = $slot++;
             
             $content = new ClipboardContent($file);
@@ -255,11 +282,18 @@ class ClipboardAdmin extends Clipboard {
                 break;
             case 'sort':
                 $item = ClipboardContent::load($id);
-                $index = isset($input['index']) ? $input['index'] : 0;
+                $index = isset($input['slot']) ? $input['slot'] : 0;
                 if (!is_null($item)) {
                     $count = $item->sort($index);
                     $output[$task] = 'done';
                     $output['count'] = $count;
+                }
+                break;
+            case 'move':
+                $content = ClipboardContent::load($id);
+                $parent_id = isset($input['parent_id']) ? $input['parent_id'] : '';
+                if (!is_null($content) && $content->moveto($parent_id)) {
+                    $output[$task] = 'done';                        
                 }
                 break;
             case 'moveup':
@@ -564,3 +598,8 @@ add_action('admin_init', function() {
         }
     }
 });
+
+
+add_filter('coders_clipboard_tiers', function($tiers = array()) {
+    return $tiers;
+}, 10, 2);

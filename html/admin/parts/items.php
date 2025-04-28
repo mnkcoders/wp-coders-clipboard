@@ -1,27 +1,43 @@
 <?php defined('ABSPATH') or die; ?>
 <!-- COLLECTION BLOCK -->
-<ul class="collections container">
+<ul class="collections container drag-drop">
     <?php if ($this->count_items()) : ?>
         <?php foreach ($this->list_collection() as $item) : ?>
             <li class="item">
-                <a href="<?php print $this->action_sort($item->id,$item->get_after()) ?>" class="dashicons dashicons-arrow-right"></a>
-                <a href="<?php print $this->action_sort($item->id,$item->get_before()) ?>" class="dashicons dashicons-arrow-left"></a>
-                <!--<?php print $this->action_sort($item->id,$item->get_after()) ?>-->
-                <a class="content" href="<?php print $this->get_post($item->id) ?>">
-                    <?php if ($item->is_image()) : ?>
+                <span class="placeholder" data-slot="<?php print $item->slot ?>"></span>
+                <span class="content">
+                    <?php if ($item->is_media()) : ?>
                         <img class="media" src="<?php
                             print $item->get_url() ?>" alt="<?php
                             print $item->name ?>" title="<?php
                             print $item->title ?>" />
-                        <span class="cover">
-                            <?php print $item->title ?>
-                        </span>
-                    <?php else : ?>
-                        <?php print $item->name?>
                     <?php endif; ?>
-                </a>
+                    <a class="<?php
+                        print $item->is_media() ? 'cover' : 'attachment' ?>" href="<?php
+                        print $this->get_post($item->id) ?>"><?php
+                        print $item->title ?></a>                        
+                </span>
+                <!-- commands -->
+                    <?php if($this->is_valid()):  ?>
+                    <a class="task top-center dashicons dashicons-arrow-up-alt" href="<?php
+                        print $this->action_move($item->id,$this->parent_id) ?>"></a>
+                    <?php endif; ?>
+                    <a class="task top-right dashicons dashicons-arrow-right-alt2" href="<?php
+                        print $this->action_sort($item->id,$item->get_after()) ?>"></a>
+                    <a class="task top-left dashicons dashicons-arrow-left-alt2" href="<?php
+                        print $this->action_sort($item->id,$item->get_before()) ?>"></a>
+                    <a class="task bottom-right dashicons dashicons-remove" href="<?php
+                        print $this->action_delete($item->id) ?>"></a>
+                    <?php if($item->has_items()) : ?>
+                    <span class="task bottom-left dashicons dashicons-images-alt" ><?php
+                        print $item->count_items();
+                    ?></span>
+                    <?php endif; ?>
             </li>
         <?php endforeach; ?>
+            <li>
+                <span class="placeholder" data-slot="last"></span>
+            </li>
     <?php else: ?>
         <div class="container centered ">
             <h3>
