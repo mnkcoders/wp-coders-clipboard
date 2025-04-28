@@ -654,6 +654,10 @@ class ClipboardContent{
         
         global $wpdb;
         
+        $updated = $wpdb->update(self::table(),
+                array('parent_id'=>$this->hasParent() ? $this->parent_id : null),
+                array('parent_id' => $this->id));
+        
         $deleted = $wpdb->delete( self::table(),array('id'=> $this->id) );
         
         if($deleted !== false){

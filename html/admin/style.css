@@ -1,5 +1,24 @@
 
 
+body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node{
+    display: inline-block;
+    cursor: default;
+    letter-spacing: 1px;
+    font-weight: 600;
+    font-size: 19px;
+}
+body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node a{
+    text-decoration: none;    
+}
+body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:last-child):after{
+    content: '\f345';
+    font-family: dashicons;
+    font-size: 13px;
+    display: inline-block;
+    color: rgba(0,0,0,0.25);
+    margin: 0 4px;
+}
+
 
 #wpbody-content{
     
@@ -109,7 +128,7 @@
     width: 100%;
     height: auto;
 }
-#wpbody-content .coders-clipboard .container.media.landscape img{
+#wpbody-content .coders-clipboard .container.media.landscape .content{
     width: auto;
     height: 100%;
 }
@@ -117,6 +136,10 @@
     display: block ;
     width: 100%;
     height: 100%;
+    transition: transform ease-in 800ms;
+}
+#wpbody-content .coders-clipboard .container.media > .content:hover{
+    transform: scale(1.4);
 }
 #wpbody-content .coders-clipboard ul.inline > li{
     display: inline-block;
@@ -165,14 +188,10 @@
 #wpbody-content .coders-clipboard > .collections > li.item > .content{
     display: block;
     position: absolute;
-    border: 0px solid transparent;
     overflow: hidden;
     top: 0; left: 0; right: 0; bottom: 0;   
     transition: border ease-in 200ms;
     box-sizing: border-box;
-}
-#wpbody-content .coders-clipboard > .collections > li.item:hover > .content{
-    border: 40px solid transparent;
 }
 #wpbody-content .coders-clipboard > .collections > li.item > .task{
     position: absolute;
@@ -216,7 +235,10 @@
 #wpbody-content .coders-clipboard > .collections > li.item > .content > .media{
     width: 100%;
     height: auto;
-    transition: width ease-in 200ms;    
+    transition: transform ease-in 800ms;
+}
+#wpbody-content .coders-clipboard > .collections > li.item:hover > .content > .media{
+    transform: scale(1.4);
 }
 #wpbody-content .coders-clipboard > .collections > li.item > .content > .media + .cover{
     display: flex;
@@ -238,7 +260,7 @@
     font-size: 21px;
     font-weight: 600;
     letter-spacing: 1px;
-    word-wrap: normal;
+    word-wrap: break-word;
 }
 #wpbody-content .coders-clipboard > .collections > li.item:hover > .content > .media + .cover{
     opacity: 1;

@@ -1,8 +1,11 @@
 <?php defined('ABSPATH') or die; ?>
 
-<ul class="path">
+<ul class="coders-clipboard-title path">
     <li class="node">
-        <a class="dashicons dashicons-art" href="<?php print $this->get_post() ?>" target="_self"></a>
+        <span class="dashicons dashicons-art"></span>
+        <a href="<?php print $this->get_post() ?>" target="_self">
+            <?php print get_admin_page_title() ?>
+        </a>
     </li>
     <?php foreach ($this->list_path() as $id => $title) : ?>
         <li class="node">

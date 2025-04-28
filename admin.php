@@ -572,7 +572,7 @@ add_action('admin_menu', function () {
             'upload_files', // or 'manage_options' if more restricted
             'coders_clipboard',
             function () { ClipboardAdmin::display(); },
-            'dashicons-format-gallery',80);
+            'dashicons-art',80);
     add_submenu_page(
             'coders_clipboard',
             __('Settings', 'coders_clipboard'),
