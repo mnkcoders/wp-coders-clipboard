@@ -190,8 +190,12 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
     position: absolute;
     overflow: hidden;
     top: 0; left: 0; right: 0; bottom: 0;   
-    transition: border ease-in 200ms;
+    transition: border ease-in 200ms, padding ease-in 150ms;
     box-sizing: border-box;
+}
+#wpbody-content .coders-clipboard > .collections > li.item > .content img.landscape{
+    width: auto;
+    height: 100%;
 }
 #wpbody-content .coders-clipboard > .collections > li.item > .task{
     position: absolute;
@@ -235,10 +239,10 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
 #wpbody-content .coders-clipboard > .collections > li.item > .content > .media{
     width: 100%;
     height: auto;
-    transition: transform ease-in 800ms;
+    transition: transform ease-in 800ms, border-radius 200ms;
 }
-#wpbody-content .coders-clipboard > .collections > li.item:hover > .content > .media{
-    transform: scale(1.4);
+#wpbody-content .coders-clipboard > .collections:not(.move) > li.item:hover > .content > .media{
+    transform: scale(1.2);
 }
 #wpbody-content .coders-clipboard > .collections > li.item > .content > .media + .cover{
     display: flex;
@@ -262,13 +266,53 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
     letter-spacing: 1px;
     word-wrap: break-word;
 }
-#wpbody-content .coders-clipboard > .collections > li.item:hover > .content > .media + .cover{
+#wpbody-content .coders-clipboard > .collections:not(.move) > li.item:hover > .content > .media + .cover{
     opacity: 1;
 }
 #wpbody-content .coders-clipboard > .collections > li.fullwitdh{
     width: 100%;
     display: block;
     clear: both;
+}
+
+#wpbody-content .coders-clipboard > .collections > li.item > .placeholder {
+    display: block;
+    width: 40px;
+    height: 40px;
+    position: absolute;
+    left: 0;
+    top: calc(50% - 10px);
+    border-radius: 50%;
+    border: 1px dashed rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity ease-in 200ms,background ease-in 200ms,border ease-in 200ms, padding ease-in 200ms;
+    box-sizing: border-box;
+}
+
+#wpbody-content .coders-clipboard > .collections.move > li.item > .task{
+    display: none;
+}
+
+#wpbody-content .coders-clipboard > .collections.move > li.item > .placeholder {
+    opacity: 1;
+    z-index: 10;
+}
+#wpbody-content .coders-clipboard > .collections.move > li.item > .placeholder:hover {
+    background-color: rgba(0,0,0,0.5);
+    border: transparent;
+    padding: 20px;
+}
+#wpbody-content .coders-clipboard > .collections.move > li.item {
+    background: none;
+    box-shadow: none;
+    margin: 0;
+    width: 25%;
+}
+#wpbody-content .coders-clipboard > .collections.move > li.item > .content {
+    padding: 80px;
+}
+#wpbody-content .coders-clipboard > .collections.move > li.item > .content > .media{
+    border-radius: 50%;
 }
 
 
@@ -308,13 +352,13 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
 
 
 
-#wpbody-content .coders-clipboard .container.upload > ul.queue{
+#wpbody-content .coders-clipboard #clipboard-box{
     display: block;
     width: 100%;
     text-align: left;
     margin: 0;
 }
-#wpbody-content .coders-clipboard .container.upload > ul.queue > .item{
+#wpbody-content .coders-clipboard #clipboard-box > .item{
     display: inline-block;
     padding: 0;
     margin: 0 10px 0 0;
@@ -322,13 +366,17 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
     height: 40px;
     border-radius: 50%;
     overflow: hidden;
-    opacity: 0.5;
+    opacity: 1;
     transition: opacity ease-in 200ms;
 }
-#wpbody-content .coders-clipboard .container.upload > ul.queue > .item.uploaded{
+#wpbody-content .coders-clipboard #clipboard-box > .item:first-child{
+    opacity: 0;
+}
+
+#wpbody-content .coders-clipboard #clipboard-box > .item.uploaded{
     opacity: 1;
 }
-#wpbody-content .coders-clipboard .container.upload > ul.queue > .item > .content{
+#wpbody-content .coders-clipboard #clipboard-box > .item > .content{
     width: 100%;
     height: auto;
 }

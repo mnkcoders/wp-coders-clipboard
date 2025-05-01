@@ -1,5 +1,6 @@
 <?php defined('ABSPATH') or die; ?>
 <!-- COLLECTION BLOCK -->
+<ul id="clipboard-box" class="inline queue"></ul>
 <ul class="collections container drag-drop">
     <?php if ($this->count_items()) : ?>
         <?php foreach ($this->list_collection() as $item) : ?>
@@ -7,7 +8,7 @@
                 <span class="placeholder" data-slot="<?php print $item->slot ?>"></span>
                 <span class="content">
                     <?php if ($item->is_media()) : ?>
-                        <img class="media" src="<?php
+                        <img class="media <?php print $item->tags ?>" src="<?php
                             print $item->get_url() ?>" alt="<?php
                             print $item->name ?>" title="<?php
                             print $item->title ?>" />
@@ -26,8 +27,11 @@
                         print $this->action_sort($item->id,$item->get_after()) ?>"></a>
                     <a class="task top-left dashicons dashicons-arrow-left-alt2" href="<?php
                         print $this->action_sort($item->id,$item->get_before()) ?>"></a>
-                    <a class="task bottom-right dashicons dashicons-remove" href="<?php
-                        print $this->action_delete($item->id) ?>"></a>
+                    <label class="task bottom-right select" for="<?php
+                            print sprintf('select_%s',$item->id)?>">
+                        <input type="checkbox" id="<?php
+                            print sprintf('select_%s',$item->id) ?>" value="<?php print $item->id ?>"
+                    </label>
                     <?php if($item->has_items()) : ?>
                     <span class="task bottom-left dashicons dashicons-images-alt" ><?php
                         print $item->count_items();
@@ -35,9 +39,6 @@
                     <?php endif; ?>
             </li>
         <?php endforeach; ?>
-            <li>
-                <span class="placeholder" data-slot="last"></span>
-            </li>
     <?php else: ?>
         <div class="container centered ">
             <h3>

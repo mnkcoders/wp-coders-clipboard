@@ -53,7 +53,7 @@ class Clipboard {
      * 
      * @return \ClipboardContent
      */
-    protected final function content(){
+    protected function content(){
         return $this->_content;
     }
     /**
@@ -139,13 +139,13 @@ class Clipboard {
      * @param array $arguments
      * @return mixed
      */
-    protected final function __run( $call , $default = false , $arguments = array()){
+    protected function __run( $call , $default = false , $arguments = array()){
         return method_exists($this, $call) ? $this->$call( $arguments ) : $default;
     }
     /**
      * @return  STring Description
      */
-    public final function getLink(  ){
+    public function getLink(  ){
         return self::LINK( $this->id );
     }
     /**
@@ -157,7 +157,7 @@ class Clipboard {
     /**
      * @return  STring Description
      */
-    public final function getUrl( ){
+    public function getUrl( ){
         return self::LINK( $this->id );
     }
     /**
@@ -177,19 +177,19 @@ class Clipboard {
     /**
      * @return Boolean
      */
-    public final function isValid(){
+    public function isValid(){
         return $this->hasContent();
     }
     /**
      * @return boolean
      */
-    public final function isFullPage(){
+    public function isFullPage(){
         return true;
     }
     /**
      * @return Boolean
      */
-    protected final function hasContent(){
+    protected function hasContent(){
         return !is_null($this->_content);
     }
     /**
@@ -308,7 +308,7 @@ class Clipboard {
     public static function display( $id = '' ){
         $clipboard = new Clipboard($id);
         
-        if( $clipboard->isFullPage() ){
+        if( $clipboard->isFullPage() ){          
             wp_head();
         }
         
@@ -331,27 +331,27 @@ class Clipboard {
      * @param String $url
      * @return String
      */
-    public static final function LINK( $url = ''){
+    public static function LINK( $url = ''){
         return get_site_url(null, 'clipboard/' . $url);
     }
     /**
      * @param String $url
      * @return String
      */
-    public static final function CLIPBOARD( $url = ''){
+    public static function CLIPBOARD( $url = ''){
         return get_site_url(null, 'clipboards/' . $url);
     }
     /**
      * @return {String}
      */
-    public static final function table(){
+    public static function table(){
         return $GLOBALS['wpdb']->prefix . 'clipboard_items';
     }
     /**
      * @param string $content
      * @return String
      */
-    public static final function assetPath( $content = '' ){
+    public static function assetPath( $content = '' ){
         $path = plugin_dir_path(__FILE__ );
         
         return strlen($content) ? sprintf('%s/%s',$path,$content) : $path;
@@ -360,7 +360,7 @@ class Clipboard {
      * @param string $content
      * @return String
      */
-    public static final function assetUrl( $content = '' ){
+    public static function assetUrl( $content = '' ){
         $url = plugin_dir_url(__FILE__);
         
         return strlen($content) ? $url.$content : $url;
@@ -368,7 +368,7 @@ class Clipboard {
     /**
      * @return  boolean
      */
-    public static final function isAdmin(){
+    public static function isAdmin(){
         return current_user_can( 'administrator' );
     }
     
@@ -377,13 +377,13 @@ class Clipboard {
      * @param string $content
      * @param string $type
      */
-    public static final function addMessage( $content , $type = 'info'){
+    public static function addMessage( $content , $type = 'info'){
         self::$_messages[] = array( 'content' => $content , 'type' => $type );
     }
     /**
      * @return array
      */
-    public static final function messages(){
+    public static function messages(){
         return self::$_messages;
     }    
     
@@ -391,7 +391,7 @@ class Clipboard {
      * @param string $role
      * @return boolean
      */
-    public static final function requestPermission( $role = '' ){
+    public static function requestPermission( $role = '' ){
 
         $tier = apply_filters('coders_clipboard_tier','');
         
@@ -439,7 +439,7 @@ class ClipboardContent{
     /**
      * @return String 
      */
-    public static final function timestamp(){
+    public static function timestamp(){
         return date('Y-m-d H:i:s');
     }
     /**
@@ -534,13 +534,13 @@ class ClipboardContent{
     /**
      * @return array
      */
-    public final function content(){
+    public function content(){
         return  $this->_content;
     }
     /**
      * @return array
      */
-    public final function post(){
+    public function post(){
         $data = array(
             'id' => $this->id,
             'name' => $this->name,
@@ -581,7 +581,7 @@ class ClipboardContent{
     /**
      * @return string
      */
-    protected final function defaultAcl() {
+    protected function defaultAcl() {
         return 'private';
     }
 
@@ -589,7 +589,7 @@ class ClipboardContent{
      * @global wpdb $wpdb
      * @return boolean
      */
-    public final function update() {
+    public function update() {
         global $wpdb;
         if ($this->isValid() && $this->isUpdated()) {
             $data = array(
@@ -615,7 +615,7 @@ class ClipboardContent{
      * @global wpdb $wpdb
      * @return boolean
      */
-    public final function create() {
+    public function create() {
         if ($this->isValid()) {
             global $wpdb;
 
@@ -631,7 +631,7 @@ class ClipboardContent{
                 'parent_id' => strlen($this->parent_id) ? $this->parent_id : null,
                 'acl' => $this->defaultAcl(),
                 'slot' => 0,
-                'tags' => '',
+                'tags' => $this->tags,
                 'created_at' => current_time('mysql'),
             );
             $this->name = $name;
@@ -652,7 +652,7 @@ class ClipboardContent{
      * @global wpdb $wpdb
      * @return boolean
      */
-    public final function moveto( $parent_id = '') {
+    public function moveto( $parent_id = '') {
         global $wpdb;
         if ($this->isValid()) {
             $data = array(
@@ -673,7 +673,7 @@ class ClipboardContent{
      * @global wpdb $wpdb
      * @return boolean
      */
-    public final function remove(){
+    public function remove(){
         
         global $wpdb;
         
@@ -698,7 +698,7 @@ class ClipboardContent{
      * @param int $index
      * @return boolean
      */
-    public final function sort( $index = 0 ){
+    public function sort( $index = 0 ){
         global $wpdb;
         if ($this->isValid()) {
 
@@ -725,7 +725,7 @@ class ClipboardContent{
      * @global wpdb $wpdb
      * @return int
      */
-    public final function arrange(  ){
+    public function arrange(  ){
         $count = 0;
         if ($this->isValid()) {
             $index = 0;
@@ -741,7 +741,7 @@ class ClipboardContent{
     /**
      * @return boolean
      */
-    public final function tagImageSize(){
+    public function tagImageSize(){
         if($this->isImage()){
             $size = getimagesize($this->getPath());
             $mode = count($size) > 1 && $size[0] > $size[1] ? 'landscape' : 'portrait';
@@ -750,11 +750,17 @@ class ClipboardContent{
         }
         return false;
     }
+    /**
+     * @return string
+     */
+    public function getTags(){
+        return $this->tags;
+    }
 
     /**
      * @return  STring Description
      */
-    public final function getUrl( ){
+    public function getUrl( ){
         return Clipboard::LINK( $this->id );
     }
     /**
@@ -766,19 +772,19 @@ class ClipboardContent{
     /**
      * @return int
      */
-    public final function getBefore(){
+    public function getBefore(){
         return $this->slot > 0 ? $this->slot - 1 : 0;
     }
     /**
      * @return int
      */
-    public final function getAfter(){
+    public function getAfter(){
         return $this->slot + 1;
     }
     /**
      * @return string
      */
-    public final function getCss(){
+    public function getCss(){
         $className = $this->listTags();
         $className[] = $this->isMedia() ? 'media' : 'attachment';
         return implode(' ' ,$className);
@@ -786,7 +792,7 @@ class ClipboardContent{
     /**
      * @return Boolean
      */
-    public final function isValid(){
+    public function isValid(){
         return strlen($this->id) > 0;
     }
     /**
@@ -798,7 +804,7 @@ class ClipboardContent{
     /**
      * @return boolean
      */
-    public final function isUpdated(){
+    public function isUpdated(){
         return $this->_updated;
     }    
     /**
@@ -859,13 +865,13 @@ class ClipboardContent{
     /**
      * @return Boolean
      */
-    public final function hasParent(){
+    public function hasParent(){
         return strlen($this->parent_id) > 0;
     }
     /**
      * @return Boolean
      */
-    public final function hasItems(){
+    public function hasItems(){
         return $this->countItems() > 0;
     }
     /**
@@ -910,7 +916,7 @@ class ClipboardContent{
      * @param string $parent_id
      * @return int
      */
-    public static final function propagateLayouts( $parent_id = ''){
+    public static function propagateLayouts( $parent_id = ''){
         $count = 0;
         $content = self::load($parent_id);
         if( !is_null($content)){
@@ -930,7 +936,7 @@ class ClipboardContent{
      * @param string $parent_id
      * @return int
      */
-    public static final function renameAll( $parent_id = ''){
+    public static function renameAll( $parent_id = ''){
         $count = 0;
         $content = self::load($parent_id);
         if( !is_null($content)){
@@ -950,7 +956,7 @@ class ClipboardContent{
      * @param string $parent_id
      * @return int
      */
-    public static final function fetchLost( $parent_id = ''){
+    public static function fetchLost( $parent_id = ''){
         $count = 0;
         $folder = Clipboard::path();
         $files = scandir($folder);
@@ -1021,7 +1027,7 @@ class ClipboardContent{
     /**
      * @global wpdb $wpdb
      */
-    public static final function install(){
+    public static function install(){
         global $wpdb;
 
         $charset_collate = $wpdb->get_charset_collate();
@@ -1045,7 +1051,7 @@ class ClipboardContent{
      * @global wpdb $wpdb
      * @return boolean
      */
-    public static final function resetContent() {
+    public static function resetContent() {
         global $wpdb;
         $done = 0;
         // 1. Truncate DB table
@@ -1073,7 +1079,7 @@ class ClipboardContent{
     /**
      * @return string
      */
-    public static final function table(){
+    public static function table(){
         return $GLOBALS['wpdb']->prefix . 'clipboard_items';
     }
 }
@@ -1142,6 +1148,14 @@ add_action('template_redirect', function(){
     //$id = isset($_GET['id']) ? sanitize_text_field($_GET['id']) : null;
     $id = get_query_var('clipboard_id');
     if( $id ){
+        add_filter( 'body_class', function( $classes ) {
+            return array_merge( $classes, array('coders-clipboard') );
+        } );
+        add_action( 'wp_enqueue_scripts' , function(){
+            wp_enqueue_style(
+                    'coders-clipboard-style',
+                    Clipboard::assetUrl('html/public/style.css'));
+        });
         $mode = get_query_var('mode');
         if($mode === 'view' ){
             Clipboard::display( $id );

@@ -16,6 +16,5 @@
                 <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <?php endif; ?>
         </form>
-        <ul id="clipboard-box" class="inline queue"></ul>
     </div>
 </div>

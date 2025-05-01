@@ -14,6 +14,7 @@ class CodersClipboard {
         const urlParams = new URLSearchParams(window.location.search);
         const id = urlParams.get('id');
         this._contextId = id || '';
+        
         this._root = !this.hasContextId();
 
         this._files = [];
@@ -64,10 +65,8 @@ class CodersClipboard {
     queue(files) {
         for (const file of files) {
             this.add(file);
-            //this.send(file);
         }
-        window.setTimeout( () => { this.next() } , 1000 );
-        return this;
+        return this.next(true);
     }
     /**
      * @param {File} file 
@@ -92,7 +91,11 @@ class CodersClipboard {
     /**
      * @returns {CodersClipboard}
      */
-    next(){
+    next( wait = false){
+        if( wait ){
+            window.setTimeout( () => { this.next() } , 300 );
+            return this;
+        }
         return this._files.length ? this.send(this._files.shift()) : this;
     }
     /**
@@ -135,8 +138,8 @@ class CodersClipboard {
 
         fetch(ajaxurl, {method: 'POST',body: formData})
             .then(res => res.json())
-            .then(json => this.markUploaded(file, json.data || null) )
-            .catch(err => this.markFailed(file, err) );
+            .then(json => this.completed(file, json.data || null) )
+            .catch(err => this.failed(file, err) );
 
         return this;
     }
@@ -145,39 +148,39 @@ class CodersClipboard {
      * @param {File} file 
      * @param {Object} response 
      */
-    markUploaded(file, response) {
+    completed(file, response) {
         if( response ){
             //console.log('UPLOADED!!',response);
             const container = file._uploadElement;
-            container.classList.add('uploaded');
+            //container.classList.add('uploaded');
             //container.textContent = `Uploaded: ${file.name}`;
             // You can now add it to the current item collection if needed
             (response.content || []).forEach( item => this.createItem( item ));
-            
             container.remove();
-            this.next();
+            this.next(true);
         }
     }
     /**
      * @param {File} file 
      * @param {String} error 
      */
-    markFailed(file, error) {
+    failed(file, error) {
         const container = file._uploadElement;
         container.textContent = `Failed: ${file.name}`;
         container.classList.add('error');
         console.error('ERROR',file,error);
+        this.next(true);
     }
     /**
      * @param {Object} itemData 
      * @returns {CodersClipboard}
      */
     createItem( itemData ){
-        if( !this.hasContextId() || itemData.parent_id === this.contextId() ){
+        if( !this.isRoot() || !this.hasContextId() ){
             this.collection().forEach( box => box.appendChild(CodersClipboard.showItem(itemData)));
         }
         if( !this.hasContextId() && itemData.id ){
-            console.log(this.contextId(),itemData.id,itemData.parent_id);
+            //console.log(this.contextId(),itemData.id,itemData.parent_id);
             this._contextId = itemData.id;
         }
         return this;
@@ -335,6 +338,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 //console.log(clipboard,items);
             }
         });    
+
+        document.addEventListener('dragstart', (e) => {
+            console.log('DRAG!!');
+            const clipboard = new CodersClipboard();
+            clipboard.collection().forEach( c => c.classList.add('move'));
+        });
+        document.addEventListener('dragend', (e) => {
+            console.log('DROP!!');
+            const clipboard = new CodersClipboard();
+            clipboard.collection().forEach( c => c.classList.remove('move'));
+        });
 
     //capture the on-paste event
     /*document.onpaste = function (event) {

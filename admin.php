@@ -44,7 +44,7 @@ class ClipboardAdmin extends Clipboard {
      * @param String $page
      * @return ClipboardAdmin
      */
-    private final function page($page = 'default' , $input = array()) {
+    protected function page($page = 'default' , $input = array()) {
         
         $view = $this->__render($page, 'admin');
 
@@ -62,7 +62,7 @@ class ClipboardAdmin extends Clipboard {
      * @param array $request
      * @return string
      */
-    protected final function __link($action, $request = array()) {
+    protected function __link($action, $request = array()) {
         //parent::__link($action, $arguments);
         
         if(!array_key_exists('page', $request)){
@@ -77,7 +77,7 @@ class ClipboardAdmin extends Clipboard {
      * @param string $parent_id
      * @return string
      */
-    protected final function actionMove( $id = '', $parent_id = '' ){
+    protected function actionMove( $id = '', $parent_id = '' ){
         if(strlen($id)){
             $request = array('id'=> $id);
             if(strlen($parent_id)){
@@ -93,7 +93,7 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @return string
      */
-    protected final function actionDelete($id=''){
+    protected function actionDelete($id=''){
         $request = array('id'=> $id);
         if( $this->hasContent()){
             $context = $this->id !== $id ? $this->id : $this->parent_id;
@@ -104,28 +104,28 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @return string
      */
-    protected final function actionPropagate(){
+    protected function actionPropagate(){
         $request = array('id'=>$this->id);
         return $this->__link('propagate',$request);
     }
     /**
      * @return string
      */
-    protected final function actionRecover(){
+    protected function actionRecover(){
         $request = array('id'=>$this->id);
         return $this->__link('recover',$request);
     }
     /**
      * @return string
      */
-    protected final function actionArrange(){
+    protected function actionArrange(){
         $request = array('id'=>$this->id);
         return $this->__link('arrange',$request);
     }
     /**
      * @return string
      */
-    protected final function actionSort( $id = '', $slot = 0 ){
+    protected function actionSort( $id = '', $slot = 0 ){
         if(strlen($id) && $slot ){
             $request = array(
                 'id' => $id,
@@ -141,7 +141,7 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @return string
      */
-    protected final function actionRenameAll(){
+    protected function actionRenameAll(){
         $request = array('id'=>$this->id);
         return $this->__link('renameall',$request);
     }
@@ -150,7 +150,7 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @return array
      */
-    protected final function listLayouts() {
+    protected function listLayouts() {
         return array(
             'default' => __('Default', 'coders_clipboard'),
             'ecomic' => __('e-Comic', 'coders_clipboard'),
@@ -164,7 +164,7 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @return array
      */
-    protected final function listRoles() {
+    protected function listRoles() {
         $roles = array(
             'private' => __('Private', 'coders_clipboard'),
             'public' => __('Public', 'coders_clipboard'),
@@ -182,7 +182,7 @@ class ClipboardAdmin extends Clipboard {
      * @param string $ids
      * @return string
      */
-    protected final function getPost($ids = array()) {
+    protected function getPost($ids = array()) {
         //return parent::getLink($ids);
         return add_query_arg([
             'page' => 'coders_clipboard',
@@ -193,14 +193,14 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @return string
      */
-    protected final function getForm() {
+    protected function getForm() {
         return admin_url('admin-post.php?action=clipboard_action');
     }
     /**
      * @param string $layout
      * @return string
      */
-    protected final function getCurrentLayout( $layout ){
+    protected function getCurrentLayout( $layout ){
         $item = is_array($layout) ? $layout[0] : $layout;
         return $this->isValid() && $this->content()->layout === $item ? 'selected' : '';
     }
@@ -208,7 +208,7 @@ class ClipboardAdmin extends Clipboard {
      * @param string $role
      * @return string
      */
-    protected final function getRole( $role ){
+    protected function getRole( $role ){
         $item = is_array($role) ? $role[0] : $role;
         return $this->isValid() && $this->content()->acl === $item ? 'selected' : '';
     }
@@ -217,7 +217,7 @@ class ClipboardAdmin extends Clipboard {
      * @param string $id Description
      * @return \ClipboardContent[]
      */
-    private static final function upload( $from = 'upload', $id = '' ) {
+    private static function upload( $from = 'upload', $id = '' ) {
         $uploaded = array();
         $slot = 0;
         $parent_id = strlen($id) ? $id : '';
@@ -383,7 +383,7 @@ class ClipboardUploader {
      * @param string $upload
      * @return array
      */
-    private static final function import($upload = 'upload') {
+    private static function import($upload = 'upload') {
 
         $files = array_key_exists($upload, $_FILES) ? $_FILES[$upload] : array();
         $output = array();
@@ -409,7 +409,7 @@ class ClipboardUploader {
      * @return boolean
      * @throws \Exception
      */
-    private static final function validate($error = '') {
+    private static function validate($error = '') {
         try {
             switch ($error) {
                 case UPLOAD_ERR_CANT_WRITE:
