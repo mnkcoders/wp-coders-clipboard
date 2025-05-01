@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') or die; ?>
 
 <div class="fullwitdh container solid">
-    <div class="fullwitdh drag-drop container centered">
+    <div class="fullwitdh drag-drop container centered upload">
         <form name="upload" action="<?php print $this->get_form() ?>" method="post" enctype="multipart/form-data">
             <?php wp_nonce_field('clipboard_upload'); ?>                
             <label for="clipboard-files" class="button wide">
@@ -13,8 +13,9 @@
                 <?php print __('Upload!', 'coders_clipboard'); ?>                        
             </button>
             <?php if ($this->is_valid()) : ?>
-                <input type="hidden" name="id" value="<?php print $this->id ?>">
+                <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <?php endif; ?>
         </form>
+        <ul id="clipboard-box" class="inline queue"></ul>
     </div>
 </div>

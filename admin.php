@@ -220,15 +220,21 @@ class ClipboardAdmin extends Clipboard {
     private static final function upload( $from = 'upload', $id = '' ) {
         $uploaded = array();
         $slot = 0;
+        $parent_id = strlen($id) ? $id : '';
         foreach (ClipboardUploader::upload($from)->files() as $file) {
             //set the first parent id to the parsed ID
-            $file['parent_id'] = $id;
+            $file['parent_id'] = $parent_id;
             $file['slot'] = $slot++;
+            //if the upload is in the root collection
+            if( strlen($parent_id) === 0){
+                //set the header file as the parent
+                $parent_id = $file['id'];
+            }
             
             $content = new ClipboardContent($file);
             $content->tagImageSize();
             if ($content->create()) {
-                $uploaded[$content->id] = $content;
+                $uploaded[] = $content->post();
             }
             //then set the next to the first file ID
             if(strlen($id) === 0){
@@ -267,6 +273,7 @@ class ClipboardAdmin extends Clipboard {
             case 'upload':
                 $uploaded = self::upload( 'upload' , $id );
                 $output['count'] = count($uploaded);
+                $output['content'] = $uploaded;
                 break;
             case 'update':
                 $content = ClipboardContent::load($id);
@@ -460,61 +467,6 @@ class ClipboardUploader {
     }
 }
 
-add_action('admin_post_clipboard_upload', function() {
-
-    die('use clipboard_action instead');
-    
-    $id = filter_input(INPUT_POST, 'parent_id') ?? '';
-    $uploaded = ClipboardAdmin::upload( ClipboardUploader::upload()->files(), $id);
-
-    $redirect = array(
-        'page' => 'coders_clipboard',
-        'upload' => $uploaded > 0 ? 'success' : 'failure',
-        'count' => $uploaded,
-    );
-
-    if (strlen($id)) {
-        $redirect['id'] = $id;
-    }
-
-    if (!array_key_exists('page', $input)) {
-        $input['page'] = 'coders_clipboard';
-    }
-    
-    wp_redirect(add_query_arg($input, admin_url('admin.php')));
-    exit;
-});
-
-add_action('admin_post_clipboard_update', function() {
-
-    $post = filter_input_array(INPUT_POST);
-    $id = array_key_exists('id', $post) ? $post['id'] : '';
-    $updated = false;
-    if(strlen($id)){
-        $content = ClipboardContent::load($id);
-        if(!is_null($content)){
-            if( $content->override($post)->update()){
-                //send to admin notifier
-                $updated = true;
-            }
-        }
-    }
-
-    $redirect = array(
-        'page' => 'coders_clipboard',
-        'update' => $updated ? 'success' : 'failure',
-    );
-
-    if (strlen($id)) {
-        $redirect['id'] = $id;
-    }
-    
-    ClipboardAdmin::registerMessages();
-
-    wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
-    exit;
-});
-
 add_action('admin_post_clipboard_action', function() {
     if ( ! current_user_can('upload_files') ) {
         wp_die(__('Unauthorized', 'coders_clipboard'));
@@ -529,6 +481,24 @@ add_action('admin_post_clipboard_action', function() {
 
     wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
     exit;        
+});
+
+add_action('wp_ajax_clipboard_action', function() {
+
+    if ( ! current_user_can('upload_files') ) {
+        wp_die(__('Unauthorized', 'coders_clipboard'));
+    }
+
+    $post = filter_input_array(INPUT_POST) ?? array();
+    
+    //wp_send_json_success($_FILES);
+    //return ;
+    
+    $response = ClipboardAdmin::task($post);
+    
+    wp_send_json_success($response);
+    
+    //exit;        
 });
 
 
@@ -567,7 +537,7 @@ add_action('admin_enqueue_scripts', function( $hook ) {
 
 add_action('admin_menu', function () {
     add_menu_page(
-            __('Coders Clipboard', 'coders_clipboard'),
+            __('Clipboard', 'coders_clipboard'),
             __('Clipboard', 'coders_clipboard'),
             'upload_files', // or 'manage_options' if more restricted
             'coders_clipboard',

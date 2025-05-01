@@ -306,3 +306,31 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
 }
 
 
+
+
+#wpbody-content .coders-clipboard .container.upload > ul.queue{
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin: 0;
+}
+#wpbody-content .coders-clipboard .container.upload > ul.queue > .item{
+    display: inline-block;
+    padding: 0;
+    margin: 0 10px 0 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    opacity: 0.5;
+    transition: opacity ease-in 200ms;
+}
+#wpbody-content .coders-clipboard .container.upload > ul.queue > .item.uploaded{
+    opacity: 1;
+}
+#wpbody-content .coders-clipboard .container.upload > ul.queue > .item > .content{
+    width: 100%;
+    height: auto;
+}
+
+

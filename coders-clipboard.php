@@ -535,7 +535,30 @@ class ClipboardContent{
      * @return array
      */
     public final function content(){
-        return $this->_content;
+        return  $this->_content;
+    }
+    /**
+     * @return array
+     */
+    public final function post(){
+        $data = array(
+            'id' => $this->id,
+            'name' => $this->name,
+            'title' => $this->title,
+            'type' => $this->type,
+            'parent_id' => $this->parent_id,
+            'tags' => $this->listTags(),
+            'link' => $this->getUrl(),
+        );
+        
+        if(is_admin()){
+            $data['post'] = add_query_arg([
+            'page' => 'coders_clipboard',
+            'id' => $this->id,
+                ], admin_url('admin.php'));
+        }
+        
+        return $data;
     }
     /**
      * @param string $attribute
