@@ -292,8 +292,9 @@ class ClipboardAdmin extends Clipboard {
                 $index = isset($input['slot']) ? $input['slot'] : 0;
                 if (!is_null($item)) {
                     $count = $item->sort($index);
-                    $output[$task] = 'done';
+                    $output['slot'] = $index;
                     $output['count'] = $count;
+                    $output[$task] = 'done';
                 }
                 break;
             case 'move':
