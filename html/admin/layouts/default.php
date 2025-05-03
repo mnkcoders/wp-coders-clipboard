@@ -10,12 +10,7 @@
     <?php if ($this->is_valid()) : ?>
         <!-- CONTENT BLOCK -->
         <div class="content container">
-            <div class="container half content">
-                <?php $this->part_content() ?>
-            </div>
-            <div class="container media half compact">
-                <?php $this->part_attachment() ?>
-            </div>
+            <?php $this->part_content() ?>
         </div>
     <?php else: ?>
         <div class="container main">

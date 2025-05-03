@@ -1,12 +1,12 @@
 <?php defined('ABSPATH') or die; ?>
 <!-- COLLECTION BLOCK -->
-<ul id="clipboard-box" class="inline queue"></ul>
+<ul class="clipboard-box" class="inline queue"></ul>
 <ul class="collections container drag-drop">
     <?php if ($this->count_items()) : ?>
         <?php foreach ($this->list_collection() as $item) : ?>
             <li class="item" data-item="<?php print $item->id ?>">
                 <span class="placeholder" data-slot="<?php print $item->slot ?>"></span>
-                <span class="content">
+                <div class="content">
                     <?php if ($item->is_media()) : ?>
                         <img class="media <?php print $item->tags ?>" src="<?php
                             print $item->get_url() ?>" alt="<?php
@@ -17,7 +17,7 @@
                         print $item->id ?>" href="<?php
                         print $this->get_post($item->id) ?>"><?php
                         print $item->title ?></a>                        
-                </span>
+                </div>
                 <!-- commands -->
                     <?php if($this->is_valid()):  ?>
                     <a class="task top-center dashicons dashicons-arrow-up-alt" href="<?php

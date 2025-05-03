@@ -3,48 +3,30 @@
  */
 class CodersClipboard {
     /**
-     * @param {String} uploadBox 
-     * @param {String} itemBox 
+     * @param {String} list 
+     * @param {String} collection 
      */
-    constructor(uploadBox = '', itemBox = '') {
+    constructor(list = 'clipboard-box', collection = 'collections ') {
         this._ts = CodersClipboard.createTimeStamp();
-        this._view = new ClipboardView(uploadBox, itemBox);
+        this._view = new ClipboardView(list, collection);
+        this._list = document.getElementById(list);
+        this._collection = document.getElementsByClassName(collection);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get('id');
+        this._contextId = id || '';
+
+        this._files = [];
+
         this._tasks = [];
-        this._timeout = 200;
-        //console.log(this);
-        this._headerDone = false;
-    }
-    /**
-     * @param {String} uploads 
-     * @param {String} items 
-     * @returns {CodersClipboard}
-     */
-    static createClipboard( uploads = 'clipboard-box', items = 'collections' ){
-        const _uploadBox = [...document.getElementsByClassName(uploads)][0] || null;
-        const _itemBox = [...document.getElementsByClassName(items)][0] || null;     
-        
-        if( _uploadBox && _itemBox ){
-            return new CodersClipboard(uploads , items);
-        }
-        return null;
+
+        console.log(this);
     }
     /**
      * @returns {ClipboardView}
      */
     view() {
         return this._view;
-    }
-    /**
-     * @returns {Boolean}
-     */
-    isClipboard(){
-        return this.view().hasClipboard();
-    }
-    /**
-     * @returns {Boolean}
-     */
-    isMain(){
-        return !this.view().hasContext();
     }
     /**
      * @param {Boolean} listReady
@@ -56,7 +38,7 @@ class CodersClipboard {
     /**
      * @returns {CodersClipboard}
      */
-    reset(){
+    clear(){
         this._tasks = [];
         return this;
     }
@@ -64,19 +46,19 @@ class CodersClipboard {
      * @returns {String}
      */
     contextId() {
-        return this.view().contextId();
+        return this._contextId;
     }
     /**
      * @returns {Boolean}
      */
-    hasContext(){
-        return this.view().hasContext();
+    hasContextId() {
+        return this.contextId().length > 0;
     }
     /**
      * @returns {Boolean}
      */
-    isHeader(){
-        return !this._headerDone;
+    isMain() {
+        return this.hasContextId();
     }
     /**
      * @returns {String}
@@ -85,33 +67,69 @@ class CodersClipboard {
         return new Date().toISOString();
     }
     /**
+     * 
+     * @returns {String}
+     */
+    timestamp() {
+        return this._ts;
+    }
+    /**
+     * @returns {Element}
+     */
+    list() {
+        return this._list;
+    }
+    /**
+     * @returns {Element}
+     */
+    collection() {
+        return [...this._collection][0] || null;
+    }
+    /**
      * @param {File[]} files 
      * @returns {CodersClipboard}
      */
     queue(files) {
-        this._headerDone = false;
-        Array.from(files).forEach(file => {
-            const task = new ClipTask(
-                'upload',
-                this.hasContext() ? {'id':this.contextId()} : {},
-                this.uploaded.bind(this) );
-            task.attach(file);
+        for (const file of files) {
+            this.add(file);
+        }
+        /*files.map( file => new ClipTask('upload',file,this.uploaded)).forEach( task => {
+            task.content().context_id = this.contextId();
             this.view().attach( task );
-            this.tasks().push( task );
-        });
-        this.view().clearEmptyBlock().busy();
+            this.tasks().push( task )
+        });*/
+        this.view().clear();
         return this.wait2Next()
+    }
+    /**
+     * @param {File} file 
+     * @returns {CodersClipboard}
+     */
+    add(file) {
+        const item = document.createElement('li');
+        item.className = 'item';
+        //item.textContent = `Uploading: ${file.name}`;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const preview = CodersClipboard.preview(file, e.target.result);
+            item.appendChild(preview);
+        };
+        this.list().appendChild(item);
+        file._uploadElement = item; // Store reference
+        reader.readAsDataURL(file)
+
+        this._files.push(file);
+        return this;
     }
     /**
      * @returns {CodersClipboard}
      */
     next() {
+        return this._files.length ? this.onUpload(this._files.shift()) : this;
+
         const ready = this.tasks(true);
         if( ready.length ){
-            ready[0].send();
-        }
-        else{
-            this.view().idle();
+            ready.shift().send();
         }
         return this;
     }
@@ -119,55 +137,170 @@ class CodersClipboard {
      * @returns {CodersClipboard}
      */
     wait2Next(){
-        window.setTimeout(() => { this.next() }, this._timeout);
+        window.setTimeout(() => { this.next() }, 300);
         return this;
     }
     /**
      * 
-     * @param {Object[]} response 
+     * @param {Object} response 
      * @param {ClipTask} task 
      * @returns {CodersClipboard}
      */
-    uploaded(response = {}, task = null) {
-        //console.log('UPLOADED!!',response,task);
-        if (response && response.content ) {
-            const view = this.view();
-            //console.log( this.isHeader(),this.isMain());
-            if( this.isHeader() || !this.isMain()){
-                response.content.forEach(item => {
-                    view.createItem(item)
-                    if( this.isMain()){
-                        this.setHeader(item.id);
-                    }
-                });
-            }
-            //console.log( typeof task );
-            const preview = task && task.ref() || null;
-            if( preview ){
-                preview.remove();
+    uploaded(response, task = null) {
+        console.log('UPLOADED!!',response);
+        if (response) {
+            const container = task && task.reference() || null;
+            (response.content || []).forEach(item => this.createItem(item));
+            if( container ){
+                container.remove();
             }
             this.wait2Next();
         }
         return this;
     }
     /**
-     * @param {String} id 
+     * @returns {Element}
+     */
+    static preview(file, buffer) {
+        if (file instanceof File) {
+            switch (file.type) {
+                case 'image/png':
+                case 'image/gif':
+                case 'image/jpeg':
+                    const image = document.createElement('img');
+                    image.className = 'content media';
+                    image.src = buffer;
+                    image.alt = file.name;
+                    return image;
+                default:
+                    const attachment = document.createElement('span');
+                    attachment.className = 'content attachment';
+                    attachment.textContent = file.name;
+                    return attachment;
+            }
+        }
+        const empty = document.createElement('span');
+        empty.className = 'content empty';
+        return empty;
+    }
+    /**
+     * @param {File} file 
      * @returns {CodersClipboard}
      */
-    setHeader( id = ''){
-        if(id ){
-            this.tasks(true).filter(task => task.hasAttachment()).forEach( task => task.content().id = id );
-            //console.log(this.tasks(true));
-            this._headerDone = true;
+    onUpload(file) {
+        const formData = new FormData();
+        formData.append('action', 'clipboard_action');
+        formData.append('task', 'upload');
+        formData.append('upload', file);
+        if (this.hasContextId()) {
+            formData.append('id', this.contextId());
+        }
+
+        fetch(ajaxurl, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(json => this.afterUpload(file, json.data || null))
+            .catch(err => this.failed(file, err));
+
+        return this;
+    }
+    /**
+     * 
+     * @param {File} file 
+     * @param {Object} response 
+     */
+    afterUpload(file, response) {
+        if (response) {
+            //console.log('UPLOADED!!',response);
+            const container = file._uploadElement;
+            (response.content || []).forEach(item => this.createItem(item));
+            container.remove();
+            this.wait2Next();
+        }
+    }
+    /**
+     * @param {File} file 
+     * @param {String} error 
+     */
+    failed(file, error) {
+        const container = file._uploadElement;
+        container.textContent = `Failed: ${file.name}`;
+        container.classList.add('error');
+        console.error('ERROR', file, error);
+        this.wait2Next();
+    }
+    /**
+     * @param {Object} itemData 
+     * @returns {CodersClipboard}
+     */
+    createItem(itemData) {
+        if (!this.isMain() || !this.hasContextId()) {
+            this.collection() && this.collection().appendChild(CodersClipboard.showItem(itemData));
+        }
+        if (!this.hasContextId() && itemData.id) {
+            //console.log(this.contextId(),itemData.id,itemData.parent_id);
+            this._contextId = itemData.id;
         }
         return this;
     }
+    /**
+     * @param {Object} itemData 
+     * @returns {Element}
+     */
+    static showItem(itemData) {
+        //console.log(itemData,CodersClipboard.isMedia(itemData.type || ''));
+        const item = document.createElement('li');
+        item.className = 'item';
+        const placeholder = document.createElement('span');
+        placeholder.className = 'placeholder';
+        const content = document.createElement('span');
+        content.className = 'content';
+
+        if (CodersClipboard.isMedia(itemData.type || '')) {
+            const image = document.createElement('img');
+            image.src = itemData.link;
+            image.alt = itemData.name;
+            image.title = itemData.title;
+            image.className = 'media';
+            content.appendChild(image);
+        }
+
+        const link = document.createElement('a');
+        link.href = itemData.post || '#';
+        link.target = '_self';
+        link.className = 'cover';
+        link.textContent = itemData.title;
+
+        content.appendChild(link);
+        item.appendChild(placeholder);
+        item.appendChild(content);
+
+        return item;
+    }
+    /**
+     * @param {String} type 
+     * @returns {Boolean}
+     */
+    static isMedia(type = '') {
+        switch (type) {
+            case 'image/jpeg':
+            case 'image/jpg':
+            case 'image/gif':
+            case 'image/png':
+                return true;
+        }
+        return false;
+    }
+
+
+
+
     /**
      * 
      * @param {DataTransferItem[]} items 
      * @returns {CodersClipboard}
      */
     upload(items = []) {
+        //console.log('UPLOADING... ', items);
         if (items.length) {
             this.queue(items);
         }
@@ -178,13 +311,13 @@ class CodersClipboard {
      * @param {String} filename 
      * @returns {CodersClipboard}
      */
-    /*paste(blob, filename = '') {
+    paste(blob, filename = '') {
         if (filename.length === 0) {
             filename = CodersClipboard.createTimeStamp();
         }
         const file = new File([blob], filename, { type: blob.type });
         return this.queue([file]);
-    }*/
+    }
 
     /**
      * 
@@ -194,10 +327,11 @@ class CodersClipboard {
      */
     move(id = '', parent_id = '') {
         if (id) {
-            //console.log(`Moving [${id}] to [${parent_id || 'ROOT'}]`);
-            const _view = this.view();
-            const task = new ClipTask('move',{'id':id,'parent_id':parent_id,'context_id':this.contextId()},_view.remove.bind(_view));
-            task.send();
+            console.log(`Moving [${id}] to [${parent_id || 'ROOT'}]`);
+            this.onUpdate('move', { 'id': id, 'parent_id': parent_id }, this.removeItem);
+            
+            //const task = new ClipTask('move',{'id':id,'parent_id':parent_id'context_id':this.contextId()},this.view().remove);
+            //task.send(this.view().remove);
         }
 
         return this;
@@ -209,12 +343,105 @@ class CodersClipboard {
      */
     sort(id = '', slot = 0) {
         if (id) {
-            //console.log(`Moving [${id}] to slot [${slot}]`);
-            const _view = this.view();
-            const task = new ClipTask('sort',{'id':id,'slot':slot,'context_id':this.contextId()},_view.sort.bind(_view));
-            task.send();
+            console.log(`Moving [${id}] to slot [${slot}]`);
+            this.onUpdate('sort', { 'id': id, 'slot': slot }, this.moveToSlot);
+            
+            //const task = new ClipTask('sort',{'id':id,'slot':slot,'context_id':this.contextId()},this.view().sort);
+            //task.send(this.view().sort);
         }
         return this;
+    }
+
+    /**
+     * @param {String} task
+     * @param {Object} data
+     * @returns {CodersClipboard}
+     */
+    onUpdate(task = '', data, callback = null) {
+        const formData = new FormData();
+
+        Object.keys(data).forEach(key => formData.append(key, data[key]));
+
+        if (this.hasContextId()) {
+            formData.append('context_id', this.contextId());
+        }
+        formData.append('action', 'clipboard_action');
+        formData.append('task', task || '');
+
+        fetch(ajaxurl, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(json => this.afterUpdate(json.data || null, callback))
+            .catch(err => this.updateFailed(task, data, err));
+
+        return this;
+    }
+    /**
+     * 
+     * @param {String} task 
+     * @param {Object} data 
+     * @param {Object} error 
+     * @returns {CodersClipboard}
+     */
+    updateFailed(task, data, error) {
+        console.log('Error', task, data, error);
+        return this;
+    }
+    /**
+     * @param {String} task 
+     * @param {Object} response 
+     * @param {Function} callback 
+     * @returns {CodersClipboard}
+     */
+    afterUpdate(response, callback = null) {
+        console.log(response);
+        if (typeof callback === 'function') {
+            const data = Object.values(response);
+            callback.call(this, ...data);
+        }
+        return this;
+    }
+    /**
+     * 
+     * @param {String} id 
+     * @returns {Element}
+     */
+    getItem(id) {
+        return this.collection().querySelector(`li.item[data-item="${id}"]`);
+    }
+    /**
+     * 
+     * @param {String} id 
+     * @returns {CodersClipboard}
+     */
+    removeItem(id = '') {
+        if (id) {
+            const item = this.getItem(id);
+            console.log(item);
+            if (item) item.remove();
+        }
+        return this;
+    }
+    moveToSlot(id = '', slot = 0) {
+
+        const item = this.getItem(id);
+
+        const placeholders = this.collection().querySelectorAll('.placeholder');
+
+        // Find the placeholder by slot index
+        const target = [...placeholders].find(p => p.dataset.slot == slot);
+        if (!target) return;
+
+        // Detach the item
+        item.remove();
+
+        // Insert before the target placeholder's parent (which is the target li.item)
+        const selected = target.closest('li.item');
+        if (selected) {
+            this.collection().insertBefore(item, selected);
+        } else {
+            // If no item found (e.g., last placeholder), just append
+            this.collection().appendChild(item);
+        }
     }
 }
 
@@ -234,29 +461,6 @@ class ClipTask {
         //this._contextId = context_id;
         this._ref = null;
         this._callback = callback || null;
-        this._attachment = null;
-    }
-    /**
-     * @returns {String}
-     */
-    url(){
-        return ajaxurl;
-    }
-    /**
-     * @param {File} file
-     * @returns {ClipTask} 
-     */
-    attach( file ){
-        if( file instanceof File ){
-            this._attachment = file;
-        }
-        return this;
-    }
-    /**
-     * @returns {File}
-     */
-    attachment(){
-        return this._attachment || null;
     }
     /**
      * @returns {String}
@@ -297,19 +501,19 @@ class ClipTask {
     /**
      * @returns {Boolean}
      */
-    hasAttachment(){
-        return this.attachment() && this.attachment() instanceof File;
+    hasFile(){
+        return this.content() instanceof File;
     }
     /**
      * @returns {Boolean}
      */
     valid(){
-        return this.task().length;
+        return this.task().length && this.hasData();
     }
     /**
      * @returns {Element}
      */
-    ref(){
+    reference(){
         return this._ref;
     }
     /**
@@ -324,7 +528,7 @@ class ClipTask {
      * @returns {Boolean}
      */
     hasRef(){
-        return this.ref() !== null;
+        return this.reference() !== null;
     }
     /**
      * @returns {CodersClipboard}
@@ -333,10 +537,11 @@ class ClipTask {
         if ( this.valid() ) {
             this._status = ClipTask.Status.Running;
             const formData = this.createForm(this.content());
-            fetch(this.url(), { method: 'POST', body: formData })
+
+            fetch(ajaxurl, { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(response => this.success(response.data))
-                .catch(error => this.failure(error));
+                .catch(error => this.failure(data, error));
         }
         return this;
     }
@@ -346,12 +551,11 @@ class ClipTask {
     success( response = null ) {
         if (response) {
             const callback = this._callback;
-            if( typeof callback === 'function' ){
-                callback(response , this );
-                //callback(...Object.values(response) , this );
+            if( callback ){
+                callback.call(this, response , this._data );
             }
             else{
-                console.log(response , this);
+                console.log(response , this._data);
             }
         }
         return this.complete();
@@ -360,8 +564,8 @@ class ClipTask {
      * @param {Object} content 
      * @param {Object} error 
      */
-    failure(error) {
-        console.log('ERROR', error, this );
+    failure(content, error) {
+        console.log('ERROR', error, this.task(), content);
         return this.complete();
     }
     /**
@@ -377,12 +581,20 @@ class ClipTask {
      */
     createForm(input = {}) {
         const content = new FormData();
-        content.append('action', 'clipboard_action');
-        content.append('task',this.task());
-        if( this.hasAttachment()){
-            content.append('upload',this.attachment());
+        content.action = 'clipboard_action';
+        content.task = this.task();
+        if (input instanceof File) {
+            //create upload package
+            //content.task = 'upload';
+            content.upload = input;
+            if( input.hasOwnProperty('context_id')){
+                content.context_id = input.context_id;
+            }
         }
-        Object.keys(input).forEach(key => content.append(key, input[key]));
+        else {
+            //just prepare all input fields
+            Object.keys(input).forEach(key => content.append(key, input[key]));
+        }
         return content;
     }
 }
@@ -439,21 +651,14 @@ class ClipItem {
  */
 class ClipboardView {
     /**
-     * @param {String} uploadBox 
-     * @param {String} itemBox 
+     * @param {String} list 
+     * @param {String} collection 
      */
-    constructor(uploadBox, itemBox) {
-        //this._queue = document.getElementById(list);
-        this._uploadBox = [...document.getElementsByClassName(uploadBox)][0] || null;
-        this._collectionBox = [...document.getElementsByClassName(itemBox)][0] || null;
+    constructor(list, collection) {
+        this._queue = document.getElementById(list);
+        this._collection = document.getElementsByClassName(collection);
 
         this._contextId = this.importContext();
-    }
-    /**
-     * @returns {Boolean}
-     */
-    hasClipboard(){
-        return this.itemBox() !== null && this.uploadBox() !== null;
     }
     /**
      * @returns {String}
@@ -475,16 +680,22 @@ class ClipboardView {
         return this.contextId().length > 0;
     }
     /**
-     * @returns {Element}
+     * @returns {Boolean}
      */
-    uploadBox() {
-        return this._uploadBox;
+    isMain() {
+        return !this.hasContext();
     }
     /**
      * @returns {Element}
      */
-    itemBox() {
-        return this._collectionBox;
+    queue() {
+        return this._queue;
+    }
+    /**
+     * @returns {Element}
+     */
+    collection() {
+        return [...this._collection][0] || null;
     }
     /**
      * @param {String} name 
@@ -507,15 +718,15 @@ class ClipboardView {
      * @returns {ClipboardView}
      */
     attach(task) {
-        if (task && task.hasAttachment()) {
-            const file = task.attachment();
+        if (task && task.hasFile()) {
+            const file = task.content();
             const item = this.element('li', { 'className': 'item' });
             const reader = new FileReader();
             reader.onload = (e) => {
                 const preview = this.preview(file, e.target.result);
                 item.appendChild(preview);
             };
-            this.uploadBox().appendChild(item);
+            this.queue().appendChild(item);
             task.setRef(item); // Store reference
             reader.readAsDataURL(file)
         }
@@ -525,23 +736,22 @@ class ClipboardView {
      * @param {Object} itemData 
      * @returns {ClipboardView}
      */
-/*     addItem(itemData = {}) {
-        this.itemBox() && this.itemBox().appendChild(this.createItem(itemData));
-        if (!this.hasContext()) {
-            this.itemBox() && this.itemBox().appendChild(this.createItem(itemData));
+    addItem(itemData = {}) {
+        if (!this.isMain() || !this.hasContext()) {
+            this.collection() && this.collection().appendChild(this.createItem(itemData));
         }
         if (!this.hasContext() && itemData.id) {
             //console.log(this.contextId(),itemData.id,itemData.parent_id);
             this._contextId = itemData.id;
         }
         return this;
-    } */
+    }
     /**
      * @param {Object} itemData 
      * @returns {Element}
      */
     createItem(itemData = {}) {
-        //console.log(itemData,this.isMedia(itemData.type || ''));
+        //console.log(itemData,CodersClipboard.isMedia(itemData.type || ''));
         const item = this.element('li', { 'className': 'item' });
         const content = this.element('span', { 'className': 'content' });
 
@@ -562,9 +772,8 @@ class ClipboardView {
 
         item.appendChild(this.element('span', { 'className': 'placeholder' }));
         item.appendChild(content);
-        this.itemBox().appendChild(item);
 
-        return this;
+        return item;
     }
     /**
  * @param {String} type 
@@ -605,25 +814,11 @@ class ClipboardView {
         return this.element('span', { 'className': 'content empty' });
     }
     /**
-     * @returns {ClipboardView}
-     */
-    idle(){
-        this.uploadBox().classList.remove('running');
-        return this;
-    }
-    /**
-     * @returns {ClipboardView}
-     */
-    busy(){
-        this.uploadBox().classList.add('running');
-        return this;
-    }
-    /**
      * 
      * @returns {ClipboardView}
      */
-    clearEmptyBlock() {
-        const empty = this.itemBox().querySelector('li.empty');
+    clear() {
+        const empty = this.collection().querySelector('li.empty');
         if (empty) {
             empty.remove();
         }
@@ -635,17 +830,16 @@ class ClipboardView {
      * @returns {Element}
      */
     getItem(id) {
-        return this.itemBox().querySelector(`li.item[data-item="${id}"]`);
+        return this.collection().querySelector(`li.item[data-item="${id}"]`);
     }
     /**
      * 
      * @param {String} id 
      * @returns {CodersClipboard}
      */
-    remove( response = {}) {
-        if ( response && response.id) {
-            const item = this.getItem(response.id);
-            console.log(response.id,item);
+    remove(id = '') {
+        if (id) {
+            const item = this.getItem(id);
             if (item) item.remove();
         }
         return this;
@@ -653,7 +847,7 @@ class ClipboardView {
     sort(id = '', slot = 0) {
 
         const item = this.getItem(id);
-        const placeholders = this.itemBox().querySelectorAll('.placeholder');
+        const placeholders = this.collection().querySelectorAll('.placeholder');
 
         // Find the placeholder by slot index
         const target = [...placeholders].find(p => p.dataset.slot == slot);
@@ -665,20 +859,21 @@ class ClipboardView {
         // Insert before the target placeholder's parent (which is the target li.item)
         const selected = target.closest('li.item');
         if (selected) {
-            this.itemBox().insertBefore(item, selected);
+            this.collection().insertBefore(item, selected);
         } else {
             // If no item found (e.g., last placeholder), just append
-            this.itemBox().appendChild(item);
+            this.collection().appendChild(item);
         }
     }
 }
 
-/**
- * @param {CodersClipboard} cb 
- */
-function initialize_clipboard( cb ){
 
-    const collection = cb.view().itemBox();
+//Loader
+document.addEventListener('DOMContentLoaded', function () {
+
+    const cb = new CodersClipboard();
+    const collection = cb.collection();
+
 
     // File input
     document.querySelectorAll('input[type=file]').forEach(input => {
@@ -725,13 +920,13 @@ function initialize_clipboard( cb ){
 
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('application/json', JSON.stringify({ 'id': item_id, 'slot': slot })); // store item ID
-        //console.log('DRAG!!', item_id, slot);
+        console.log('DRAG!!', item_id, slot);
 
         // Create a custom drag image
         //const ghost = e.target.cloneNode(true);
         const image = e.target.closest('img.media');
         const ghost = image && image.cloneNode(true) || e.target.cloneNode(true);
-        //console.log('ghost', e.target);
+        console.log('ghost', e.target);
         ghost.style.position = 'absolute';
         ghost.style.top = '-1000px';
         ghost.style.left = '-1000px';
@@ -739,7 +934,7 @@ function initialize_clipboard( cb ){
         e.dataTransfer.setDragImage(ghost, 0, 0);
 
         // Clean up later
-        setTimeout(() => ghost.remove(), 100);
+        setTimeout(() => ghost.remove(), 0);
     });
 
     document.addEventListener('dragend', (e) => {
@@ -775,30 +970,10 @@ function initialize_clipboard( cb ){
                 }
                 break;
             default:
-                //console.log(`No target selected`);
+                console.log(`No target selected`);
                 break;
         }
     });
-}
-
-//Loader
-document.addEventListener('DOMContentLoaded', function () {
-
-    const clipboard = CodersClipboard.createClipboard();
-    if( clipboard ){
-        initialize_clipboard(clipboard);
-    }
-
-    const tabs = document.querySelector('.coders-clipboard .container .tab > .toggle');
-
-    //tabs.prepend( document.createElement('span') );
-
-    tabs.addEventListener('click',function(e) {
-        e.preventDefault();
-        (this).parentNode.classList.toggle('collapsed');
-        return true;
-    });
-    
 });
 
 

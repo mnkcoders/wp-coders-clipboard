@@ -50,6 +50,37 @@ class ClipboardAdmin extends Clipboard {
 
         return $this;
     }
+    /**
+     * 
+     * @param type $name
+     * @param type $arguments
+     * @return string
+     */
+    public final function __call($name, $arguments) {
+        
+        switch( true ){
+            case preg_match('/^editor_/', $name):
+                $this->__editor(substr($name, 7), ... $arguments );
+            default:
+                return parent::__call($name, $arguments);
+        }
+    }
+    /**
+     * @param string $name
+     */
+    private function __editor( $name ) {
+        $content = $this->hasContent() ? $this->content()->description : '';
+        $id = 'id_'. $name;
+        $settings = [
+            'textarea_name' => $name, // The name attribute
+            'editor_height' => 250,
+            'media_buttons' => true,
+            'tinymce'       => true,
+            'quicktags'     => true
+        ];
+
+        wp_editor($content, $id, $settings);
+    }
 
     /**
      * @param string $action
@@ -177,11 +208,11 @@ class ClipboardAdmin extends Clipboard {
      * @return string
      */
     protected function getPost($ids = array()) {
-        //return parent::getLink($ids);
-        return add_query_arg([
-            'page' => 'coders_clipboard',
-            'id' => $ids[0],
-                ], admin_url('admin.php'));
+        $query = array('page'=>'coders_clipboard');
+        if(count($ids)){
+            $query['id'] = $ids[0];
+        }
+        return add_query_arg($query, admin_url('admin.php'));
     }
 
     /**
@@ -266,7 +297,6 @@ class ClipboardAdmin extends Clipboard {
         switch ($task ){
             case 'upload':
                 $uploaded = self::upload( 'upload' , $id );
-                $output['count'] = count($uploaded);
                 $output['content'] = $uploaded;
                 break;
             case 'update':

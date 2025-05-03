@@ -1024,7 +1024,7 @@ class ClipboardContent{
         
         $list = $wpdb->get_results( strlen($id) ?
                     $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id`='%s' ORDER BY `slot`", $id):
-                    $wpdb->prepare("SELECT * FROM `$table` WHERE `parent_id` IS NULL ORDER BY `slot`")
+                    "SELECT * FROM `$table` WHERE `parent_id` IS NULL ORDER BY `slot`"
                 , ARRAY_A );
         
         if(!is_null($list)){
