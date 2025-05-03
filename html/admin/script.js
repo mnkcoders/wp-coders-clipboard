@@ -93,7 +93,8 @@ class CodersClipboard {
         for (const file of files) {
             this.add(file);
         }
-        /*files.map( file => new ClipTask('upload',file)).forEach( task => {
+        /*files.map( file => new ClipTask('upload',file,this.uploaded)).forEach( task => {
+            task.content().context_id = this.contextId();
             this.view().attach( task );
             this.tasks().push( task )
         });*/
@@ -105,7 +106,6 @@ class CodersClipboard {
      * @returns {CodersClipboard}
      */
     add(file) {
-        this.view().attach(file);
         const item = document.createElement('li');
         item.className = 'item';
         //item.textContent = `Uploading: ${file.name}`;
@@ -129,7 +129,7 @@ class CodersClipboard {
 
         const ready = this.tasks(true);
         if( ready.length ){
-            ready.shift().send(this.uploaded);
+            ready.shift().send();
         }
         return this;
     }
@@ -330,7 +330,7 @@ class CodersClipboard {
             console.log(`Moving [${id}] to [${parent_id || 'ROOT'}]`);
             this.onUpdate('move', { 'id': id, 'parent_id': parent_id }, this.removeItem);
             
-            //const task = new ClipTask('move',{'id':id,'parent_id':parent_id});
+            //const task = new ClipTask('move',{'id':id,'parent_id':parent_id'context_id':this.contextId()},this.view().remove);
             //task.send(this.view().remove);
         }
 
@@ -346,7 +346,7 @@ class CodersClipboard {
             console.log(`Moving [${id}] to slot [${slot}]`);
             this.onUpdate('sort', { 'id': id, 'slot': slot }, this.moveToSlot);
             
-            //const task = new ClipTask('sort',{'id':id,'slot':slot});
+            //const task = new ClipTask('sort',{'id':id,'slot':slot,'context_id':this.contextId()},this.view().sort);
             //task.send(this.view().sort);
         }
         return this;
@@ -452,13 +452,15 @@ class ClipTask {
     /**
      * @param {String} task 
      * @param {Object} data
-     * @param {Element} ref 
+     * @param {Function} callback
      */
-    constructor(task = '', data = null ) {
+    constructor(task = '', data = null , callback = null) {
         this._status = ClipTask.Status.Ready;
         this._task = task || '';
         this._data = data || {};
+        //this._contextId = context_id;
         this._ref = null;
+        this._callback = callback || null;
     }
     /**
      * @returns {String}
@@ -529,28 +531,32 @@ class ClipTask {
         return this.reference() !== null;
     }
     /**
-     * @param {Object} data
      * @returns {CodersClipboard}
      */
-    send(callback = null) {
+    send() {
         if ( this.valid() ) {
             this._status = ClipTask.Status.Running;
             const formData = this.createForm(this.content());
 
             fetch(ajaxurl, { method: 'POST', body: formData })
                 .then(res => res.json())
-                .then(response => this.success(response.data, callback))
+                .then(response => this.success(response.data))
                 .catch(error => this.failure(data, error));
         }
         return this;
     }
     /**
      * @param {Object} response 
-     * @param {Function} callback 
      */
-    success(response, callback = null) {
-        if (response && callback) {
-            callback.call(this, response , this._data );
+    success( response = null ) {
+        if (response) {
+            const callback = this._callback;
+            if( callback ){
+                callback.call(this, response , this._data );
+            }
+            else{
+                console.log(response , this._data);
+            }
         }
         return this.complete();
     }
@@ -577,13 +583,13 @@ class ClipTask {
         const content = new FormData();
         content.action = 'clipboard_action';
         content.task = this.task();
-        //if (this.hasContextId()) {
-        //    content.context_id = this.contextId();
-        //}
         if (input instanceof File) {
             //create upload package
             //content.task = 'upload';
             content.upload = input;
+            if( input.hasOwnProperty('context_id')){
+                content.context_id = input.context_id;
+            }
         }
         else {
             //just prepare all input fields
@@ -712,7 +718,7 @@ class ClipboardView {
      * @returns {ClipboardView}
      */
     attach(task) {
-        if (task.hasFile()) {
+        if (task && task.hasFile()) {
             const file = task.content();
             const item = this.element('li', { 'className': 'item' });
             const reader = new FileReader();
