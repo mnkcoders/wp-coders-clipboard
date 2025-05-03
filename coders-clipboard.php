@@ -61,15 +61,7 @@ class Clipboard {
      */
     protected function view(){
         
-        $view = $this->getLayout();
-
-        if (file_exists($view)) {
-            include $view;
-        } else {
-            $error = $this->__render('error');
-            include $error;
-            //printf('<p>:( %s</p>', $view);
-        }
+        $this->layout_default();
 
         return $this;        
     }
@@ -97,9 +89,11 @@ class Clipboard {
             case preg_match('/^get_/', $name):
                 return $this->__run('get'.substr($name, 4), '', $arguments);
             case preg_match('/^view_/', $name):
-                return $this->__render(substr($name, 5), is_admin() ? 'admin' : 'public') ;
+                return $this->__view(substr($name, 5), is_admin() ? 'admin' : 'public') ;
             case preg_match('/^part_/', $name):
                 return $this->__part(substr($name, 5), is_admin() ? 'admin' : 'public') ;
+            case preg_match('/^layout_/', $name):
+                return $this->__layout(substr($name, 7), is_admin() ? 'admin' : 'public') ;
             case preg_match('/^link_/', $name):
                 return $this->__link(substr($name, 5), $arguments ) ;
             case preg_match('/^action_/', $name):
@@ -166,14 +160,6 @@ class Clipboard {
     public function getId(){
         return $this->isValid() ? $this->content()->id : '';
     }
-    /**
-     * @return string
-     */
-    protected function getLayout(){
-        return $this->__render('default');
-        //return $this->__render($this->isValid() ? $this->content()->layout : 'default' );
-    }
-
     /**
      * @return Boolean
      */
@@ -246,15 +232,39 @@ class Clipboard {
      * @return string
      */
     protected function __part( $part = '' , $path = 'public'){
-        require $this->__render( $part , $path . '/parts');
+        $view = $this->__view( 'parts/' . $part , $path );
+        if(file_exists($view)){
+            require $view;
+            return true;
+        }
+        else{
+            require $this->__view('error',$path);
+        }
+        return false;
     }
 
+    /**
+     * @param String $layout
+     * @param Boolean $path
+     * @return Boolean
+     */
+    protected function __layout( $layout = 'default' , $path = 'public' ) {
+        $view = $this->__view( 'layouts/' . $layout , $path );
+        if(file_exists($view)){
+            require $view;
+            return true;
+        }
+        else{
+            require $this->__view('error',$path);
+        }
+        return false;
+    }
     /**
      * @param String $view
      * @param Boolean $path
      * @return String 
      */
-    protected function __render( $view = 'default' , $path = 'public' ) {
+    protected function __view( $view = 'default' , $path = 'public' ) {
         return self::assetPath(sprintf('html/%s/%s.php', $path , $view));
     }
     /**
@@ -311,8 +321,8 @@ class Clipboard {
         if( $clipboard->isFullPage() ){          
             wp_head();
         }
-        
-        $clipboard->view();
+        //display the view layout
+        $clipboard->__layout($clipboard->content()->layout ?? 'default' );
         
         if( $clipboard->isFullPage()){
             wp_footer();
@@ -354,7 +364,8 @@ class Clipboard {
     public static function assetPath( $content = '' ){
         $path = plugin_dir_path(__FILE__ );
         
-        return strlen($content) ? sprintf('%s/%s',$path,$content) : $path;
+        return strlen($content) ? $path.$content : $path;
+        //return strlen($content) ? sprintf('%s/%s',$path,$content) : $path;
     }
     /**
      * @param string $content

@@ -37,7 +37,7 @@ class ClipboardAdmin extends Clipboard {
         }
         $id = array_key_exists('id', $input) ? $input['id'] : '';
         $clipboard = new ClipboardAdmin( $id );
-        $clipboard->page(strlen($page) ? $page : 'default' , $input);
+        $clipboard->__layout(strlen($page) ? $page : 'default','admin');
     }
 
     /**
@@ -46,13 +46,7 @@ class ClipboardAdmin extends Clipboard {
      */
     protected function page($page = 'default' , $input = array()) {
         
-        $view = $this->__render($page, 'admin');
-
-        if (file_exists($view)) {
-            include $view;
-        } else {
-            printf('<p>:( %s</p>', $view);
-        }
+        $this->__layout($page,'admin');
 
         return $this;
     }

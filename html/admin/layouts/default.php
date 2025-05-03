@@ -18,7 +18,7 @@
             </div>
         </div>
     <?php else: ?>
-        <div class="container">
+        <div class="container main">
         </div>
     <?php endif; ?>
     <!-- UPLOADER -->
