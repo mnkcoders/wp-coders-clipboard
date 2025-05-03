@@ -3,7 +3,9 @@
 <?php if( $this->is_valid() ) : ?>
 <?php $this->part_path() ?>
 <?php else : ?>
-<h1 class="wp-heading-inline"><?php print get_admin_page_title() ?></h1>
+<h1 class="wp-heading-inline">
+    <span class="dashicons dashicons-art"></span>
+    <?php print get_admin_page_title() ?></h1>
 <?php endif; ?>
 
 <div class="wrap coders-clipboard main">

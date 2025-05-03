@@ -42,7 +42,7 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
     transition: height ease-in 200ms;
 }
 #wpbody-content .coders-clipboard .container .tab.collapsed{
-    height: 40px;
+    height: 80px;
     overflow: hidden;
 }
 #wpbody-content .coders-clipboard .container .tab .toggle{
@@ -53,9 +53,7 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
     cursor: pointer;
     text-align: center;
     transition: background ease-in 200ms;
-}
-#wpbody-content .coders-clipboard .container .tab .toggle:before{
-    content: '...';
+    margin: 20px auto;
 }
 #wpbody-content .coders-clipboard .container .tab.collapsed .toggle{
     background: linear-gradient(#ffffff,#fafafa);
@@ -68,6 +66,9 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
 #wpbody-content .coders-clipboard > .container{
     margin: 20px 0;
     padding: 0;
+}
+#wpbody-content .coders-clipboard > .container.clip{
+    overflow: hidden;
 }
 #wpbody-content .coders-clipboard > .container.separator{
     border-bottom: 1px solid rgba(0,0,0,0.1);
@@ -150,7 +151,6 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
 #wpbody-content .coders-clipboard .container.media.collapsed{
     height: 300px;
 }
-
 #wpbody-content .coders-clipboard .container.media img{
     width: 100%;
     height: auto;
@@ -160,13 +160,14 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
     height: 100%;
 }
 #wpbody-content .coders-clipboard .container.media > .content{
+    overflow: hidden;
     display: block ;
     width: 100%;
     height: 100%;
     transition: transform ease-in 800ms;
 }
 #wpbody-content .coders-clipboard .container.media > .content:hover{
-    transform: scale(1.4);
+    transform: scale(1.1);
 }
 #wpbody-content .coders-clipboard ul.inline > li{
     display: inline-block;
@@ -269,7 +270,7 @@ body.toplevel_page_coders_clipboard .coders-clipboard-title.path > li.node:not(:
     transition: transform ease-in 800ms, border-radius 200ms;
 }
 #wpbody-content .coders-clipboard > .collections:not(.move) > li.item:hover > .content > .media{
-    transform: scale(1.2);
+    transform: scale(1.1);
 }
 #wpbody-content .coders-clipboard > .collections > li.item > .content > .media + .cover{
     display: flex;

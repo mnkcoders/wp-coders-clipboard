@@ -7,7 +7,7 @@
     </div>
 
     <div class="tab collapsed">
-        <span class="toggle"></span>
+        <span class="toggle"><span class="dashicons dashicons-arrow-down-alt2"></span></span>
             <div class="container half content">
         <span class="block solid">
             <label><?php print __('Created', 'coders_clipboard') ?></label>
@@ -34,7 +34,7 @@
         </span>
 
     </div>
-    <div class="container media half compact">
+    <div class="container media half compact clip">
         <?php $this->part_attachment() ?>
     </div>
     <div class="container">

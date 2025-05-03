@@ -20,22 +20,22 @@
                 </div>
                 <!-- commands -->
                     <?php if($this->is_valid()):  ?>
-                    <a class="task top-center dashicons dashicons-arrow-up-alt" href="<?php
+                    <a class="task top-right dashicons dashicons-arrow-up-alt" href="<?php
                         print $this->action_move($item->id,$this->parent_id) ?>"></a>
                     <?php endif; ?>
-                    <a class="task top-right dashicons dashicons-arrow-right-alt2" href="<?php
-                        print $this->action_sort($item->id,$item->get_after()) ?>"></a>
-                    <a class="task top-left dashicons dashicons-arrow-left-alt2" href="<?php
-                        print $this->action_sort($item->id,$item->get_before()) ?>"></a>
-                    <label class="task bottom-right select" for="<?php
+                    <!--a class="task top-right dashicons dashicons-arrow-right-alt2" href="<?php
+                        print $this->action_sort($item->id,$item->get_after()) ?>"></a-->
+                    <!--a class="task top-left dashicons dashicons-arrow-left-alt2" href="<?php
+                        print $this->action_sort($item->id,$item->get_before()) ?>"></a-->
+                    <label class="task top-left select" for="<?php
                             print sprintf('select_%s',$item->id)?>">
                         <input type="checkbox" id="<?php
-                            print sprintf('select_%s',$item->id) ?>" value="<?php print $item->id ?>"
+                            print sprintf('select_%s',$item->id) ?>" value="<?php
+                            print $item->id ?>" />
                     </label>
                     <?php if($item->has_items()) : ?>
                     <span class="task bottom-left dashicons dashicons-images-alt" ><?php
-                        print $item->count_items();
-                    ?></span>
+                            print $item->count_items(); ?></span>
                     <?php endif; ?>
             </li>
         <?php endforeach; ?>
