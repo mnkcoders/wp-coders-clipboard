@@ -41,7 +41,7 @@
         <?php $this->editor_description() ?>
     </div>
     <div class="container bottom">
-        <a class="button" target="_self" href="<?php print $this->action_delete() ?>"><?php print __('delete', 'coders_clipboard') ?></a>
+        <a class="button" target="_self" href="<?php print $this->action_delete($this->id) ?>"><?php print __('delete', 'coders_clipboard') ?></a>
         <button class="button-primary right" type="submit" name="task" value="update"><?php
         print __('Update', 'coders_clipboard');
         ?></button>

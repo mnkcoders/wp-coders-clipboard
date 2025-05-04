@@ -7,7 +7,10 @@ defined('ABSPATH') or die;
  */
 class ClipboardAdmin extends Clipboard {
     
-    //static $_messages = array();
+    const CONTEXT_MAIN = 'main';
+    const CONTEXT_SETTINGS = 'settings';
+    
+    private $_page = self::CONTEXT_MAIN;
     /**
      * 
      * @param String $id
@@ -28,27 +31,18 @@ class ClipboardAdmin extends Clipboard {
 
     /**
      * @param Stsring $page
+     * @param Stsring $context_id
      */
-    public static final function display($page = '') {
+    public static final function display($page = '' , $context_id = '') {
         $input = filter_input_array(INPUT_GET) ?? array();
-        
+        //ClipboardAdmin::sendMessage('Hello!');
         if(array_key_exists('task', $input)){
             $input = self::task($input);
+            //return self::redirect($input);
         }
-        $id = array_key_exists('id', $input) ? $input['id'] : '';
+        $id = array_key_exists('context_id', $input) ? $input['context_id'] : $context_id;
         $clipboard = new ClipboardAdmin( $id );
         $clipboard->__layout(strlen($page) ? $page : 'default','admin');
-    }
-
-    /**
-     * @param String $page
-     * @return ClipboardAdmin
-     */
-    protected function page($page = 'default' , $input = array()) {
-        
-        $this->__layout($page,'admin');
-
-        return $this;
     }
     /**
      * 
@@ -57,8 +51,9 @@ class ClipboardAdmin extends Clipboard {
      * @return string
      */
     public final function __call($name, $arguments) {
-        
         switch( true ){
+            case $name === 'page':
+                return $this->page();
             case preg_match('/^editor_/', $name):
                 $this->__editor(substr($name, 7), ... $arguments );
             default:
@@ -98,6 +93,24 @@ class ClipboardAdmin extends Clipboard {
         return add_query_arg($request, admin_url('admin.php'));
     }     
     /**
+     * @return String
+     */
+    public function page(){
+        return $this->_page;
+    }
+    /**
+     * @return Boolean
+     */
+    protected function isMain(){
+        return $this->page() === self::CONTEXT_MAIN;
+    }
+    /**
+     * @return Boolean
+     */
+    protected function isSettings(){
+        return $this->page() === self::CONTEXT_MAIN;
+    }
+    /**
      * @param string $id
      * @param string $parent_id
      * @return string
@@ -122,7 +135,9 @@ class ClipboardAdmin extends Clipboard {
         $request = array('id'=> $id);
         if( $this->hasContent()){
             $context = $this->id !== $id ? $this->id : $this->parent_id;
-            $request['context_id'] = $context;
+            if(strlen($context)){
+                $request['context_id'] = $context;                
+            }
         }
         return $this->__link('delete',$request);
     }
@@ -210,7 +225,7 @@ class ClipboardAdmin extends Clipboard {
     protected function getPost($ids = array()) {
         $query = array('page'=>'coders_clipboard');
         if(count($ids)){
-            $query['id'] = $ids[0];
+            $query['context_id'] = $ids[0];
         }
         return add_query_arg($query, admin_url('admin.php'));
     }
@@ -244,7 +259,7 @@ class ClipboardAdmin extends Clipboard {
      */
     private static function upload( $from = 'upload', $id = '' ) {
         $uploaded = array();
-        $slot = 0;
+        $slot = ClipboardContent::count($id);
         $parent_id = strlen($id) ? $id : '';
         foreach (ClipboardUploader::upload($from)->files() as $file) {
             //set the first parent id to the parsed ID
@@ -277,8 +292,6 @@ class ClipboardAdmin extends Clipboard {
             $input['page'] = 'coders_clipboard';
         }
 
-        ClipboardAdmin::registerMessages();
-
         wp_redirect(add_query_arg($input, admin_url('admin.php')));
         exit;
     }
@@ -287,11 +300,15 @@ class ClipboardAdmin extends Clipboard {
      */
     public static final function task( $input = array() ){
         $task = array_key_exists('task', $input) ? $input['task'] : '';
-        $id = array_key_exists('id', $input) ? $input['id'] : '';
         $context_id = array_key_exists('context_id', $input) ? $input['context_id'] : '';
+        $id = array_key_exists('id', $input) ? $input['id'] : '';
+        $parent_id = array_key_exists('parent_id', $input) ? $input['parent_id'] : '';
         $output = array();
-        if( strlen($id) || strlen($context_id)){
-            $output['id'] = strlen($context_id) ? $context_id : $id;
+        if( strlen($id)){
+            $output['id'] = $id;
+        }
+        if( strlen($context_id)){
+            $output['context_id'] = $context_id;
         }
         
         switch ($task ){
@@ -309,6 +326,10 @@ class ClipboardAdmin extends Clipboard {
                 $content = ClipboardContent::load($id);
                 if (!is_null($content) && $content->remove()) {
                     $output[$task] = 'done';
+                    if( $content->id === $context_id){
+                        $context_id = $content->parent_id;
+                    }
+                    $output['context_id'] = $context_id;
                 }
                 break;
             case 'sort':
@@ -323,9 +344,8 @@ class ClipboardAdmin extends Clipboard {
                 break;
             case 'move':
                 $content = ClipboardContent::load($id);
-                $parent_id = isset($input['parent_id']) ? $input['parent_id'] : '';
                 if (!is_null($content) && $content->moveto($parent_id)) {
-                    $output[$task] = 'done';                        
+                    $output[$task] = 'done';
                 }
                 break;
             case 'moveup':
@@ -364,15 +384,12 @@ class ClipboardAdmin extends Clipboard {
                 }
                 break;
             case 'arrange':
-                $item = ClipboardContent::load($id);
-                if( !is_null($item) ){
-                    $count = $item->arrange();
-                    $output[$task] = 'done';
-                    $output['count'] = $count;
-                }
+                $count = ClipboardContent::arrange($id);
+                $output[$task] = 'done';
+                $output['count'] = $count;
                 break;
             case 'nuke':
-                $output['page'] = 'settings';
+                $output['page'] = self::CONTEXT_SETTINGS;
                 if( ClipboardContent::resetContent() ){
                     $output[$task] = 'done';
                 }
@@ -455,7 +472,7 @@ class ClipboardUploader {
                     return true;
             }
         } catch (Exception $ex) {
-            ClipboardAdmin::addMessage($ex->getMessage(),'error');
+            ClipboardAdmin::sendMessage($ex->getMessage(),'error');
         }
         return false;
     }
@@ -481,7 +498,7 @@ class ClipboardUploader {
                     //$files[$upload['id']] = $upload;
                     $files[] = $upload;
                 } else {
-                    ClipboardAdmin::addMessage(
+                    ClipboardAdmin::sendMessage(
                             __('Failed to move uploaded file','coders_clipboard') . ' ' . $upload['name'],
                             'error');
                     //return new WP_Error('upload_failed', 'Failed to move uploaded file.');
@@ -580,18 +597,21 @@ add_action('admin_menu', function () {
 
 add_action('admin_init', function() {
 
-    //ClipboardAdmin::addMessage('Hello!!');
+    //ClipboardAdmin::sendMessage('Hello!!');
 
-    if (count(ClipboardAdmin::messages())) {
-        foreach (ClipboardAdmin::messages() as $message) {
-            $content = $message['content'];
-            $type = $message['type'];
-            add_action('admin_notices', function() use ( $content, $type) {
-                $class = 'is-dismissible notice notice-' . $type;
-                printf('<div class="%s"><p>%s</p></div>', $class, $content);
-            });
+    /*$get = filter_input_array(INPUT_GET) ?? array();
+    
+    if( isset($get['page']) && $get['page'] === 'coders_clipboard' ){
+        //tasks and redirect
+        if( isset($get['task']) ){
+            $redirect = ClipboardAdmin::task($get);
+            return ClipboardAdmin::redirect($redirect);
         }
-    }
+        $id =isset($get['context_id']) ? $get['context_id'] : '';
+        
+        $view = $get['page'] === 'coders_clipboard_settings' ? 'settings' :'default';
+        ClipboardAdmin::display($view, $id);
+    }*/
 });
 
 

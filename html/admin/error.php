@@ -1,4 +1,4 @@
 <?php defined('ABSPATH') or die; ?>
-<div class="container">
-    <?php var_dump(Clipboard::messages()); ?>
-</div>
+<?php foreach (Clipboard::messages() as $message) : ?>
+    <p class="container notice type-<?php print $message['type'] ?>"><?php print $message['content'] ?></p>
+<?php endforeach; ?>

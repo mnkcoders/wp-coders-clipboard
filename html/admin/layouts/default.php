@@ -7,6 +7,8 @@
     <span class="dashicons dashicons-art"></span>
     <?php print get_admin_page_title() ?></h1>
 <?php endif; ?>
+    
+<?php $this->part_messages() ?>
 
 <div class="wrap coders-clipboard main">
     <?php if ($this->is_valid()) : ?>

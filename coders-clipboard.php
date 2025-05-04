@@ -238,6 +238,7 @@ class Clipboard {
             return true;
         }
         else{
+            Clipboard::sendMessage(sprintf('Layout Part [%s] not found at %s',$part,$view),'error');
             require $this->__view('error',$path);
         }
         return false;
@@ -255,6 +256,7 @@ class Clipboard {
             return true;
         }
         else{
+            Clipboard::sendMessage(sprintf('Layout [%s] not found at %s',$layout,$view),'error');
             require $this->__view('error',$path);
         }
         return false;
@@ -271,7 +273,7 @@ class Clipboard {
      * 
      */
     public static function error404(){
-            self::addMessage(__('Clipboard not found.', 'coders_clipboard'),'error');
+            self::sendMessage(__('Clipboard not found.', 'coders_clipboard'),'error');
             status_header(404);
             var_dump(self::messages());
             //echo __('File not found.', 'coders_clipboard');
@@ -282,7 +284,7 @@ class Clipboard {
      * 
      */
     public static function errorDenied(){
-        self::addMessage(__('Access denied.', 'coders_clipboard'),'error');
+        self::sendMessage(__('Access denied.', 'coders_clipboard'),'error');
         status_header(403);
         //echo __('Access denied.', 'coders_clipboard');
         exit;
@@ -388,7 +390,7 @@ class Clipboard {
      * @param string $content
      * @param string $type
      */
-    public static function addMessage( $content , $type = 'info'){
+    public static function sendMessage( $content , $type = 'info'){
         self::$_messages[] = array( 'content' => $content , 'type' => $type );
     }
     /**
@@ -459,7 +461,7 @@ class ClipboardContent{
     protected function populate( $input = [] ){
         foreach( $input as $field => $value ){
             if( isset($this->_content[$field]) && !is_null($value)){
-                $this->_content[$field] = $value;
+                $this->_content[$field] = !is_null($value) ? $value : '';
             }
         }
     }
@@ -618,7 +620,7 @@ class ClipboardContent{
                 $this->_updated = false;
                 return true;
             }
-            ClipboardAdmin::addMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+            Clipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
         }
         return false;
     }
@@ -652,10 +654,20 @@ class ClipboardContent{
             $result = $wpdb->insert($table, $content);
 
             if ($result === false) {
-                Clipboard::addMessage($wpdb->last_error);
+                Clipboard::sendMessage($wpdb->last_error);
             }
 
             return $result !== false;
+        }
+        return false;
+    }
+    /**
+     * @return boolean
+     */
+    public function moveup(){
+        if( $this->hasParent()){
+            $parent = self::load($this->parent_id);
+            return $this->moveto($parent->parent_id);
         }
         return false;
     }
@@ -665,21 +677,24 @@ class ClipboardContent{
      */
     public function moveto( $parent_id = '') {
         global $wpdb;
-        if ($this->isValid()) {
+        if ($this->isValid() && $this->parent_id !== $parent_id) {
+            $count = self::count($parent_id);
             $data = array(
                 'parent_id' => strlen($parent_id) ? $parent_id : null,
-                //'slot' => 0,
+                'slot' => $count,
             );
 
             $result = $wpdb->update(self::table(), $data, array('id' => $this->id));
             if ( $result !== false ) {
                 $this->_updated = false;
-                return true;
+                $context = $this->parent_id;
+                $this->parent_id = $parent_id;
+                return self::arrange($context);
             }
-            ClipboardAdmin::addMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+            Clipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
         }
         return false;
-    }    
+    }
     /**
      * @global wpdb $wpdb
      * @return boolean
@@ -701,13 +716,13 @@ class ClipboardContent{
             }
             return true;
         }
-        ClipboardAdmin::addMessage(__('Unable to remove this item','coders_clipboard'));
+        Clipboard::sendMessage($wpdb->last_error);
         return false;
     }
     /**
      * @global wpdb $wpdb
      * @param int $index
-     * @return boolean
+     * @return int
      */
     public function sort( $index = 0 ){
         global $wpdb;
@@ -718,36 +733,52 @@ class ClipboardContent{
                     array('slot' => $index),
                     array('id' => $this->id));
             
-            $result2 = $wpdb->update(
-                    self::table(),
-                    array('slot'=>$this->slot),
-                    array('parent_id'=>$this->parent_id,'slot'=>$index));
-
             if ( $result1 !== false ) {
                 $this->_updated = false;
-                return true;
+                if( abs( $this->slot < $index) < 2 ){
+                    return $result1;
+                }
+                //sort all surrounding items
+                $from = $this->slot < $index ? $this->slot : $index;
+                $to = $this->slot > $index ? $this->slot : $index;
+                $arranged = self::arrange($this->parent_id , $from+1 , $to-1);
+                return $result1 + $arranged;
             }
-            ClipboardAdmin::addMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+            Clipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
         }
-        return false;        
+        return 0;
     }
     /**
-     * 
      * @global wpdb $wpdb
-     * @return int
+     * @param String $parent_id
+     * @param int $slot
+     * @param int $range
+     * @return Int
      */
-    public function arrange(  ){
-        $count = 0;
-        if ($this->isValid()) {
-            $index = 0;
-            foreach($this->listItems() as $item ){
-                $item->slot = $index++;
-                if( $item->update() ){
-                    $count++;
-                }
+    public static function arrange($parent_id = '', $slot = -1 , $range = 0 ){
+            global $wpdb;
+            $table = self::table();
+            // Set the variable
+            $wpdb->query("SET @rownum = 0");
+            $query = $wpdb->prepare(
+                "UPDATE `$table`
+                 SET `slot` = (@rownum := @rownum + 1) - 1
+                 WHERE `parent_id` = %s",
+                $parent_id
+            );
+            if( $slot >= 0 ){
+                $query .= sprintf(' AND `slot` >= %s',$slot);
             }
-        }
-        return $count;
+            if( $range ){
+                $query .= sprintf(' AND `slot` <= %s',$range);
+            }
+            $query .= " ORDER BY `slot` ASC";
+            $result = $wpdb->query($query);
+            if(is_numeric($result)){
+                return $result;
+            }
+            Clipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+            return 0;
     }
     /**
      * @return boolean
@@ -1034,6 +1065,20 @@ class ClipboardContent{
         }
         return $collection;
     }    
+    /**
+     * @global wpdb $wpdb
+     * @param string $id
+     * @return int
+     */
+    public static function count( $id = ''){
+        global $wpdb;
+        $table = self::table();
+        $update = strlen($id) ?
+                $wpdb->prepare("SELECT COUNT(*) AS `count` FROM `$table` WHERE `parent_id`='%s'", $id):
+                "SELECT COUNT(*) AS `count` FROM `$table` WHERE `parent_id` IS NULL";
+        $result = $wpdb->get_results(  $update , ARRAY_A );
+        return !is_null($result) && count($result) ? intval( $result[0]['count'] ) : 0;
+    }
 
     /**
      * @global wpdb $wpdb

@@ -196,7 +196,9 @@ class CodersClipboard {
         if (id) {
             //console.log(`Moving [${id}] to [${parent_id || 'ROOT'}]`);
             const _view = this.view();
-            const task = new ClipTask('move',{'id':id,'parent_id':parent_id,'context_id':this.contextId()},_view.remove.bind(_view));
+            const task = new ClipTask('move',
+                {'id':id,'parent_id':parent_id,'context_id':this.contextId()},
+                _view.remove.bind(_view));
             task.send();
         }
 
@@ -333,6 +335,7 @@ class ClipTask {
         if ( this.valid() ) {
             this._status = ClipTask.Status.Running;
             const formData = this.createForm(this.content());
+            console.log('Sending',this.content());
             fetch(this.url(), { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(response => this.success(response.data))
@@ -345,6 +348,7 @@ class ClipTask {
      */
     success( response = null ) {
         if (response) {
+            console.log( 'RESPONSE',response );
             const callback = this._callback;
             if( typeof callback === 'function' ){
                 callback(response , this );
@@ -635,7 +639,8 @@ class ClipboardView {
      * @returns {Element}
      */
     getItem(id) {
-        return this.itemBox().querySelector(`li.item[data-item="${id}"]`);
+        console.log(this.itemBox(),`li.item[data-id="${id}"]`,this.itemBox().querySelector(`li.item[data-id="${id}"]`))
+        return this.itemBox().querySelector(`li.item[data-id="${id}"]`);
     }
     /**
      * 
@@ -650,25 +655,28 @@ class ClipboardView {
         }
         return this;
     }
-    sort(id = '', slot = 0) {
-
-        const item = this.getItem(id);
-        const placeholders = this.itemBox().querySelectorAll('.placeholder');
-
-        // Find the placeholder by slot index
-        const target = [...placeholders].find(p => p.dataset.slot == slot);
-        if (!target) return;
-
-        // Detach the item
-        item.remove();
-
-        // Insert before the target placeholder's parent (which is the target li.item)
-        const selected = target.closest('li.item');
-        if (selected) {
-            this.itemBox().insertBefore(item, selected);
-        } else {
-            // If no item found (e.g., last placeholder), just append
-            this.itemBox().appendChild(item);
+    sort( response = {} ) {
+        if( response.id ){
+            const id = response.id;
+            const slot = parseInt(response.slot);
+            const item = this.getItem(id);
+            const placeholders = this.itemBox().querySelectorAll('.placeholder');
+    
+            // Find the placeholder by slot index
+            const target = [...placeholders].find(p => p.dataset.slot == slot);
+            if (!target) return;
+    
+            // Detach the item
+            item.remove();
+    
+            // Insert before the target placeholder's parent (which is the target li.item)
+            const selected = target.closest('li.item');
+            if (selected) {
+                this.itemBox().insertBefore(item, selected);
+            } else {
+                // If no item found (e.g., last placeholder), just append
+                this.itemBox().appendChild(item);
+            }    
         }
     }
 }
@@ -705,6 +713,7 @@ function initialize_clipboard( cb ){
             cb.upload(files);
         }
         else {
+            console.log(e.clipboardData.items);
             cb.upload((e.clipboardData.items || [])
                 .filter(item => item.kind === 'file')
                 .map(item => item.getAsFile() || null)
@@ -720,8 +729,11 @@ function initialize_clipboard( cb ){
         collection.classList.add('move');
         item.classList.add('moving');
 
-        const item_id = item.querySelector('.cover').dataset.id;
-        const slot = item.querySelector('.placeholder').dataset.slot;
+        console.log(item.dataset.id,item.dataset.slot);
+        //const item_id = item.querySelector('.cover').dataset.id;
+        //const slot = item.querySelector('.placeholder').dataset.slot;
+        const item_id = item.dataset.id;
+        const slot = item.dataset.slot;
 
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('application/json', JSON.stringify({ 'id': item_id, 'slot': slot })); // store item ID
@@ -753,6 +765,8 @@ function initialize_clipboard( cb ){
     });
     collection.addEventListener('drop', (e) => {
         const target = e.target;
+        console.log(target.closest('li.item'));
+        const targetItem = target.closest('li.item');
         const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
         const source_id = data.id;
         const source_slot = parseInt(data.slot);
@@ -761,15 +775,17 @@ function initialize_clipboard( cb ){
 
         switch (action) {
             case 'move':
-                const target_id = target.dataset.id;
+                const target_id = targetItem && targetItem.dataset.id || '';
+                //const target_id = target.dataset.id;
                 if (source_id !== target_id) {
                     //console.log(`Moving ${source_id} to ${target_id}`);
                     cb.move(source_id, target_id);
                 }
                 break;
             case 'sort':
-                const slot = target.dataset.slot;
-                if (source_slot !== parseInt(slot)) {
+                const slot = targetItem && parseInt(targetItem.dataset.slot) || false;
+                //const slot = target.dataset.slot;
+                if ( slot !== false && source_slot !== slot) {
                     //console.log(`Moving ${source_id} to slot ${slot}`);
                     cb.sort(source_id, slot);
                 }
@@ -792,13 +808,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const tabs = document.querySelector('.coders-clipboard .container .tab > .toggle');
 
     //tabs.prepend( document.createElement('span') );
-
-    tabs.addEventListener('click',function(e) {
-        e.preventDefault();
-        (this).parentNode.classList.toggle('collapsed');
-        return true;
-    });
-    
+    if( tabs ){
+        tabs.addEventListener('click',function(e) {
+            e.preventDefault();
+            (this).parentNode.classList.toggle('collapsed');
+            return true;
+        });    
+    }
 });
 
 

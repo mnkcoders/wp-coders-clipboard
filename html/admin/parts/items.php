@@ -4,7 +4,9 @@
 <ul class="collections container drag-drop">
     <?php if ($this->count_items()) : ?>
         <?php foreach ($this->list_collection() as $item) : ?>
-            <li class="item" data-item="<?php print $item->id ?>">
+            <li class="item" data-id="<?php
+                    print $item->id ?>" data-slot="<?php 
+                    print $item->slot ?>">
                 <span class="placeholder" data-slot="<?php print $item->slot ?>"></span>
                 <div class="content">
                     <?php if ($item->is_media()) : ?>
@@ -34,8 +36,9 @@
                             print $item->id ?>" />
                     </label>
                     <?php if($item->has_items()) : ?>
-                    <span class="task bottom-left dashicons dashicons-images-alt" ><?php
-                            print $item->count_items(); ?></span>
+                    <span class="task counter visible bottom-left" >
+                        <?php print $item->count_items(); ?>
+                    </span>
                     <?php endif; ?>
             </li>
         <?php endforeach; ?>
