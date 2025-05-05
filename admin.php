@@ -151,21 +151,21 @@ class ClipboardAdmin extends Clipboard {
      * @return string
      */
     protected function actionPropagate(){
-        $request = array('id'=>$this->id);
+        $request = array('context_id'=>$this->id);
         return $this->__link('propagate',$request);
     }
     /**
      * @return string
      */
     protected function actionLayout(){
-        $request = array('id'=>$this->id);
+        $request = array('context_id'=>$this->id);
         return $this->__link('layout',$request);
     }
     /**
      * @return string
      */
     protected function actionRecover(){
-        $request = array('id'=>$this->id);
+        $request = array('context_id'=>$this->id);
         return $this->__link('recover',$request);
     }
     /**
@@ -195,7 +195,7 @@ class ClipboardAdmin extends Clipboard {
      * @return string
      */
     protected function actionRenameAll(){
-        $request = array('id'=>$this->id,'context_id'=>$this->id);
+        $request = array('context_id'=>$this->id);
         return $this->__link('renameall',$request);
     }
 
@@ -273,18 +273,61 @@ class ClipboardAdmin extends Clipboard {
         return $this->isValid() && $this->content()->acl === $item ? 'selected' : '';
     }
     /**
+     * @global wpdb $wpdb
+     * @return int
+     */
+    private static function fixParents(){
+        global $wpdb;
+        
+        $fixed = $wpdb->query(sprintf("UPDATE `%s` SET parent_id = NULL WHERE id = parent_id OR parent_id = ''",self::table()));
+    
+        if( $fixed !== false ){
+            return $fixed;
+        }
+        ClipBoard::sendMessage($wpdb->last_error);
+        return 0;
+    }
+    /**
+     * @global wpdb $wpdb
+     * @return int
+     */
+    private static function fetchLost( ){
+        global $wpdb;
+        
+        $db_ids = $wpdb->get_col(sprintf("SELECT `id` FROM `%s`",self::table()));
+        $ids = array_map('strtolower', $db_ids);
+        $count = 0;
+        $folder = Clipboard::path();
+        $files = scandir($folder);
+        $lost = [];
+        
+        foreach($files as $file ){
+            if ($file === '.' || $file === '..') continue;
+            if(!in_array(strtolower($file), $ids)){
+                $path = $folder . $file;
+                $lost[$file] = mime_content_type($path);
+            }
+        }
+        return $lost;
+    }    
+    /**
      * @param string $from Description
      * @param string $id Description
      * @return \ClipboardContent[]
      */
     private static function upload( $from = 'upload', $id = '' ) {
         $uploaded = array();
+        $clipboard = ClipboardContent::load($id);
         $slot = ClipboardContent::count($id);
+        $layout = $clipboard->layout;
+        $acl = $clipboard->acl;
         $parent_id = strlen($id) ? $id : '';
         foreach (ClipboardUploader::upload($from)->files() as $file) {
             //set the first parent id to the parsed ID
             $file['parent_id'] = $parent_id;
             $file['slot'] = ++$slot;
+            $file['acl'] = $acl;
+            $file['layout'] = $layout;
             //if the upload is in the root collection
             if( strlen($parent_id) === 0){
                 //set the header file as the parent
@@ -383,28 +426,28 @@ class ClipboardAdmin extends Clipboard {
                 }
                 break;
             case 'recover':
-                $count = ClipboardContent::fetchLost($id);
-                if( $count ){
-                    $output[$task] = 'done';
-                    $output['count'] = $count;
-                }
+                $lost = self::fetchLost();
+                $count = self::fixParents();
+                $output['fixed'] = $count;
+                $output['items'] = $lost;
+                $output[$task] = 'done';
                 break;
             case 'renameall':
-                $count = ClipboardContent::renameAll($id);
+                $count = ClipboardContent::renameAll($context_id);
                 if( $count ){
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'propagate':
-                $count = ClipboardContent::copyPermissions($id);
+                $count = ClipboardContent::copyPermissions($context_id);
                 if( $count ){
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'layout':
-                $count = ClipboardContent::copyLayouts($id);
+                $count = ClipboardContent::copyLayouts($context_id);
                 if( $count ){
                     $output[$task] = 'done';
                     $output['count'] = $count;

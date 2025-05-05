@@ -568,6 +568,7 @@ class ClipboardView {
             case 'image/jpg':
             case 'image/gif':
             case 'image/png':
+            case 'image/webp':
                 return true;
         }
         return false;
@@ -722,7 +723,7 @@ function initialize_clipboard( cb ){
     });
 
     document.addEventListener('dragstart', (e) => {
-
+        /*e.preventDefault();*/
         const item = e.target.closest('li.item');
         if (!item || !collection.contains(item)) return;
 
@@ -739,21 +740,30 @@ function initialize_clipboard( cb ){
 
         // Create a custom drag image
         //const ghost = e.target.cloneNode(true);
-        const image = e.target.closest('img.media');
-        const ghost = image && image.cloneNode(true) || e.target.cloneNode(true);
-        //console.log('ghost', e.target);
-        ghost.style.position = 'absolute';
-        ghost.style.top = '-1000px';
-        ghost.style.left = '-1000px';
-        document.body.appendChild(ghost);
-        //e.dataTransfer.setDragImage(ghost, 0, 0);
-        e.dataTransfer.setDragImage(image, 0, 0);
+        //const image = e.target.closest('img.media');
+        const image = item.querySelector('img.media');
+        const ghost = image?.cloneNode(true);
+        if( ghost ){
+            console.log(ghost);
+            ghost.style.borderRadius = '50%';
+            ghost.style.position = 'absolute';
+            ghost.style.top = '-1000px';
+            ghost.style.left = '-1000px';
+            ghost.style.zIndex = '-1'; // avoid blocking other elements
+            ghost.style.pointerEvents = 'none';
+            document.body.appendChild(ghost);
 
-        // Clean up later
-        setTimeout(() => ghost.remove(), 100);
+            // Wait for the browser to render the ghost before setting it as the drag image
+            requestAnimationFrame(() => {
+                e.dataTransfer.setDragImage(ghost, 0, 0);
+                // Optional cleanup
+                setTimeout(() => ghost.remove(), 1000);
+            });            
+        }
     });
 
     document.addEventListener('dragend', (e) => {
+        e.preventDefault();
         collection.classList.remove('move');
         const source = collection.querySelector('li.item.moving');
         source.classList.remove('moving');
@@ -763,6 +773,7 @@ function initialize_clipboard( cb ){
         e.preventDefault(); // allow drop
     });
     collection.addEventListener('drop', (e) => {
+        e.preventDefault();
         const target = e.target;
         console.log(target.closest('li.item'));
         const targetItem = target.closest('li.item');

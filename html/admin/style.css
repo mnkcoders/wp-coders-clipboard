@@ -183,21 +183,24 @@ body.toplevel_page_coders_clipboard .container.path > li.node:not(:last-child):a
     display: block ;
     width: 100%;
     height: 100%;    
-}
-#wpbody-content .coders-clipboard .container .content.media.compact{
-    max-height: 400px;
+    background-image: linear-gradient(rgba(255,255,255,0.5),rgba(255,255,255,0.1));
+    border-radius: 4px;
+    box-shadow: 0 0 8px rgba(0,0,0,0.1);
 }
 #wpbody-content .coders-clipboard .container .content.media.collapsed{
     height: 300px;
 }
 #wpbody-content .coders-clipboard .container .content.media img{
-    width: 100%;
-    height: auto;
-    transition: transform ease-in 800ms;
-}
-#wpbody-content .coders-clipboard .container .content.media.landscape img{
+    margin: auto;
+    display: block;
     width: auto;
     height: 100%;
+    transition: transform ease-in 800ms;
+}
+#wpbody-content .coders-clipboard .container .content.media.picture img,
+#wpbody-content .coders-clipboard .container .content.media.landscape img{
+    height: auto;
+    width: 100%;
 }
 #wpbody-content .coders-clipboard .container .content.media:hover > img{
     transform: scale(1.1);
@@ -263,7 +266,7 @@ body.toplevel_page_coders_clipboard .container.path > li.node:not(:last-child):a
 }
 #wpbody-content .coders-clipboard > .collections > li.item > .task{
     position: absolute;
-    pointer-events: none;
+    /*pointer-events: none;*/
     opacity: 0;
     display: inline-block;
     color: #3a3a3a;

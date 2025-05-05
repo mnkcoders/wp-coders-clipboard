@@ -169,6 +169,12 @@ class Clipboard {
     /**
      * @return Boolean
      */
+    public function hasItems(){
+        return $this->hasContent() && $this->content()->countItems() > 0;
+    }
+    /**
+     * @return Boolean
+     */
     public function isMedia(){
         return $this->hasContent() && $this->content()->isMedia();
     }
@@ -604,7 +610,16 @@ class ClipboardContent{
     protected function defaultAcl() {
         return 'private';
     }
-
+    /**
+     * @param String $input
+     * @return String
+     */
+    public static function sanitize( $input = ''){
+        $output = strtolower($input);
+        $output = preg_replace('/\s+/', '-', $output);
+        $output = preg_replace('/[^a-z0-9\-]/', '', $output);
+        return $output;
+    }
     /**
      * @global wpdb $wpdb
      * @return boolean
@@ -612,8 +627,12 @@ class ClipboardContent{
     public function update() {
         global $wpdb;
         if ($this->isValid() && $this->isUpdated()) {
+            $name = strlen($this->name) ?
+                    sanitize_file_name(trim($this->name)) :
+                    self::sanitize($this->title);
+
             $data = array(
-                'name' => sanitize_file_name(trim($this->name)),
+                'name' => $name,
                 'title' => sanitize_text_field(trim($this->title)),
                 'description' => sanitize_textarea_field(trim($this->description)),
                 'acl' => sanitize_text_field($this->acl),
@@ -649,7 +668,8 @@ class ClipboardContent{
                 'description' => '',
                 'type' => $this->type,
                 'parent_id' => strlen($this->parent_id) ? $this->parent_id : null,
-                'acl' => $this->defaultAcl(),
+                'acl' => $this->acl,//$this->defaultAcl(),
+                'layout' => $this->layout,
                 'slot' => $this->slot,
                 'tags' => $this->tags,
                 'created_at' => current_time('mysql'),
@@ -793,8 +813,16 @@ class ClipboardContent{
     public function tagImageSize(){
         if($this->isImage()){
             $size = getimagesize($this->getPath());
-            $mode = count($size) > 1 && $size[0] > $size[1] ? 'landscape' : 'portrait';
-            $this->tag( $mode );
+            $aspect = count($size) > 1 ? $size[0] / $size[1] : 1;
+            if( $aspect > 1.5 ){
+                $this->tag('landscape');
+            }
+            elseif( $aspect < 0.75 ){
+                $this->tag('portrait');
+            }
+            else{
+                $this->tag('picture');
+            }
             return true;
         }
         return false;
@@ -1025,41 +1053,6 @@ class ClipboardContent{
         }
         return $count;
     }
-    /**
-     * @param string $parent_id
-     * @return int
-     */
-    public static function fetchLost( $parent_id = ''){
-        $count = 0;
-        $folder = Clipboard::path();
-        $files = scandir($folder);
-
-        foreach ($files as $id) {
-            if ($id === '.' || $id === '..') continue;
-
-            $path = $folder . $id;
-            $name = __('Found file','coders_clipboard');
-
-            if (is_file($path)) {
-                $mime_type = mime_content_type($path);
-
-                $item = new ClipboardContent(array(
-                    'id' => $id,
-                    'parent_id' => $parent_id,
-                    'type' => $mime_type,
-                    'name' => $name,
-                    'title' => $name,
-                    'description' => '',
-                    'created_at' => ClipboardContent::timestamp(),
-                ));
-                if( $item->create() ){
-                    $count++;
-                }
-            }
-        }        
-        return $count;
-    }
-
     /**
      * @global wpdb $wpdb
      * @param type $id

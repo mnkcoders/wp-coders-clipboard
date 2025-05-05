@@ -1,6 +1,6 @@
 <?php defined('ABSPATH') or die; ?>
 <form name="content" action="<?php print $this->get_form() ?>" method="post">
-    <div class="tab collapsed">
+    <div class="tab <?php print $this->has_items() ? 'collapsed' : '' ?>">
         <a target="_blank" class="button" href="<?php
             print $this->get_clipboard() ?>">
             <span class="dashicons dashicons-images-alt2"></span>
