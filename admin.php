@@ -111,6 +111,12 @@ class ClipboardAdmin extends Clipboard {
         return $this->page() === self::CONTEXT_MAIN;
     }
     /**
+     * @return Boolean
+     */
+    public function isMedia(){
+        return $this->hasContent() && $this->content()->isMedia();
+    }
+    /**
      * @param string $id
      * @param string $parent_id
      * @return string
@@ -151,6 +157,13 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @return string
      */
+    protected function actionLayout(){
+        $request = array('id'=>$this->id);
+        return $this->__link('layout',$request);
+    }
+    /**
+     * @return string
+     */
     protected function actionRecover(){
         $request = array('id'=>$this->id);
         return $this->__link('recover',$request);
@@ -159,7 +172,7 @@ class ClipboardAdmin extends Clipboard {
      * @return string
      */
     protected function actionArrange(){
-        $request = array('id'=>$this->id);
+        $request = array('context_id'=>$this->id);
         return $this->__link('arrange',$request);
     }
     /**
@@ -171,7 +184,7 @@ class ClipboardAdmin extends Clipboard {
                 'id' => $id,
                 'slot' => $slot,
             );
-            if( $this->isValid() ){
+            if( $this->hasContent() ){
                 $request['context_id'] = $this->parent_id;
             }            
             return $this->__link('sort', $request);            
@@ -182,7 +195,7 @@ class ClipboardAdmin extends Clipboard {
      * @return string
      */
     protected function actionRenameAll(){
-        $request = array('id'=>$this->id);
+        $request = array('id'=>$this->id,'context_id'=>$this->id);
         return $this->__link('renameall',$request);
     }
 
@@ -194,9 +207,10 @@ class ClipboardAdmin extends Clipboard {
         return array(
             'default' => __('Default', 'coders_clipboard'),
             'ecomic' => __('e-Comic', 'coders_clipboard'),
-            'collection' => __('Collections', 'coders_clipboard'),
-            'gallery' => __('Galleries', 'coders_clipboard'),
-            'slideshow' => __('Slideshows', 'coders_clipboard'),
+            'collection' => __('Collection', 'coders_clipboard'),
+            'gallery' => __('Gallery', 'coders_clipboard'),
+            'slideshow' => __('Slideshow', 'coders_clipboard'),
+            'portfolio' => __('Portfolio', 'coders_clipboard'),
             'showcase' => __('Showcase', 'coders_clipboard'),
         );
     }
@@ -237,6 +251,12 @@ class ClipboardAdmin extends Clipboard {
         return admin_url('admin-post.php?action=clipboard_action');
     }
     /**
+     * @return string
+     */
+    protected function getCss(){
+        return $this->hasContent() ? $this->content()->getCss() : 'empty';
+    }
+    /**
      * @param string $layout
      * @return string
      */
@@ -264,7 +284,7 @@ class ClipboardAdmin extends Clipboard {
         foreach (ClipboardUploader::upload($from)->files() as $file) {
             //set the first parent id to the parsed ID
             $file['parent_id'] = $parent_id;
-            $file['slot'] = $slot++;
+            $file['slot'] = ++$slot;
             //if the upload is in the root collection
             if( strlen($parent_id) === 0){
                 //set the header file as the parent
@@ -377,14 +397,21 @@ class ClipboardAdmin extends Clipboard {
                 }
                 break;
             case 'propagate':
-                $count = ClipboardContent::propagateLayouts($id);
+                $count = ClipboardContent::copyPermissions($id);
+                if( $count ){
+                    $output[$task] = 'done';
+                    $output['count'] = $count;
+                }
+                break;
+            case 'layout':
+                $count = ClipboardContent::copyLayouts($id);
                 if( $count ){
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'arrange':
-                $count = ClipboardContent::arrange($id);
+                $count = ClipboardContent::arrange($context_id);
                 $output[$task] = 'done';
                 $output['count'] = $count;
                 break;

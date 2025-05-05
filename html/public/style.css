@@ -1,69 +1,82 @@
-
-body{
-    background-color: red;
-}
-body > .coders-clipboard.main{
-    background: linear-gradient( #ffffff, #fafafa );
-    
-}
-
-body > .coders-clipboard.main > .container{
-    display: block;
-    margin: 40px auto;
-    padding: 40px;
+/* Main wrapper */
+.coders-clipboard.main.default {
+    font-family: "Segoe UI", sans-serif;
+    background: linear-gradient(to bottom, #f8f9fa, #e0e0e0);
+    padding: 2rem;
+    color: #333;
 }
 
-body > .coders-clipboard.main > .container.collections{
-    
+/* Header image */
+.coders-clipboard .header .media {
+    max-width: 100%;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
 }
-body > .coders-clipboard.main > .container.collections:after{
-    content: '';
-    display: block;
-    clear: both;
+
+/* Container content */
+.coders-clipboard .container.default {
+    margin-bottom: 2rem;
 }
-body > .coders-clipboard.main > .container.collections > .item{
-    display: inline-block;
-    vertical-align: top;
-    width: 22%;
-    margin: 0 4% 4% 0;
-    position: relative;
-    height: 0;
-    padding: 0 0 22% 0;
-    float: left;
-    border-radius: 4px;
+
+.coders-clipboard .container.header {
+    font-size: 2rem;
+    margin-bottom: 1rem;
 }
-body > .coders-clipboard.main > .container.collections > .item:nth-child(4n){
-    margin-right: 0;
+
+.coders-clipboard .container.content.default {
+    font-size: 1rem;
+    line-height: 1.6;
 }
-body > .coders-clipboard.main > .container.collections > .item > .content{
-    display: block;
-    position: absolute;
-    top: 0;
-    left: 0;
+
+/* Grid layout for collections */
+.coders-clipboard .collections.container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+    list-style: none;
+    padding: 0;
+    margin: 2rem 0;
+}
+
+/* Individual item */
+.coders-clipboard .collections .item {
+    background: #fff;
+    border-radius: 10px;
     overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
-body > .coders-clipboard.main > .container.collections > .item > .content > .media{
+
+.coders-clipboard .collections .item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+/* Anchor inside item */
+.coders-clipboard .collections .item a.content {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
+}
+
+/* Image */
+.coders-clipboard .collections .item img.media {
     width: 100%;
     height: auto;
+    display: block;
+    border-bottom: 1px solid #eee;
+    object-fit: cover;
 }
-body > .coders-clipboard.main > .container.collections > .item > .content > .cover{
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom:  0;
-    background-color: rgba(0,0,0,0.5);
-    color: #fafafa;
+
+/* Title overlay or below */
+.coders-clipboard .collections .item span.cover {
+    display: block;
+    padding: 0.75rem 1rem;
     font-weight: 500;
-    letter-spacing: 1px;
-    pointer-events: none;
-    transition: opacity ease-in 200ms;
-    opacity: 0;
-    
-    display: flex;
-    box-sizing: border-box;
-    justify-content: center;  /* Center horizontally */
-    align-items: center;      /* Center vertically */
-    flex-direction: column;   /* If you want multiple lines stacked */    
-}
-body > .coders-clipboard.main > .container.collections > .item:hover > .content > .cover{
-    opacity: 1;
-    z-index: 10;
+    font-size: 0.95rem;
+    background: linear-gradient(to right, #f0f0f0, #fdfdfd);
+    color: #444;
+    text-align: center;
 }

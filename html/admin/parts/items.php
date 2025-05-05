@@ -14,6 +14,8 @@
                             print $item->get_url() ?>" alt="<?php
                             print $item->name ?>" title="<?php
                             print $item->title ?>" />
+                    <?php else : ?>
+                        <span class="dashicons attachment dashicons-media-document"></span>
                     <?php endif; ?>
                     <a class="cover" data-id="<?php
                         print $item->id ?>" href="<?php
@@ -25,10 +27,6 @@
                     <a class="task top-right dashicons dashicons-arrow-up-alt" href="<?php
                         print $this->action_move($item->id,$this->parent_id) ?>"></a>
                     <?php endif; ?>
-                    <!--a class="task top-right dashicons dashicons-arrow-right-alt2" href="<?php
-                        print $this->action_sort($item->id,$item->get_after()) ?>"></a-->
-                    <!--a class="task top-left dashicons dashicons-arrow-left-alt2" href="<?php
-                        print $this->action_sort($item->id,$item->get_before()) ?>"></a-->
                     <label class="task top-left select" for="<?php
                             print sprintf('select_%s',$item->id)?>">
                         <input type="checkbox" id="<?php

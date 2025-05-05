@@ -464,7 +464,7 @@ class ClipboardView {
      */
     importContext(){
         const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('id') || '';
+        return urlParams.get('context_id') || '';
     }
     /**
      * @returns {String}
@@ -496,7 +496,7 @@ class ClipboardView {
      * @param {String} content
      * @returns {Element}
      */
-    element(name = 'span', attributes = {}, content = '') {
+    static element(name = 'span', attributes = {}, content = '') {
         const element = document.createElement(name);
         Object.keys(attributes).forEach(att => {
             element[att] = attributes[att];
@@ -513,7 +513,7 @@ class ClipboardView {
     attach(task) {
         if (task && task.hasAttachment()) {
             const file = task.attachment();
-            const item = this.element('li', { 'className': 'item' });
+            const item = ClipboardView.element('li', { 'className': 'item' });
             const reader = new FileReader();
             reader.onload = (e) => {
                 const preview = this.preview(file, e.target.result);
@@ -527,44 +527,32 @@ class ClipboardView {
     }
     /**
      * @param {Object} itemData 
-     * @returns {ClipboardView}
-     */
-/*     addItem(itemData = {}) {
-        this.itemBox() && this.itemBox().appendChild(this.createItem(itemData));
-        if (!this.hasContext()) {
-            this.itemBox() && this.itemBox().appendChild(this.createItem(itemData));
-        }
-        if (!this.hasContext() && itemData.id) {
-            //console.log(this.contextId(),itemData.id,itemData.parent_id);
-            this._contextId = itemData.id;
-        }
-        return this;
-    } */
-    /**
-     * @param {Object} itemData 
      * @returns {Element}
      */
     createItem(itemData = {}) {
         //console.log(itemData,this.isMedia(itemData.type || ''));
-        const item = this.element('li', { 'className': 'item' });
-        const content = this.element('span', { 'className': 'content' });
+        const item = ClipboardView.element('li', { 'className': 'item' });
+        const content = ClipboardView.element('span', { 'className': 'content' });
 
         if (this.isMedia(itemData.type || '')) {
-            content.appendChild(this.element('img', {
+            content.appendChild(ClipboardView.element('img', {
                 'src': itemData.link,
                 'alt': itemData.name,
                 'title': itemData.title || itemData.name,
                 'className': 'media',
             }));
         }
+        else{
+            content.appendChild(ClipboardView.element('span',{'className':'dashicons dashicons-media-document'}));
+        }
 
-        content.appendChild(this.element('a', {
+        content.appendChild(ClipboardView.element('a', {
             'href': itemData.post || '#',
             'target': '_self',
             'className': 'cover'
         }, itemData.title));
 
-        item.appendChild(this.element('span', { 'className': 'placeholder' }));
+        item.appendChild(ClipboardView.element('span', { 'className': 'placeholder' }));
         item.appendChild(content);
         this.itemBox().appendChild(item);
 
@@ -594,19 +582,19 @@ class ClipboardView {
                 case 'image/png':
                 case 'image/gif':
                 case 'image/jpeg':
-                    return this.element('img', {
+                    return ClipboardView.element('img', {
                         'className': 'content media',
                         'src': buffer,
                         'alt': file.name
                     });
                 default:
-                    return this.element('span', {
+                    return ClipboardView.element('span', {
                         'className': 'content attachment'
                     },
                         file.name);
             }
         }
-        return this.element('span', { 'className': 'content empty' });
+        return ClipboardView.element('span', { 'className': 'content empty' });
     }
     /**
      * @returns {ClipboardView}
@@ -679,6 +667,22 @@ class ClipboardView {
             }    
         }
     }
+    /**
+     * @param {String} content 
+     * @param {String} type 
+     */
+    static notify( content , type = 'info'){
+        const notifier = document.querySelector('.coders-clipboard .notifier') || null;
+        if( notifier ){
+            const message = ClipboardView.element('div',{
+                'className':'is-dismissible notice type-' + type
+            },content);
+            notifier.appendChild(message);
+            window.setTimeout( () => {
+                message.remove();
+            }, 2000 );
+        }
+    }
 }
 
 /**
@@ -691,7 +695,6 @@ function initialize_clipboard( cb ){
     // File input
     document.querySelectorAll('input[type=file]').forEach(input => {
         input.addEventListener('change', (e) => {
-            const items = e.target.files;
             cb.upload(e.target.files);
         });
     });
@@ -701,19 +704,16 @@ function initialize_clipboard( cb ){
     document.addEventListener('drop', e => {
         e.preventDefault();
         if (e.dataTransfer.files.length) {
-            const items = e.dataTransfer.files;
-            cb.upload(items);
+            cb.upload(e.dataTransfer.files);
         }
     });
 
     // Paste
     document.addEventListener('paste', (e) => {
-        const files = e.clipboardData.files;
-        if (files.length) {
-            cb.upload(files);
+        if (e.clipboardData.files.length) {
+            cb.upload(e.clipboardData.files);
         }
         else {
-            console.log(e.clipboardData.items);
             cb.upload((e.clipboardData.items || [])
                 .filter(item => item.kind === 'file')
                 .map(item => item.getAsFile() || null)
@@ -729,9 +729,7 @@ function initialize_clipboard( cb ){
         collection.classList.add('move');
         item.classList.add('moving');
 
-        console.log(item.dataset.id,item.dataset.slot);
-        //const item_id = item.querySelector('.cover').dataset.id;
-        //const slot = item.querySelector('.placeholder').dataset.slot;
+        //console.log(item.dataset.id,item.dataset.slot);
         const item_id = item.dataset.id;
         const slot = item.dataset.slot;
 
@@ -748,7 +746,8 @@ function initialize_clipboard( cb ){
         ghost.style.top = '-1000px';
         ghost.style.left = '-1000px';
         document.body.appendChild(ghost);
-        e.dataTransfer.setDragImage(ghost, 0, 0);
+        //e.dataTransfer.setDragImage(ghost, 0, 0);
+        e.dataTransfer.setDragImage(image, 0, 0);
 
         // Clean up later
         setTimeout(() => ghost.remove(), 100);
@@ -795,6 +794,24 @@ function initialize_clipboard( cb ){
                 break;
         }
     });
+
+    const copylink = document.querySelector('.copy-link');
+    if( copylink ){
+        copylink.addEventListener('click', function(e){
+            e.preventDefault();
+            const link = this.dataset.link || '';
+            if( link ){
+                navigator.clipboard.writeText(link)
+                .then(() => {
+                    ClipboardView.notify('URL copied to clipboard!','updated');
+                })
+                .catch(err => {
+                    ClipboardView.notify('Failed to copy: ', err);
+                });
+            }
+            return true;
+        });
+    }
 }
 
 //Loader

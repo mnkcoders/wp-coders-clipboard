@@ -1,16 +1,9 @@
 <?php defined('ABSPATH') or die; ?>
 
-<?php if( $this->is_valid() ) : ?>
-<?php $this->part_path() ?>
-<?php else : ?>
-<h1 class="wp-heading-inline">
-    <span class="dashicons dashicons-art"></span>
-    <?php print get_admin_page_title() ?></h1>
-<?php endif; ?>
-    
-<?php $this->part_messages() ?>
-
 <div class="wrap coders-clipboard main">
+    <?php $this->part_header() ?>
+    <?php $this->part_messages() ?>
+
     <?php if ($this->is_valid()) : ?>
         <!-- CONTENT BLOCK -->
         <div class="content container">

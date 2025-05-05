@@ -1,25 +1,31 @@
 <?php defined('ABSPATH') or die; ?>
 <ul class="fullwidth container tools inline">
     <li>
-        <a class="button" target="_self" href="<?php print $this->action_recover($this->get_id()) ?>">
-            <span class="dashicons dashicons-search"></span>
-            <?php print __('Bring here all lost resources', 'coders_clipboard') ?>
-        </a>
-    </li> 
-    <li>
         <a class="button" href="<?php print $this->action_arrange() ?>">
-        <?php print __('Arrange item list', 'coders_clipboard') ?>
+        <?php print __('Sort items', 'coders_clipboard') ?>
         </a>
     </li> 
     <?php if( $this->has_content()) : ?>
+        <li>
+            <a class="button" href="<?php print $this->action_renameall($this->get_id()) ?>">
+               <?php print __('Rename all', 'coders_clipboard') ?>
+            </a>
+        </li> 
+        <li>
+            <a class="button" href="<?php print $this->action_propagate($this->get_id()) ?>">
+            <?php print __('Copy permissions', 'coders_clipboard') ?>
+            </a>
+        </li> 
+        <li>
+            <a class="button" href="<?php print $this->action_layout($this->get_id()) ?>">
+            <?php print __('Copy layout', 'coders_clipboard') ?>
+            </a>
+        </li> 
+    <?php else : ?>
     <li>
-        <a class="button" href="<?php print $this->action_renameall($this->get_id()) ?>">
-           <?php print __('Rename all items below', 'coders_clipboard') ?>
-        </a>
-    </li> 
-    <li>
-        <a class="button" href="<?php print $this->action_propagate($this->get_id()) ?>">
-        <?php print __('Set permissions and layout to items below', 'coders_clipboard') ?>
+        <a class="button" target="_self" href="<?php print $this->action_recover($this->get_id()) ?>">
+            <span class="dashicons dashicons-search"></span>
+            <?php print __('Find lost items', 'coders_clipboard') ?>
         </a>
     </li> 
     <?php endif; ?>

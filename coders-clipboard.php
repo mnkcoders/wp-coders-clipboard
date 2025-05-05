@@ -167,6 +167,13 @@ class Clipboard {
         return $this->hasContent();
     }
     /**
+     * @return Boolean
+     */
+    public function isMedia(){
+        return $this->hasContent() && $this->content()->isMedia();
+    }
+
+    /**
      * @return boolean
      */
     public function isFullPage(){
@@ -438,7 +445,7 @@ class ClipboardContent{
         'created_at' => '',
     );
     /**
-     * @type {String[]} Item cache
+     * @type ClipboardContent[] Item cache
      */
     private $_collection = [];
     
@@ -567,7 +574,7 @@ class ClipboardContent{
         if(is_admin()){
             $data['post'] = add_query_arg([
             'page' => 'coders_clipboard',
-            'id' => $this->id,
+            'context_id' => $this->id,
                 ], admin_url('admin.php'));
         }
         
@@ -582,7 +589,7 @@ class ClipboardContent{
     }
     /**
      * @param boolean $refresh
-     * @return array
+     * @return ClipboardContent[]
      */
     protected function collection( $refresh = false ){
         if( $refresh ){
@@ -643,7 +650,7 @@ class ClipboardContent{
                 'type' => $this->type,
                 'parent_id' => strlen($this->parent_id) ? $this->parent_id : null,
                 'acl' => $this->defaultAcl(),
-                'slot' => 0,
+                'slot' => $this->slot,
                 'tags' => $this->tags,
                 'created_at' => current_time('mysql'),
             );
@@ -955,24 +962,48 @@ class ClipboardContent{
     
     
     /**
-     * @param string $parent_id
+     * @global wpdb $wpdb
+     * @param string $id
      * @return int
      */
-    public static function propagateLayouts( $parent_id = ''){
-        $count = 0;
-        $content = self::load($parent_id);
-        if( !is_null($content)){
-            $layout = $content->layout;
-            $role = $content->acl;
-            foreach( $content->listItems() as $item ){
-                $item->layout = $layout;
-                $item->acl = $role;
-                if($item->update()){
-                    $count++;                    
-                }
+    public static function copyLayouts( $id = ''){
+        
+        $clipboard = self::load($id);
+        if( !is_null($clipboard)){
+            $data = array(
+                'parent_id' => $clipboard->id,
+                'layout' => $clipboard->layout,
+            );
+
+            global $wpdb;
+            $updated = $wpdb->update(self::table(), $data, array('id' => $id));
+            if(!is_null($updated)){
+                return $updated;
             }
+            Clipboard::sendMessage($wpdb->last_error,'error');
         }
-        return $count;
+        return 0;
+    }
+    /**
+     * @param string $id
+     * @return int
+     */
+    public static function copyPermissions( $id = ''){
+        $clipboard = self::load($id);
+        if( !is_null($clipboard)){
+            $data = array(
+                'parent_id' => $clipboard->id,
+                'acl' => $clipboard->acl,
+            );
+
+            global $wpdb;
+            $updated = $wpdb->update(self::table(), $data, array('id' => $id));
+            if(!is_null($updated)){
+                return $updated;
+            }
+            Clipboard::sendMessage($wpdb->last_error,'error');
+        }
+        return 0;
     }
     /**
      * @param string $parent_id
@@ -985,7 +1016,7 @@ class ClipboardContent{
             $name = $content->name;
             $title = $content->title;
             foreach( $content->listItems() as $item ){
-                $item->name = $name;
+                $item->name = sprintf('%s_%s',$name,$count+1);
                 $item->title = $title;
                 if($item->update()){
                     $count++;                    
