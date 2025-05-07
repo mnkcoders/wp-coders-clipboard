@@ -149,6 +149,12 @@ class Clipboard {
         return self::CLIPBOARD( $this->id );
     }
     /**
+     * @return string
+     */
+    protected function getCss(){
+        return $this->hasContent() ? $this->content()->getCss() : 'empty';
+    }    
+    /**
      * @return  STring Description
      */
     public function getUrl( ){
@@ -335,11 +341,15 @@ class Clipboard {
         
         if( $clipboard->isFullPage() ){          
             wp_head();
+            printf('<body class="coders-clipboard %s %s">',
+                    $clipboard->hasContent() ? $clipboard->content()->layout : '',
+                    implode(' ', get_body_class()));
         }
         //display the view layout
         $clipboard->__layout($clipboard->content()->layout ?? 'default' );
         
         if( $clipboard->isFullPage()){
+            printf('</body>');
             wp_footer();
         }
     }
@@ -962,16 +972,15 @@ class ClipboardContent{
      */
     public function listParents(){
         if( $this->isValid()){
-            if(strlen($this->parent_id) ){
+            if(strlen($this->parent_id) && $this->parent_id !== $this->id ){
                 //$parent = new Clipboard($this->parent_id);
                 $parent = self::load($this->parent_id);
                 $path = $parent->listParents();
-                $path[ $this->id] = $this->title;
+                $path[ $this->id ] = $this->title;
                 return $path;
             }
             else{
-                return array(
-                    $this->id => $this->title );
+                return array( $this->id => $this->title );
             }
         }
         return array();
@@ -999,12 +1008,11 @@ class ClipboardContent{
         $clipboard = self::load($id);
         if( !is_null($clipboard)){
             $data = array(
-                'parent_id' => $clipboard->id,
                 'layout' => $clipboard->layout,
             );
 
             global $wpdb;
-            $updated = $wpdb->update(self::table(), $data, array('id' => $id));
+            $updated = $wpdb->update(self::table(), $data, array('parent_id' => $id));
             if(!is_null($updated)){
                 return $updated;
             }
@@ -1020,12 +1028,11 @@ class ClipboardContent{
         $clipboard = self::load($id);
         if( !is_null($clipboard)){
             $data = array(
-                'parent_id' => $clipboard->id,
                 'acl' => $clipboard->acl,
             );
 
             global $wpdb;
-            $updated = $wpdb->update(self::table(), $data, array('id' => $id));
+            $updated = $wpdb->update(self::table(), $data, array('parent_id' => $id));
             if(!is_null($updated)){
                 return $updated;
             }
@@ -1202,7 +1209,6 @@ add_action('init', function() {
         Clipboard::display($atts['id']);
         return ob_get_clean();
     });
-
     
     if(is_admin()){
         require_once sprintf('%s/admin.php',plugin_dir_path(__FILE__));

@@ -211,6 +211,7 @@ class ClipboardAdmin extends Clipboard {
             'gallery' => __('Gallery', 'coders_clipboard'),
             'slideshow' => __('Slideshow', 'coders_clipboard'),
             'portfolio' => __('Portfolio', 'coders_clipboard'),
+            'mosaic' => __('Mosaic', 'coders_clipboard'),
             'showcase' => __('Showcase', 'coders_clipboard'),
         );
     }
@@ -249,12 +250,6 @@ class ClipboardAdmin extends Clipboard {
      */
     protected function getForm() {
         return admin_url('admin-post.php?action=clipboard_action');
-    }
-    /**
-     * @return string
-     */
-    protected function getCss(){
-        return $this->hasContent() ? $this->content()->getCss() : 'empty';
     }
     /**
      * @param string $layout

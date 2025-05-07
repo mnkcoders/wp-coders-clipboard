@@ -915,7 +915,7 @@ document.addEventListener('DOMContentLoaded', function () {
         collection.classList.add('move');
         item.classList.add('moving');
 
-        const item_id = item.querySelector('.cover').dataset.id;
+        const item_id = item.querySelector('.caption').dataset.id;
         const slot = item.querySelector('.placeholder').dataset.slot;
 
         e.dataTransfer.effectAllowed = 'move';

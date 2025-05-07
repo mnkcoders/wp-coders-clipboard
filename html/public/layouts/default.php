@@ -1,5 +1,5 @@
 <?php defined('ABSPATH') or die; ?>
-<div class="wrap coders-clipboard main <?php print $this->layout ?>">
+<div class="wrap coders-clipboard container <?php print $this->layout ?>">
     <div class="header">
     <?php $this->part_media() ?>        
     </div>

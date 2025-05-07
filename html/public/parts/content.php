@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') or die; ?>
 <?php if ($this->is_valid()) : ?>
     <!-- CONTENT BLOCK -->
-    <div class="container <?php print $this->layout ?>">
+    <div class="container">
         <h1 class="container header">
             <?php print $this->title ?>
             <?php if( $this->slot > 0) :  ?>

@@ -1,5 +1,4 @@
 <?php defined('ABSPATH') or die; ?>
-
 <ul class="coders-clipboard-title path container">
     <li class="node">
         <span class="dashicons dashicons-art"></span>
@@ -15,7 +14,7 @@
         <?php foreach ($this->list_path() as $id => $title) : ?>
             <li class="node">
                 <?php if (strlen($id)) : ?>
-                    <?php if ($id !== $this->id) : ?>
+                    <?php if ( trim($id) !== $this->id ) : ?>
                         <a href="<?php print $this->get_post($id) ?>" target="_self"><?php print $title ?></a>
                     <?php else: ?>
                         <span >

@@ -17,7 +17,7 @@
                     <?php else : ?>
                         <span class="dashicons attachment dashicons-media-document"></span>
                     <?php endif; ?>
-                    <a class="cover" data-id="<?php
+                    <a class="caption" data-id="<?php
                         print $item->id ?>" href="<?php
                         print $this->get_post($item->id) ?>"><?php
                         print $item->title ?></a>                        

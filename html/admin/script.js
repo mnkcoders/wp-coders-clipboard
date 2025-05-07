@@ -549,7 +549,7 @@ class ClipboardView {
         content.appendChild(ClipboardView.element('a', {
             'href': itemData.post || '#',
             'target': '_self',
-            'className': 'cover'
+            'className': 'caption'
         }, itemData.title));
 
         item.appendChild(ClipboardView.element('span', { 'className': 'placeholder' }));
@@ -781,7 +781,7 @@ function initialize_clipboard( cb ){
         const source_id = data.id;
         const source_slot = parseInt(data.slot);
 
-        const action = target.classList.contains('placeholder') && 'sort' || target.classList.contains('cover') && 'move' || '';
+        const action = target.classList.contains('placeholder') && 'sort' || target.classList.contains('caption') && 'move' || '';
 
         switch (action) {
             case 'move':
