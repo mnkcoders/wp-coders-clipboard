@@ -234,13 +234,13 @@ class ClipboardAdmin extends Clipboard {
     }
     /**
      * 
-     * @param string $ids
+     * @param string $id
      * @return string
      */
-    protected function getPost($ids = array()) {
+    protected function getPost($id = '' ) {
         $query = array('page'=>'coders_clipboard');
-        if(count($ids)){
-            $query['context_id'] = $ids[0];
+        if(strlen($id)){
+            $query['context_id'] = $id;
         }
         return add_query_arg($query, admin_url('admin.php'));
     }

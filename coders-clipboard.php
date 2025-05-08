@@ -81,20 +81,21 @@ class Clipboard {
      * @return string|array|bool|int
      */
     public function __call($name, $arguments) {
+        $call = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $name))));
         switch (true) {
             case preg_match('/^is_/', $name):
                 return $this->__run('is'.substr($name, 3), false, $arguments);
             case preg_match('/^has_/', $name):
                 return $this->__run('has'.substr($name, 4), false, $arguments);
             case preg_match('/^can_/', $name):
-                $can = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $name))));
-                return method_exists($this, $can) ? $this->$can(...$arguments) : false;
+                return method_exists($this, $call) ? $this->$call(...$arguments) : false;
             case preg_match('/^count_/', $name):
                 return $this->__run('count'.substr($name, 6), 0, $arguments);
             case preg_match('/^list_/', $name):
                 return $this->__run('list'.substr($name, 5), array(), $arguments);
             case preg_match('/^get_/', $name):
-                return $this->__run('get'.substr($name, 4), '', ... $arguments);
+                return method_exists($this, $call) ? $this->$call(...$arguments) : false;
+                //return $this->__run('get'.substr($name, 4), '', ... $arguments);
             case preg_match('/^view_/', $name):
                 return $this->__view(substr($name, 5), is_admin() ? 'admin' : 'public') ;
             case preg_match('/^part_/', $name):
@@ -158,7 +159,7 @@ class Clipboard {
     /**
      * @return String
      */
-    public function getContext(){
+    public function getTop(){
         return $this->_context;
     }
 
@@ -251,10 +252,11 @@ class Clipboard {
         return $this->_collectionCache;
     }
     /**
+     * @param String $base_id
      * @return array
      */
-    public function listPath(){
-        return $this->hasContent() ? $this->content()->listParents() : array();
+    public function listPath( $base_id = '' ){
+        return $this->hasContent() ? $this->content()->listParents($base_id) : array();
     }
     /**
      * @return Int
@@ -1293,7 +1295,6 @@ add_filter('coders_role', function($role = array()) {
 
 
 // Redirect Handler
-//add_action('template_redirect', ['Clipboard', 'handle_request']);
 add_action('template_redirect', function(){
     //$id = isset($_GET['id']) ? sanitize_text_field($_GET['id']) : null;
     $id = get_query_var('clipboard_id');
