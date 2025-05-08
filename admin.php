@@ -221,10 +221,10 @@ class ClipboardAdmin extends Clipboard {
      */
     protected function listRoles() {
         $roles = array(
-            'private' => __('Private', 'coders_clipboard'),
-            'public' => __('Public', 'coders_clipboard'),
+            'private' => __('Private (admin only)', 'coders_clipboard'),
+            'public' => __('Public (everyone)', 'coders_clipboard'),
         );
-        $tiers = apply_filters('coders_clipboard_tiers',array());
+        $tiers = apply_filters('coders_acl',array());
         foreach($tiers as $tier => $name){
             if( !isset($roles[$tier])){
                 $roles[$tier] = $name;
@@ -680,6 +680,7 @@ add_action('admin_init', function() {
 });
 
 
-add_filter('coders_clipboard_tiers', function($tiers = array()) {
+add_filter('coders_acl', function($tiers = array()) {
+    $tiers['test'] = 'Test Coin';
     return $tiers;
 }, 10, 2);

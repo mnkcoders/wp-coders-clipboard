@@ -82,6 +82,9 @@ class Clipboard {
                 return $this->__run('is'.substr($name, 3), false, $arguments);
             case preg_match('/^has_/', $name):
                 return $this->__run('has'.substr($name, 4), false, $arguments);
+            case preg_match('/^can_/', $name):
+                $can = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $name))));
+                return method_exists($this, $can) ? $this->$can(...$arguments) : false;
             case preg_match('/^count_/', $name):
                 return $this->__run('count'.substr($name, 6), 0, $arguments);
             case preg_match('/^list_/', $name):
@@ -183,6 +186,12 @@ class Clipboard {
      */
     public function isMedia(){
         return $this->hasContent() && $this->content()->isMedia();
+    }
+    /**
+     * @return Boolean
+     */
+    public function canAccess(){
+        return $this->hasContent() && $this->content()->validate();
     }
 
     /**
@@ -345,9 +354,16 @@ class Clipboard {
                     $clipboard->hasContent() ? $clipboard->content()->layout : '',
                     implode(' ', get_body_class()));
         }
-        //display the view layout
-        $clipboard->__layout($clipboard->content()->layout ?? 'default' );
-        
+        if( $clipboard->canAccess()){
+            //display the view layout
+            $clipboard->__layout($clipboard->content()->layout ?? 'default' );
+        }
+        else {
+            //ACL access error (subscribe?)
+            self::sendMessage(__('Not found :/','coders_clipboard'),'error');
+            require $clipboard->__view('error');
+        }
+
         if( $clipboard->isFullPage()){
             printf('</body>');
             wp_footer();
@@ -619,6 +635,26 @@ class ClipboardContent{
      */
     protected function defaultAcl() {
         return 'private';
+    }
+    /**
+     * @return Boolean
+     */
+    public function validate(){
+        if( Clipboard::isAdmin() || $this->acl === 'public'){
+            return true;
+        }
+
+        //hook filtered roles by other plugins
+        $roles = apply_filters('coders_role', array(''));
+        
+        if(is_array($roles) && in_array($this->acl, $roles)){
+            return true;
+        }
+        if(is_string($roles) && $roles === $this->acl ){
+            return true;
+        }
+
+        return false;
     }
     /**
      * @param String $input
@@ -1226,6 +1262,10 @@ add_filter('query_vars', function($vars) {
     $vars[] = 'mode';
     return $vars;
 });
+
+add_filter('coders_role', function($role = array()) {
+    return $role;
+}, 10, 2);
 
 
 // Redirect Handler
