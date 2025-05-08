@@ -9,6 +9,50 @@ body.coders-clipboard.mosaic{
   color: #222;
   padding: 1rem;    
 }
+
+.coders-clipboard.container > ul.container.path{
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    background-color: #3a3a3a;
+    color: #fafafa;
+}
+.coders-clipboard.container > ul.container.path > li.location{
+    display: inline-block;
+    position: relative;
+}
+.coders-clipboard.container > ul.container.path > li.location .current,
+.coders-clipboard.container > ul.container.path > li.location .link{
+    display: block;
+    padding: 20px 30px;
+    text-align: center;
+    color: #dadada;
+    transition: color ease-in 200ms;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+.coders-clipboard.container > ul.container.path > li.location .current{
+    cursor: default;
+    color: #fafafa;
+}
+.coders-clipboard.container > ul.container.path > li.location .link:focus,
+.coders-clipboard.container > ul.container.path > li.location .link:active,
+.coders-clipboard.container > ul.container.path > li.location .link:hover{
+    color: #ffffff;
+}
+.coders-clipboard.container > ul.container.path > li.location:not(:first-child):before{
+    content: '\f341';
+    font-family: dashicons;
+    margin: 0;
+    color: rgba(255,255,255,0.25);
+    display: inline-block;
+    position: absolute;
+    left: -10px;
+    padding: 20px 0;
+    line-height: 22px;
+}
+
+
 .coders-clipboard.container.default{}
 .coders-clipboard.container.default .container{
     padding: 40px;

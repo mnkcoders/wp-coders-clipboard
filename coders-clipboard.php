@@ -28,6 +28,10 @@ class Clipboard {
      * @type {String[]} Item cache
      */
     private $_collectionCache = [];
+    /**
+     * @var string
+     */
+    private $_context = '';
     
     /**
      * @param String $id 
@@ -90,7 +94,7 @@ class Clipboard {
             case preg_match('/^list_/', $name):
                 return $this->__run('list'.substr($name, 5), array(), $arguments);
             case preg_match('/^get_/', $name):
-                return $this->__run('get'.substr($name, 4), '', $arguments);
+                return $this->__run('get'.substr($name, 4), '', ... $arguments);
             case preg_match('/^view_/', $name):
                 return $this->__view(substr($name, 5), is_admin() ? 'admin' : 'public') ;
             case preg_match('/^part_/', $name):
@@ -148,9 +152,16 @@ class Clipboard {
     /**
      * @return string
      */
-    public function getClipboard(){
-        return self::CLIPBOARD( $this->id );
+    public function getClipboard($id = ''){
+        return self::CLIPBOARD( strlen($id) ? $id :  $this->id );
     }
+    /**
+     * @return String
+     */
+    public function getContext(){
+        return $this->_context;
+    }
+
     /**
      * @return string
      */
@@ -350,11 +361,14 @@ class Clipboard {
         
         if( $clipboard->isFullPage() ){          
             wp_head();
+            //render body class
             printf('<body class="coders-clipboard %s %s">',
                     $clipboard->hasContent() ? $clipboard->content()->layout : '',
                     implode(' ', get_body_class()));
         }
         if( $clipboard->canAccess()){
+            //set the context ID to limit the top level
+            $clipboard->_context = $id;
             //display the view layout
             $clipboard->__layout($clipboard->content()->layout ?? 'default' );
         }
@@ -365,8 +379,14 @@ class Clipboard {
         }
 
         if( $clipboard->isFullPage()){
-            printf('</body>');
+            //prepare bottom menu container for user profile
+            print '<div class="container bottom menu">';
+            //then call the menu contents
+            do_action('coders_sidebar','clipboard',$id);
+            print '</div><body>';
+            //finally, close the
             wp_footer();
+            //print '</body></html>';
         }
     }
 
@@ -1006,9 +1026,9 @@ class ClipboardContent{
     /**
      * @return array
      */
-    public function listParents(){
+    public function listParents( $toplevel = '' ){
         if( $this->isValid()){
-            if(strlen($this->parent_id) && $this->parent_id !== $this->id ){
+            if(strlen($this->parent_id) && $this->parent_id !== $this->id && $this->id !== $toplevel){
                 //$parent = new Clipboard($this->parent_id);
                 $parent = self::load($this->parent_id);
                 $path = $parent->listParents();
@@ -1266,6 +1286,10 @@ add_filter('query_vars', function($vars) {
 add_filter('coders_role', function($role = array()) {
     return $role;
 }, 10, 2);
+
+
+//To define a hook to fill the bottom bar
+//add_action('coders_sidebar',function($provider = 'clipboard',$context = ''){},10,2);
 
 
 // Redirect Handler
