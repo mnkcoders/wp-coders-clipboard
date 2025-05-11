@@ -1177,7 +1177,7 @@ class ClipboardContent{
 
         $charset_collate = $wpdb->get_charset_collate();
 
-        $sql = "CREATE TABLE " . self::table() .
+        $sql = "CREATE TABLE IF NOT EXIST " . self::table() .
             " ( id VARCHAR(64) NOT NULL PRIMARY KEY,
             parent_id VARCHAR(64) DEFAULT NULL,
             name VARCHAR(32) NOT NULL,
