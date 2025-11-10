@@ -10,17 +10,121 @@
  * Class: Clipboard
  * **************************************************************************** */
 
+define('CODERS_CLIPBOARD_DIR', plugin_dir_path(__FILE__));
+define('CODERS_CLIPBOARD_URL', plugin_dir_url(__FILE__));
+
+
+
+// Activation Hook
+register_activation_hook(__FILE__, function() {
+    flush_rewrite_rules();
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    
+    CodersClipboard::install();
+
+    //check the upload directory
+    $uploads = CodersClipboard::path();
+    if( !file_exists($uploads)){
+        wp_mkdir_p($uploads);
+    }
+});
+
+register_deactivation_hook(__FILE__, function() {
+    flush_rewrite_rules();
+});
+
+// Rewrite Rules
+add_action('init', function() {
+    //flush_rewrite_rules();
+    
+    add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
+    add_rewrite_rule('^clipboard/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]', 'top');
+    add_rewrite_rule('^clipboards/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view', 'top');
+    //add_rewrite_rule('^clipboards/?$', 'index.php?clipboards=1', 'top');
+    
+    /*add_shortcode('clipboard_view', function($atts){
+        $atts = shortcode_atts(['id' => ''], $atts);
+        ob_start();
+        CodersClipboard::display($atts['id']);
+        return ob_get_clean();
+    });*/
+    
+    if(is_admin()){
+        require_once sprintf('%s/admin.php',CODERS_CLIPBOARD_DIR);
+        /*add_action( 'admin_init',function(){
+            require_once sprintf('%s/admin.php',CODERS_CLIPBOARD_DIR);
+        });*/
+    }
+});
+
+add_filter('query_vars', function($vars) {
+    $vars[] = 'clipboard_id';
+    //$vars[] = 'clipboards';
+    $vars[] = 'mode';
+    return $vars;
+});
+
+add_filter('coders_role', function($role = array()) {
+    return $role;
+}, 10, 2);
+
+
+//To define a hook to fill the bottom bar
+//add_action('coders_sidebar',function($provider = 'clipboard',$context = ''){},10,2);
+
+
+// Redirect Handler
+add_action('template_redirect', function(){
+    //$id = isset($_GET['id']) ? sanitize_text_field($_GET['id']) : null;
+    $id = get_query_var('clipboard_id');
+    if( $id ){        
+        ClipboardPage::show( $id );
+    }
+});
+
 
 /**
  * 
  */
-class Clipboard {
+final class ClipboardPage{
+    /**
+     * @param string $id
+     */
+    public static function show( $id = '' ){
+        
+        require_once sprintf('%s/public.php',CODERS_CLIPBOARD_DIR);
+        
+        add_filter( 'body_class', function( $classes ) {
+            return array_merge( $classes, array('coders-clipboard') );
+        } );
+        add_action( 'wp_enqueue_scripts' , function(){
+            wp_enqueue_style(
+                    'coders-clipboard-style',
+                    CodersClipboard::assetUrl('html/public/style.css'));
+        });
+        $mode = get_query_var('mode');
+        if($mode === 'view' ){
+            CodersClipboard::display( $id );
+        }
+        else{
+            CodersClipboard::attach( $id );
+        }
+        exit;                    
+    }
+}
+
+
+/**
+ * 
+ */
+class CodersClipboard {
     /**
      * @var array
      */
     static $_messages = array();    
     /**
-     * @var \ClipboardContent
+     * @var \CoderClip
      */
     private $_content = null;
 
@@ -39,7 +143,7 @@ class Clipboard {
     protected function __construct( $id = '' ){
         
         if(strlen($id)){
-            $this->_content = ClipboardContent::load($id);
+            $this->_content = CoderClip::load($id);
         }
     }
 
@@ -55,13 +159,13 @@ class Clipboard {
     }
     /**
      * 
-     * @return \ClipboardContent
+     * @return \CoderClip
      */
     protected function content(){
         return $this->_content;
     }
     /**
-     * @return \Clipboard
+     * @return \CodersClipboard
      */
     protected function view(){
         
@@ -242,12 +346,14 @@ class Clipboard {
     public function listCollection(){
         return $this->hasContent() ? $this->content()->listItems() : $this->loadCollection();
     }
+
+
     /**
      * @return array
      */
     protected function loadCollection(){
         if( count($this->_collectionCache) === 0){
-            $this->_collectionCache = ClipboardContent::list();
+            $this->_collectionCache = CoderClip::list();
         }
         return $this->_collectionCache;
     }
@@ -279,7 +385,7 @@ class Clipboard {
             return true;
         }
         else{
-            Clipboard::sendMessage(sprintf('Layout Part [%s] not found at %s',$part,$view),'error');
+            CodersClipboard::sendMessage(sprintf('Layout Part [%s] not found at %s',$part,$view),'error');
             require $this->__view('error',$path);
         }
         return false;
@@ -297,7 +403,7 @@ class Clipboard {
             return true;
         }
         else{
-            Clipboard::sendMessage(sprintf('Layout [%s] not found at %s',$layout,$view),'error');
+            CodersClipboard::sendMessage(sprintf('Layout [%s] not found at %s',$layout,$view),'error');
             require $this->__view('error',$path);
         }
         return false;
@@ -334,7 +440,7 @@ class Clipboard {
      * @param string $id
      */
     public static function attach( $id ){
-        $clipboard = ClipboardContent::load($id);
+        $clipboard = CoderClip::load($id);
 
         if (is_null($clipboard)) {
             return self::error404();
@@ -359,7 +465,7 @@ class Clipboard {
      * @param string $id
      */
     public static function display( $id = '' ){
-        $clipboard = new Clipboard($id);
+        $clipboard = new CodersClipboard($id);
         
         if( $clipboard->isFullPage() ){          
             wp_head();
@@ -418,15 +524,15 @@ class Clipboard {
      * @return {String}
      */
     public static function table(){
-        return $GLOBALS['wpdb']->prefix . 'clipboard_items';
+        global $wpdb;
+        return $wpdb->prefix . 'clipboard_items';
     }
     /**
      * @param string $content
      * @return String
      */
     public static function assetPath( $content = '' ){
-        $path = plugin_dir_path(__FILE__ );
-        
+        $path = CODERS_CLIPBOARD_DIR;
         return strlen($content) ? $path.$content : $path;
         //return strlen($content) ? sprintf('%s/%s',$path,$content) : $path;
     }
@@ -435,8 +541,7 @@ class Clipboard {
      * @return String
      */
     public static function assetUrl( $content = '' ){
-        $url = plugin_dir_url(__FILE__);
-        
+        $url = CODERS_CLIPBOARD_URL;
         return strlen($content) ? $url.$content : $url;
     }
     /**
@@ -473,12 +578,66 @@ class Clipboard {
                 $role === 'public' ||
                 $role === $tier;
     }    
+    
+    /**
+     * @global wpdb $wpdb
+     */
+    public static function install(){
+        global $wpdb;
+
+        $charset_collate = $wpdb->get_charset_collate();
+
+        $sql = "CREATE TABLE IF NOT EXISTS " . self::table() .
+            " ( id VARCHAR(64) NOT NULL PRIMARY KEY,
+            parent_id VARCHAR(64) DEFAULT NULL,
+            name VARCHAR(32) NOT NULL,
+            type VARCHAR(24) DEFAULT 'application/octet-stream',
+            title VARCHAR(48) NOT NULL,
+            description TEXT,
+            layout VARCHAR(24) DEFAULT 'default',
+            acl VARCHAR(16) DEFAULT 'private',
+            slot INT DEFAULT '0',
+            tags VARCHAR(24) DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP) $charset_collate;";
+
+        dbDelta($sql);        
+    }
+    /**
+     * @global wpdb $wpdb
+     * @return boolean
+     */
+    public static function resetContent() {
+        global $wpdb;
+        $done = 0;
+        // 1. Truncate DB table
+        $result = $wpdb->query(sprintf('TRUNCATE TABLE `%s`', self::table()));
+
+        if ($result !== false) {
+            $done++;
+        }
+
+
+        // 2. Delete files from uploads/clipboard
+        $folder = CodersClipboard::path();
+
+        if (file_exists($folder)) {
+            $files = glob($folder . '/*');
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
+            $done++;
+        }
+        return $done > 1;
+    }    
+    
 }
     
 /**
  * 
  */
-class ClipboardContent{
+class CoderClip{
     
     private $_updated = false;
     
@@ -499,7 +658,7 @@ class ClipboardContent{
         'created_at' => '',
     );
     /**
-     * @type ClipboardContent[] Item cache
+     * @type CoderClip[] Item cache
      */
     private $_collection = [];
     
@@ -528,7 +687,7 @@ class ClipboardContent{
     }
     /**
      * @param array $input
-     * @return \ClipboardContent
+     * @return \CoderClip
      */
     public function override($input = array()) {
         foreach (['id', 'created_at'] as $key){
@@ -546,7 +705,7 @@ class ClipboardContent{
     }
     /**
      * @param string $tag
-     * @return \ClipboardContent
+     * @return \CoderClip
      */
     public function tag( $tag = '' ){
         if( strlen($tag) && !in_array($tag, $this->listTags())){
@@ -643,7 +802,7 @@ class ClipboardContent{
     }
     /**
      * @param boolean $refresh
-     * @return ClipboardContent[]
+     * @return CoderClip[]
      */
     protected function collection( $refresh = false ){
         if( $refresh ){
@@ -662,7 +821,7 @@ class ClipboardContent{
      * @return Boolean
      */
     public function validate(){
-        if( Clipboard::isAdmin() || $this->acl === 'public'){
+        if(CodersClipboard::isAdmin() || $this->acl === 'public'){
             return true;
         }
 
@@ -714,7 +873,7 @@ class ClipboardContent{
                 $this->_updated = false;
                 return true;
             }
-            Clipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+            CodersClipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
         }
         return false;
     }
@@ -749,7 +908,7 @@ class ClipboardContent{
             $result = $wpdb->insert($table, $content);
 
             if ($result === false) {
-                Clipboard::sendMessage($wpdb->last_error);
+                CodersClipboard::sendMessage($wpdb->last_error);
             }
 
             return $result !== false;
@@ -786,7 +945,7 @@ class ClipboardContent{
                 $this->parent_id = $parent_id;
                 return self::arrange($context);
             }
-            Clipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+            CodersClipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
         }
         return false;
     }
@@ -811,7 +970,7 @@ class ClipboardContent{
             }
             return true;
         }
-        Clipboard::sendMessage($wpdb->last_error);
+        CodersClipboard::sendMessage($wpdb->last_error);
         return false;
     }
     /**
@@ -839,7 +998,7 @@ class ClipboardContent{
                 $arranged = self::arrange($this->parent_id , $from+1 , $to-1);
                 return $result1 + $arranged;
             }
-            Clipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+            CodersClipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
         }
         return 0;
     }
@@ -872,7 +1031,7 @@ class ClipboardContent{
             if(is_numeric($result)){
                 return $result;
             }
-            Clipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
+            CodersClipboard::sendMessage('Clipboard update failed: ' . $wpdb->last_error , 'error');
             return 0;
     }
     /**
@@ -906,13 +1065,13 @@ class ClipboardContent{
      * @return  STring Description
      */
     public function getUrl( ){
-        return Clipboard::LINK( $this->id );
+        return CodersClipboard::LINK( $this->id );
     }
     /**
      * @return string
      */
     public function getClipboard(){
-        return Clipboard::CLIPBOARD( $this->id );
+        return CodersClipboard::CLIPBOARD( $this->id );
     }    
     /**
      * @return int
@@ -944,7 +1103,7 @@ class ClipboardContent{
      * @return Boolean
      */
     public function isDenied(){
-        return !Clipboard::requestPermission($this->acl);
+        return !CodersClipboard::requestPermission($this->acl);
     }
     /**
      * @return boolean
@@ -987,7 +1146,7 @@ class ClipboardContent{
      * @return String
      */
     public function getPath(){
-        return Clipboard::path($this->id);
+        return CodersClipboard::path($this->id);
     }
     /**
      * @return Int
@@ -1074,7 +1233,7 @@ class ClipboardContent{
             if(!is_null($updated)){
                 return $updated;
             }
-            Clipboard::sendMessage($wpdb->last_error,'error');
+            CodersClipboard::sendMessage($wpdb->last_error,'error');
         }
         return 0;
     }
@@ -1094,7 +1253,7 @@ class ClipboardContent{
             if(!is_null($updated)){
                 return $updated;
             }
-            Clipboard::sendMessage($wpdb->last_error,'error');
+            CodersClipboard::sendMessage($wpdb->last_error,'error');
         }
         return 0;
     }
@@ -1121,14 +1280,14 @@ class ClipboardContent{
     /**
      * @global wpdb $wpdb
      * @param type $id
-     * @return \ClipboardContent
+     * @return \CoderClip
      */
     public static function load( $id = '' ){
         global $wpdb;
         if(strlen($id)){
             $table = self::table();
             $content = $wpdb->get_row($wpdb->prepare("SELECT * FROM `$table` WHERE `id`='%s'",$id) , ARRAY_A);
-            return !is_null($content) ? new ClipboardContent($content) : null;
+            return !is_null($content) ? new CoderClip($content) : null;
         }
         return null;
     }
@@ -1149,7 +1308,7 @@ class ClipboardContent{
         
         if(!is_null($list)){
             foreach($list as $content ){
-                $collection[$content['id']] = new ClipboardContent($content);
+                $collection[$content['id']] = new CoderClip($content);
             }
         }
         return $collection;
@@ -1170,58 +1329,6 @@ class ClipboardContent{
     }
 
     /**
-     * @global wpdb $wpdb
-     */
-    public static function install(){
-        global $wpdb;
-
-        $charset_collate = $wpdb->get_charset_collate();
-
-        $sql = "CREATE TABLE IF NOT EXISTS " . self::table() .
-            " ( id VARCHAR(64) NOT NULL PRIMARY KEY,
-            parent_id VARCHAR(64) DEFAULT NULL,
-            name VARCHAR(32) NOT NULL,
-            type VARCHAR(24) DEFAULT 'application/octet-stream',
-            title VARCHAR(48) NOT NULL,
-            description TEXT,
-            layout VARCHAR(24) DEFAULT 'default',
-            acl VARCHAR(16) DEFAULT 'private',
-            slot INT DEFAULT '0',
-            tags VARCHAR(24) DEFAULT '',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP) $charset_collate;";
-
-        dbDelta($sql);        
-    }
-    /**
-     * @global wpdb $wpdb
-     * @return boolean
-     */
-    public static function resetContent() {
-        global $wpdb;
-        $done = 0;
-        // 1. Truncate DB table
-        $result = $wpdb->query(sprintf('TRUNCATE TABLE `%s`', self::table()));
-
-        if ($result !== false) {
-            $done++;
-        }
-
-
-        // 2. Delete files from uploads/clipboard
-        $folder = Clipboard::path();
-
-        if (file_exists($folder)) {
-            $files = glob($folder . '/*');
-            foreach ($files as $file) {
-                if (is_file($file)) {
-                    unlink($file);
-                }
-            }
-            $done++;
-        }
-        return $done > 1;
-    }    
-    /**
      * @return string
      */
     public static function table(){
@@ -1229,93 +1336,5 @@ class ClipboardContent{
     }
 }
 
-
-
-
-
-// Activation Hook
-register_activation_hook(__FILE__, function() {
-    flush_rewrite_rules();
-
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    
-    ClipboardContent::install();
-
-    //check the upload directory
-    $uploads = Clipboard::path();
-    if( !file_exists($uploads)){
-        wp_mkdir_p($uploads);
-    }
-});
-
-register_deactivation_hook(__FILE__, function() {
-    flush_rewrite_rules();
-});
-
-// Rewrite Rules
-add_action('init', function() {
-    //flush_rewrite_rules();
-    
-    add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
-    add_rewrite_rule('^clipboard/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]', 'top');
-    add_rewrite_rule('^clipboards/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view', 'top');
-    //add_rewrite_rule('^clipboards/?$', 'index.php?clipboards=1', 'top');
-    
-    add_shortcode('clipboard_view', function($atts){
-        $atts = shortcode_atts(['id' => ''], $atts);
-        ob_start();
-        Clipboard::display($atts['id']);
-        return ob_get_clean();
-    });
-    
-    if(is_admin()){
-        require_once sprintf('%s/admin.php',plugin_dir_path(__FILE__));
-        /*add_action( 'admin_init',function(){
-            require_once sprintf('%s/admin.php',plugin_dir_path(__FILE__));
-        });*/
-        
-     
-    }
-});
-
-add_filter('query_vars', function($vars) {
-    $vars[] = 'clipboard_id';
-    //$vars[] = 'clipboards';
-    $vars[] = 'mode';
-    return $vars;
-});
-
-add_filter('coders_role', function($role = array()) {
-    return $role;
-}, 10, 2);
-
-
-//To define a hook to fill the bottom bar
-//add_action('coders_sidebar',function($provider = 'clipboard',$context = ''){},10,2);
-
-
-// Redirect Handler
-add_action('template_redirect', function(){
-    //$id = isset($_GET['id']) ? sanitize_text_field($_GET['id']) : null;
-    $id = get_query_var('clipboard_id');
-    if( $id ){
-        add_filter( 'body_class', function( $classes ) {
-            return array_merge( $classes, array('coders-clipboard') );
-        } );
-        add_action( 'wp_enqueue_scripts' , function(){
-            wp_enqueue_style(
-                    'coders-clipboard-style',
-                    Clipboard::assetUrl('html/public/style.css'));
-        });
-        $mode = get_query_var('mode');
-        if($mode === 'view' ){
-            Clipboard::display( $id );
-        }
-        else{
-            Clipboard::attach( $id );
-        }
-        exit;                    
-    }
-});
 
 

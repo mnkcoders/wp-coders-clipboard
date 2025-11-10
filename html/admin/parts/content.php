@@ -38,8 +38,8 @@
             </span>
             <span class="block solid edit">
                 <select id="id_acl" class="form-input" name="acl">
-                    <?php foreach ($this->list_roles() as $role => $label) : ?>
-                        <option value="<?php print $role ?>" <?php print $this->get_role($role) ?>><?php print $label ?></option>
+                    <?php foreach ( $this->list_tiers() as $tier => $label) : ?>
+                        <option value="<?php print $tier ?>" <?php print $this->get_tier($tier) ?>><?php print $label ?></option>
                     <?php endforeach; ?>
                 </select>
             </span>
@@ -60,6 +60,4 @@
             ?></button>
         </div>
     </div>
-
-
 </form>

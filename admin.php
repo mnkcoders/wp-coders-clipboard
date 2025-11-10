@@ -1,11 +1,117 @@
-<?php
+<?php defined('ABSPATH') or die;
 
-defined('ABSPATH') or die;
+
+add_action('admin_post_clipboard_action', function() {
+    if ( ! current_user_can('upload_files') ) {
+        wp_die(__('Unauthorized', 'coders_clipboard'));
+    }
+    $post = filter_input_array(INPUT_POST) ?? array();
+    
+    $redirect = ClipboardAdmin::task($post);
+    
+    if( !array_key_exists('page', $redirect)){
+        $redirect['page'] = 'coders_clipboard';
+    }
+
+    wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
+    exit;        
+});
+
+add_action('wp_ajax_clipboard_action', function() {
+
+    if ( ! current_user_can('upload_files') ) {
+        wp_die(__('Unauthorized', 'coders_clipboard'));
+    }
+
+    $post = filter_input_array(INPUT_POST) ?? array();
+    
+    //wp_send_json_success($_FILES);
+    //return ;
+    
+    $response = ClipboardAdmin::task($post);
+    
+    wp_send_json_success($response);
+    
+    //exit;        
+});
+
+add_action('admin_enqueue_scripts', function( $hook ) {
+
+
+    // Plugin folder URL
+    //$plugin_url = plugin_dir_url(__FILE__);
+    $plugin_url = ClipboardAdmin::assetUrl();
+
+    // Register and enqueue CSS
+    wp_enqueue_style(
+            'clipboard-admin-style',
+            ClipboardAdmin::assetUrl('html/admin/style.css'),
+            [],
+            filemtime(ClipboardAdmin::assetPath('html/admin/style.css'))
+    );
+
+    // Register and enqueue JS
+    wp_enqueue_script(
+            'clipboard-admin-script',
+            ClipboardAdmin::assetUrl('html/admin/script.js'),
+            ['jquery'],
+            filemtime(ClipboardAdmin::assetPath('html/admin/script.js')),
+            true
+    );
+
+    // Optional: Pass variables to JS
+    wp_localize_script('clipboard-admin-script', 'ClipboardData', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('clipboard_nonce')
+    ]);
+});
+
+add_action('admin_menu', function () {
+    add_menu_page(
+            __('Clipboard', 'coders_clipboard'),
+            __('Clipboard', 'coders_clipboard'),
+            'upload_files', // or 'manage_options' if more restricted
+            'coders_clipboard',
+            function () { ClipboardAdmin::display(); },
+            'dashicons-art',80);
+    add_submenu_page(
+            'coders_clipboard',
+            __('Settings', 'coders_clipboard'),
+            __('Settings', 'coders_clipboard'),
+            'manage_options',
+            'coders_clipboard_settings',
+            function () { ClipboardAdmin::display('settings'); });
+});
+
+add_action('admin_init', function() {
+
+    //ClipboardAdmin::sendMessage('Hello!!');
+
+    /*$get = filter_input_array(INPUT_GET) ?? array();
+    
+    if( isset($get['page']) && $get['page'] === 'coders_clipboard' ){
+        //tasks and redirect
+        if( isset($get['task']) ){
+            $redirect = ClipboardAdmin::task($get);
+            return ClipboardAdmin::redirect($redirect);
+        }
+        $id =isset($get['context_id']) ? $get['context_id'] : '';
+        
+        $view = $get['page'] === 'coders_clipboard_settings' ? 'settings' :'default';
+        ClipboardAdmin::display($view, $id);
+    }*/
+});
+
+add_filter('coders_acl', function($tiers = array()) {
+    $tiers['test'] = 'Test Coin';
+    return $tiers;
+}, 10, 2);
+
 
 /**
  * @class ClipboardAdmin
  */
-class ClipboardAdmin extends Clipboard {
+class ClipboardAdmin extends CodersClipboard {
     
     const CONTEXT_MAIN = 'main';
     const CONTEXT_SETTINGS = 'settings';
@@ -224,10 +330,17 @@ class ClipboardAdmin extends Clipboard {
             'private' => __('Private (admin only)', 'coders_clipboard'),
             'public' => __('Public (everyone)', 'coders_clipboard'),
         );
-        $tiers = apply_filters('coders_acl',array());
-        foreach($tiers as $tier => $name){
+        return $roles;
+    }
+    /**
+     * @return array
+     */
+    protected function listTiers(){
+        $roles = $this->listRoles();        
+        $tiers = apply_filters('coder_tiers',array());
+        foreach($tiers as $tier){
             if( !isset($roles[$tier])){
-                $roles[$tier] = $name;
+                $roles[$tier] = ucfirst($tier);
             }
         }
         return $roles;
@@ -292,7 +405,7 @@ class ClipboardAdmin extends Clipboard {
         $db_ids = $wpdb->get_col(sprintf("SELECT `id` FROM `%s`",self::table()));
         $ids = array_map('strtolower', $db_ids);
         $count = 0;
-        $folder = Clipboard::path();
+        $folder = CodersClipboard::path();
         $files = scandir($folder);
         $lost = [];
         
@@ -308,12 +421,12 @@ class ClipboardAdmin extends Clipboard {
     /**
      * @param string $from Description
      * @param string $id Description
-     * @return \ClipboardContent[]
+     * @return \CoderClip[]
      */
     private static function upload( $from = 'upload', $id = '' ) {
         $uploaded = array();
-        $clipboard = ClipboardContent::load($id);
-        $slot = ClipboardContent::count($id);
+        $clipboard = CoderClip::load($id);
+        $slot = CoderClip::count($id);
         $layout = $clipboard->layout;
         $acl = $clipboard->acl;
         $parent_id = strlen($id) ? $id : '';
@@ -329,7 +442,7 @@ class ClipboardAdmin extends Clipboard {
                 $parent_id = $file['id'];
             }
             
-            $content = new ClipboardContent($file);
+            $content = new CoderClip($file);
             $content->tagImageSize();
             if ($content->create()) {
                 $uploaded[] = $content->post();
@@ -375,13 +488,13 @@ class ClipboardAdmin extends Clipboard {
                 $output['content'] = $uploaded;
                 break;
             case 'update':
-                $content = ClipboardContent::load($id);
+                $content = CoderClip::load($id);
                 if (!is_null($content) && $content->override($input)->update()) {
                     $output[$task] = 'done';
                 }
                 break;
             case 'delete':
-                $content = ClipboardContent::load($id);
+                $content = CoderClip::load($id);
                 if (!is_null($content) && $content->remove()) {
                     $output[$task] = 'done';
                     if( $content->id === $context_id){
@@ -391,7 +504,7 @@ class ClipboardAdmin extends Clipboard {
                 }
                 break;
             case 'sort':
-                $item = ClipboardContent::load($id);
+                $item = CoderClip::load($id);
                 $index = isset($input['slot']) ? $input['slot'] : 0;
                 if (!is_null($item)) {
                     $count = $item->sort($index);
@@ -401,20 +514,20 @@ class ClipboardAdmin extends Clipboard {
                 }
                 break;
             case 'move':
-                $content = ClipboardContent::load($id);
+                $content = CoderClip::load($id);
                 if (!is_null($content) && $content->moveto($parent_id)) {
                     $output[$task] = 'done';
                 }
                 break;
             case 'moveup':
-                $content = ClipboardContent::load($id);
+                $content = CoderClip::load($id);
                 //get here the upper parent Id
                 if (!is_null($content) && $content->moveup()) {
                     $output[$task] = 'done';
                 }
                 break;
             case 'moveto':
-                $content = ClipboardContent::load($id);
+                $content = CoderClip::load($id);
                 //get here the selected container id
                 if (!is_null($content) && $content->moveto()) {
                     $output[$task] = 'done';
@@ -428,34 +541,34 @@ class ClipboardAdmin extends Clipboard {
                 $output[$task] = 'done';
                 break;
             case 'renameall':
-                $count = ClipboardContent::renameAll($context_id);
+                $count = CoderClip::renameAll($context_id);
                 if( $count ){
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'propagate':
-                $count = ClipboardContent::copyPermissions($context_id);
+                $count = CoderClip::copyPermissions($context_id);
                 if( $count ){
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'layout':
-                $count = ClipboardContent::copyLayouts($context_id);
+                $count = CoderClip::copyLayouts($context_id);
                 if( $count ){
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'arrange':
-                $count = ClipboardContent::arrange($context_id);
+                $count = CoderClip::arrange($context_id);
                 $output[$task] = 'done';
                 $output['count'] = $count;
                 break;
             case 'nuke':
                 $output['page'] = self::CONTEXT_SETTINGS;
-                if( ClipboardContent::resetContent() ){
+                if( CoderClip::resetContent() ){
                     $output[$task] = 'done';
                 }
                 break;
@@ -554,7 +667,7 @@ class ClipboardUploader {
         foreach ($input as $upload) {
             if (self::validate($upload['error'])) {
                 $upload['id'] = ClipboardAdmin::createId($upload['name']);
-                $upload['path'] = Clipboard::path($upload['id']);
+                $upload['path'] = CodersClipboard::path($upload['id']);
                 // Move uploaded file
                 if (move_uploaded_file($upload['tmp_name'], $upload['path'])) {
                     //unlink($upload['tmp_name']);
@@ -573,114 +686,3 @@ class ClipboardUploader {
         return new ClipboardUploader($files);
     }
 }
-
-add_action('admin_post_clipboard_action', function() {
-    if ( ! current_user_can('upload_files') ) {
-        wp_die(__('Unauthorized', 'coders_clipboard'));
-    }
-    $post = filter_input_array(INPUT_POST) ?? array();
-    
-    $redirect = ClipboardAdmin::task($post);
-    
-    if( !array_key_exists('page', $redirect)){
-        $redirect['page'] = 'coders_clipboard';
-    }
-
-    wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
-    exit;        
-});
-
-add_action('wp_ajax_clipboard_action', function() {
-
-    if ( ! current_user_can('upload_files') ) {
-        wp_die(__('Unauthorized', 'coders_clipboard'));
-    }
-
-    $post = filter_input_array(INPUT_POST) ?? array();
-    
-    //wp_send_json_success($_FILES);
-    //return ;
-    
-    $response = ClipboardAdmin::task($post);
-    
-    wp_send_json_success($response);
-    
-    //exit;        
-});
-
-
-add_action('admin_enqueue_scripts', function( $hook ) {
-
-
-    // Plugin folder URL
-    //$plugin_url = plugin_dir_url(__FILE__);
-    $plugin_url = ClipboardAdmin::assetUrl();
-
-    // Register and enqueue CSS
-    wp_enqueue_style(
-            'clipboard-admin-style',
-            ClipboardAdmin::assetUrl('html/admin/style.css'),
-            [],
-            filemtime(ClipboardAdmin::assetPath('html/admin/style.css'))
-    );
-
-    // Register and enqueue JS
-    wp_enqueue_script(
-            'clipboard-admin-script',
-            ClipboardAdmin::assetUrl('html/admin/script.js'),
-            ['jquery'],
-            filemtime(ClipboardAdmin::assetPath('html/admin/script.js')),
-            true
-    );
-
-    // Optional: Pass variables to JS
-    wp_localize_script('clipboard-admin-script', 'ClipboardData', [
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'nonce' => wp_create_nonce('clipboard_nonce')
-    ]);
-});
-
-
-
-add_action('admin_menu', function () {
-    add_menu_page(
-            __('Clipboard', 'coders_clipboard'),
-            __('Clipboard', 'coders_clipboard'),
-            'upload_files', // or 'manage_options' if more restricted
-            'coders_clipboard',
-            function () { ClipboardAdmin::display(); },
-            'dashicons-art',80);
-    add_submenu_page(
-            'coders_clipboard',
-            __('Settings', 'coders_clipboard'),
-            __('Settings', 'coders_clipboard'),
-            'manage_options',
-            'coders_clipboard_settings',
-            function () { ClipboardAdmin::display('settings'); });
-});
-
-
-add_action('admin_init', function() {
-
-    //ClipboardAdmin::sendMessage('Hello!!');
-
-    /*$get = filter_input_array(INPUT_GET) ?? array();
-    
-    if( isset($get['page']) && $get['page'] === 'coders_clipboard' ){
-        //tasks and redirect
-        if( isset($get['task']) ){
-            $redirect = ClipboardAdmin::task($get);
-            return ClipboardAdmin::redirect($redirect);
-        }
-        $id =isset($get['context_id']) ? $get['context_id'] : '';
-        
-        $view = $get['page'] === 'coders_clipboard_settings' ? 'settings' :'default';
-        ClipboardAdmin::display($view, $id);
-    }*/
-});
-
-
-add_filter('coders_acl', function($tiers = array()) {
-    $tiers['test'] = 'Test Coin';
-    return $tiers;
-}, 10, 2);
