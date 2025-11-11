@@ -1,41 +1,40 @@
 <?php defined('ABSPATH') or die;
 
-
-add_action('admin_post_clipboard_action', function() {
-    if ( ! current_user_can('upload_files') ) {
+add_action('admin_post_clipboard_action', function () {
+    if (!current_user_can('upload_files')) {
         wp_die(__('Unauthorized', 'coders_clipboard'));
     }
     $post = filter_input_array(INPUT_POST) ?? array();
-    
+
     $redirect = ClipboardAdmin::task($post);
-    
-    if( !array_key_exists('page', $redirect)){
+
+    if (!array_key_exists('page', $redirect)) {
         $redirect['page'] = 'coders_clipboard';
     }
 
     wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
-    exit;        
+    exit;
 });
 
-add_action('wp_ajax_clipboard_action', function() {
+add_action('wp_ajax_clipboard_action', function () {
 
-    if ( ! current_user_can('upload_files') ) {
+    if (!current_user_can('upload_files')) {
         wp_die(__('Unauthorized', 'coders_clipboard'));
     }
 
     $post = filter_input_array(INPUT_POST) ?? array();
-    
+
     //wp_send_json_success($_FILES);
     //return ;
-    
+
     $response = ClipboardAdmin::task($post);
-    
+
     wp_send_json_success($response);
-    
+
     //exit;        
 });
 
-add_action('admin_enqueue_scripts', function( $hook ) {
+add_action('admin_enqueue_scripts', function ($hook) {
 
 
     // Plugin folder URL
@@ -72,37 +71,41 @@ add_action('admin_menu', function () {
             __('Clipboard', 'coders_clipboard'),
             'upload_files', // or 'manage_options' if more restricted
             'coders_clipboard',
-            function () { ClipboardAdmin::display(); },
-            'dashicons-art',80);
+            function () {
+                ClipboardAdmin::display();
+            },
+            'dashicons-art', 80);
     add_submenu_page(
             'coders_clipboard',
             __('Settings', 'coders_clipboard'),
             __('Settings', 'coders_clipboard'),
             'manage_options',
             'coders_clipboard_settings',
-            function () { ClipboardAdmin::display('settings'); });
+            function () {
+                ClipboardAdmin::display('settings');
+            });
 });
 
-add_action('admin_init', function() {
+add_action('admin_init', function () {
 
     //ClipboardAdmin::sendMessage('Hello!!');
 
-    /*$get = filter_input_array(INPUT_GET) ?? array();
-    
-    if( isset($get['page']) && $get['page'] === 'coders_clipboard' ){
-        //tasks and redirect
-        if( isset($get['task']) ){
-            $redirect = ClipboardAdmin::task($get);
-            return ClipboardAdmin::redirect($redirect);
-        }
-        $id =isset($get['context_id']) ? $get['context_id'] : '';
-        
-        $view = $get['page'] === 'coders_clipboard_settings' ? 'settings' :'default';
-        ClipboardAdmin::display($view, $id);
-    }*/
+    /* $get = filter_input_array(INPUT_GET) ?? array();
+
+      if( isset($get['page']) && $get['page'] === 'coders_clipboard' ){
+      //tasks and redirect
+      if( isset($get['task']) ){
+      $redirect = ClipboardAdmin::task($get);
+      return ClipboardAdmin::redirect($redirect);
+      }
+      $id =isset($get['context_id']) ? $get['context_id'] : '';
+
+      $view = $get['page'] === 'coders_clipboard_settings' ? 'settings' :'default';
+      ClipboardAdmin::display($view, $id);
+      } */
 });
 
-add_filter('coders_acl', function($tiers = array()) {
+add_filter('coders_acl', function ($tiers = array()) {
     $tiers['test'] = 'Test Coin';
     return $tiers;
 }, 10, 2);
@@ -111,17 +114,18 @@ add_filter('coders_acl', function($tiers = array()) {
 /**
  * @class ClipboardAdmin
  */
-class ClipboardAdmin extends CodersClipboard {
-    
+class ClipboardAdmin extends Clipboard {
+
     const CONTEXT_MAIN = 'main';
     const CONTEXT_SETTINGS = 'settings';
-    
+
     private $_page = self::CONTEXT_MAIN;
+
     /**
      * 
      * @param String $id
      */
-    protected function __construct( $id = '') {
+    protected function __construct($id = '') {
 
         parent::__construct($id);
     }
@@ -139,17 +143,18 @@ class ClipboardAdmin extends CodersClipboard {
      * @param Stsring $page
      * @param Stsring $context_id
      */
-    public static final function display($page = '' , $context_id = '') {
+    public static final function display($page = '', $context_id = '') {
         $input = filter_input_array(INPUT_GET) ?? array();
         //ClipboardAdmin::sendMessage('Hello!');
-        if(array_key_exists('task', $input)){
+        if (array_key_exists('task', $input)) {
             $input = self::task($input);
             //return self::redirect($input);
         }
         $id = array_key_exists('context_id', $input) ? $input['context_id'] : $context_id;
-        $clipboard = new ClipboardAdmin( $id );
-        $clipboard->__layout(strlen($page) ? $page : 'default','admin');
+        $clipboard = new ClipboardAdmin($id);
+        $clipboard->__layout(strlen($page) ? $page : 'default', 'admin');
     }
+
     /**
      * 
      * @param type $name
@@ -157,27 +162,28 @@ class ClipboardAdmin extends CodersClipboard {
      * @return string
      */
     public final function __call($name, $arguments) {
-        switch( true ){
+        switch (true) {
             case $name === 'page':
                 return $this->page();
             case preg_match('/^editor_/', $name):
-                $this->__editor(substr($name, 7), ... $arguments );
+                $this->__editor(substr($name, 7), ... $arguments);
             default:
                 return parent::__call($name, $arguments);
         }
     }
+
     /**
      * @param string $name
      */
-    private function __editor( $name ) {
+    private function __editor($name) {
         $content = $this->hasContent() ? $this->content()->description : '';
-        $id = 'id_'. $name;
+        $id = 'id_' . $name;
         $settings = [
             'textarea_name' => $name, // The name attribute
             'editor_height' => 250,
             'media_buttons' => true,
-            'tinymce'       => true,
-            'quicktags'     => true
+            'tinymce' => true,
+            'quicktags' => true
         ];
 
         wp_editor($content, $id, $settings);
@@ -190,122 +196,133 @@ class ClipboardAdmin extends CodersClipboard {
      */
     protected function __link($action, $request = array()) {
         //parent::__link($action, $arguments);
-        
-        if(!array_key_exists('page', $request)){
+
+        if (!array_key_exists('page', $request)) {
             $request['page'] = 'coders_clipboard';
         }
         $request['task'] = $action;
-        
+
         return add_query_arg($request, admin_url('admin.php'));
-    }     
+    }
+
     /**
      * @return String
      */
-    public function page(){
+    public function page() {
         return $this->_page;
     }
+
     /**
      * @return Boolean
      */
-    protected function isMain(){
+    protected function isMain() {
         return $this->page() === self::CONTEXT_MAIN;
     }
+
     /**
      * @return Boolean
      */
-    protected function isSettings(){
+    protected function isSettings() {
         return $this->page() === self::CONTEXT_MAIN;
     }
+
     /**
      * @return Boolean
      */
-    public function isMedia(){
+    public function isMedia() {
         return $this->hasContent() && $this->content()->isMedia();
     }
+
     /**
      * @param string $id
      * @param string $parent_id
      * @return string
      */
-    protected function actionMove( $id = '', $parent_id = '' ){
-        if(strlen($id)){
-            $request = array('id'=> $id);
-            if(strlen($parent_id)){
+    protected function actionMove($id = '', $parent_id = '') {
+        if (strlen($id)) {
+            $request = array('id' => $id);
+            if (strlen($parent_id)) {
                 $request['parent_id'] = $parent_id;
             }
-            if( $this->hasContent() ){
+            if ($this->hasContent()) {
                 $request['context_id'] = $this->id;
             }
-            return $this->__link('move',$request);
+            return $this->__link('move', $request);
         }
         return '';
     }
+
     /**
      * @return string
      */
-    protected function actionDelete($id=''){
-        $request = array('id'=> $id);
-        if( $this->hasContent()){
+    protected function actionDelete($id = '') {
+        $request = array('id' => $id);
+        if ($this->hasContent()) {
             $context = $this->id !== $id ? $this->id : $this->parent_id;
-            if(strlen($context)){
-                $request['context_id'] = $context;                
+            if (strlen($context)) {
+                $request['context_id'] = $context;
             }
         }
-        return $this->__link('delete',$request);
+        return $this->__link('delete', $request);
     }
+
     /**
      * @return string
      */
-    protected function actionPropagate(){
-        $request = array('context_id'=>$this->id);
-        return $this->__link('propagate',$request);
+    protected function actionPropagate() {
+        $request = array('context_id' => $this->id);
+        return $this->__link('propagate', $request);
     }
+
     /**
      * @return string
      */
-    protected function actionLayout(){
-        $request = array('context_id'=>$this->id);
-        return $this->__link('layout',$request);
+    protected function actionLayout() {
+        $request = array('context_id' => $this->id);
+        return $this->__link('layout', $request);
     }
+
     /**
      * @return string
      */
-    protected function actionRecover(){
-        $request = array('context_id'=>$this->id);
-        return $this->__link('recover',$request);
+    protected function actionRecover() {
+        $request = array('context_id' => $this->id);
+        return $this->__link('recover', $request);
     }
+
     /**
      * @return string
      */
-    protected function actionArrange(){
-        $request = array('context_id'=>$this->id);
-        return $this->__link('arrange',$request);
+    protected function actionArrange() {
+        $request = array('context_id' => $this->id);
+        return $this->__link('arrange', $request);
     }
+
     /**
      * @return string
      */
-    protected function actionSort( $id = '', $slot = 0 ){
-        if(strlen($id) && $slot ){
+    protected function actionSort($id = '', $slot = 0) {
+        if (strlen($id) && $slot) {
             $request = array(
                 'id' => $id,
                 'slot' => $slot,
             );
-            if( $this->hasContent() ){
+            if ($this->hasContent()) {
                 $request['context_id'] = $this->parent_id;
-            }            
-            return $this->__link('sort', $request);            
+            }
+            return $this->__link('sort', $request);
         }
         return '#';
     }
+
     /**
      * @return string
      */
-    protected function actionRenameAll(){
-        $request = array('context_id'=>$this->id);
-        return $this->__link('renameall',$request);
+    protected function actionRenameAll() {
+        $request = array('context_id' => $this->id);
+        return $this->__link('renameall', $request);
     }
 
-        
     /**
      * @return array
      */
@@ -330,29 +347,23 @@ class ClipboardAdmin extends CodersClipboard {
             'private' => __('Private (admin only)', 'coders_clipboard'),
             'public' => __('Public (everyone)', 'coders_clipboard'),
         );
-        return $roles;
-    }
-    /**
-     * @return array
-     */
-    protected function listTiers(){
-        $roles = $this->listRoles();        
-        $tiers = apply_filters('coder_tiers',array());
-        foreach($tiers as $tier){
-            if( !isset($roles[$tier])){
-                $roles[$tier] = ucfirst($tier);
+        $tiers = apply_filters('coders_acl', array());
+        foreach ($tiers as $tier => $name) {
+            if (!isset($roles[$tier])) {
+                $roles[$tier] = $name;
             }
         }
         return $roles;
     }
+
     /**
      * 
      * @param string $id
      * @return string
      */
-    protected function getPost($id = '' ) {
-        $query = array('page'=>'coders_clipboard');
-        if(strlen($id)){
+    protected function getPost($id = '') {
+        $query = array('page' => 'coders_clipboard');
+        if (strlen($id)) {
             $query['context_id'] = $id;
         }
         return add_query_arg($query, admin_url('admin.php'));
@@ -364,69 +375,75 @@ class ClipboardAdmin extends CodersClipboard {
     protected function getForm() {
         return admin_url('admin-post.php?action=clipboard_action');
     }
+
     /**
      * @param string $layout
      * @return string
      */
-    protected function getCurrentLayout( $layout ){
+    protected function getCurrentLayout($layout) {
         $item = is_array($layout) ? $layout[0] : $layout;
         return $this->isValid() && $this->content()->layout === $item ? 'selected' : '';
     }
+
     /**
      * @param string $role
      * @return string
      */
-    protected function getRole( $role ){
+    protected function getRole($role) {
         $item = is_array($role) ? $role[0] : $role;
         return $this->isValid() && $this->content()->acl === $item ? 'selected' : '';
     }
+
     /**
      * @global wpdb $wpdb
      * @return int
      */
-    private static function fixParents(){
+    private static function fixParents() {
         global $wpdb;
-        
-        $fixed = $wpdb->query(sprintf("UPDATE `%s` SET parent_id = NULL WHERE id = parent_id OR parent_id = ''",self::table()));
-    
-        if( $fixed !== false ){
+
+        $fixed = $wpdb->query(sprintf("UPDATE `%s` SET parent_id = NULL WHERE id = parent_id OR parent_id = ''", self::table()));
+
+        if ($fixed !== false) {
             return $fixed;
         }
         ClipBoard::sendMessage($wpdb->last_error);
         return 0;
     }
+
     /**
      * @global wpdb $wpdb
      * @return int
      */
-    private static function fetchLost( ){
+    private static function fetchLost() {
         global $wpdb;
-        
-        $db_ids = $wpdb->get_col(sprintf("SELECT `id` FROM `%s`",self::table()));
+
+        $db_ids = $wpdb->get_col(sprintf("SELECT `id` FROM `%s`", self::table()));
         $ids = array_map('strtolower', $db_ids);
         $count = 0;
-        $folder = CodersClipboard::path();
+        $folder = Clipboard::path();
         $files = scandir($folder);
         $lost = [];
-        
-        foreach($files as $file ){
-            if ($file === '.' || $file === '..') continue;
-            if(!in_array(strtolower($file), $ids)){
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..')
+                continue;
+            if (!in_array(strtolower($file), $ids)) {
                 $path = $folder . $file;
                 $lost[$file] = mime_content_type($path);
             }
         }
         return $lost;
-    }    
+    }
+
     /**
      * @param string $from Description
      * @param string $id Description
-     * @return \CoderClip[]
+     * @return \ClipboardContent[]
      */
-    private static function upload( $from = 'upload', $id = '' ) {
+    private static function upload($from = 'upload', $id = '') {
         $uploaded = array();
-        $clipboard = CoderClip::load($id);
-        $slot = CoderClip::count($id);
+        $clipboard = ClipboardContent::load($id);
+        $slot = ClipboardContent::count($id);
         $layout = $clipboard->layout;
         $acl = $clipboard->acl;
         $parent_id = strlen($id) ? $id : '';
@@ -437,74 +454,76 @@ class ClipboardAdmin extends CodersClipboard {
             $file['acl'] = $acl;
             $file['layout'] = $layout;
             //if the upload is in the root collection
-            if( strlen($parent_id) === 0){
+            if (strlen($parent_id) === 0) {
                 //set the header file as the parent
                 $parent_id = $file['id'];
             }
-            
-            $content = new CoderClip($file);
+
+            $content = new ClipboardContent($file);
             $content->tagImageSize();
             if ($content->create()) {
                 $uploaded[] = $content->post();
             }
             //then set the next to the first file ID
-            if(strlen($id) === 0){
+            if (strlen($id) === 0) {
                 $id = $file['id'];
             }
         }
 
         return $uploaded;
-    }    
+    }
+
     /**
      * @param array $input
      */
-    public static final function redirect( $input = array()){
-        if( !array_key_exists('page', $input)){
+    public static final function redirect($input = array()) {
+        if (!array_key_exists('page', $input)) {
             $input['page'] = 'coders_clipboard';
         }
 
         wp_redirect(add_query_arg($input, admin_url('admin.php')));
         exit;
     }
+
     /**
      * @param array $input
      */
-    public static final function task( $input = array() ){
+    public static final function task($input = array()) {
         $task = array_key_exists('task', $input) ? $input['task'] : '';
         $context_id = array_key_exists('context_id', $input) ? $input['context_id'] : '';
         $id = array_key_exists('id', $input) ? $input['id'] : '';
         $parent_id = array_key_exists('parent_id', $input) ? $input['parent_id'] : '';
         $output = array();
-        if( strlen($id)){
+        if (strlen($id)) {
             $output['id'] = $id;
         }
-        if( strlen($context_id)){
+        if (strlen($context_id)) {
             $output['context_id'] = $context_id;
         }
-        
-        switch ($task ){
+
+        switch ($task) {
             case 'upload':
-                $uploaded = self::upload( 'upload' , $id );
+                $uploaded = self::upload('upload', $id);
                 $output['content'] = $uploaded;
                 break;
             case 'update':
-                $content = CoderClip::load($id);
+                $content = ClipboardContent::load($id);
                 if (!is_null($content) && $content->override($input)->update()) {
                     $output[$task] = 'done';
                 }
                 break;
             case 'delete':
-                $content = CoderClip::load($id);
+                $content = ClipboardContent::load($id);
                 if (!is_null($content) && $content->remove()) {
                     $output[$task] = 'done';
-                    if( $content->id === $context_id){
+                    if ($content->id === $context_id) {
                         $context_id = $content->parent_id;
                     }
                     $output['context_id'] = $context_id;
                 }
                 break;
             case 'sort':
-                $item = CoderClip::load($id);
+                $item = ClipboardContent::load($id);
                 $index = isset($input['slot']) ? $input['slot'] : 0;
                 if (!is_null($item)) {
                     $count = $item->sort($index);
@@ -514,20 +533,20 @@ class ClipboardAdmin extends CodersClipboard {
                 }
                 break;
             case 'move':
-                $content = CoderClip::load($id);
+                $content = ClipboardContent::load($id);
                 if (!is_null($content) && $content->moveto($parent_id)) {
                     $output[$task] = 'done';
                 }
                 break;
             case 'moveup':
-                $content = CoderClip::load($id);
+                $content = ClipboardContent::load($id);
                 //get here the upper parent Id
                 if (!is_null($content) && $content->moveup()) {
                     $output[$task] = 'done';
                 }
                 break;
             case 'moveto':
-                $content = CoderClip::load($id);
+                $content = ClipboardContent::load($id);
                 //get here the selected container id
                 if (!is_null($content) && $content->moveto()) {
                     $output[$task] = 'done';
@@ -541,43 +560,42 @@ class ClipboardAdmin extends CodersClipboard {
                 $output[$task] = 'done';
                 break;
             case 'renameall':
-                $count = CoderClip::renameAll($context_id);
-                if( $count ){
+                $count = ClipboardContent::renameAll($context_id);
+                if ($count) {
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'propagate':
-                $count = CoderClip::copyPermissions($context_id);
-                if( $count ){
+                $count = ClipboardContent::copyPermissions($context_id);
+                if ($count) {
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'layout':
-                $count = CoderClip::copyLayouts($context_id);
-                if( $count ){
+                $count = ClipboardContent::copyLayouts($context_id);
+                if ($count) {
                     $output[$task] = 'done';
                     $output['count'] = $count;
                 }
                 break;
             case 'arrange':
-                $count = CoderClip::arrange($context_id);
+                $count = ClipboardContent::arrange($context_id);
                 $output[$task] = 'done';
                 $output['count'] = $count;
                 break;
             case 'nuke':
                 $output['page'] = self::CONTEXT_SETTINGS;
-                if( CoderClip::resetContent() ){
+                if (ClipboardContent::resetContent()) {
                     $output[$task] = 'done';
                 }
                 break;
         }
-        
-        return $output;
-    } 
-}
 
+        return $output;
+    }
+}
 
 /**
  * Upload Manager for new contents
@@ -650,7 +668,7 @@ class ClipboardUploader {
                     return true;
             }
         } catch (Exception $ex) {
-            ClipboardAdmin::sendMessage($ex->getMessage(),'error');
+            ClipboardAdmin::sendMessage($ex->getMessage(), 'error');
         }
         return false;
     }
@@ -667,7 +685,7 @@ class ClipboardUploader {
         foreach ($input as $upload) {
             if (self::validate($upload['error'])) {
                 $upload['id'] = ClipboardAdmin::createId($upload['name']);
-                $upload['path'] = CodersClipboard::path($upload['id']);
+                $upload['path'] = Clipboard::path($upload['id']);
                 // Move uploaded file
                 if (move_uploaded_file($upload['tmp_name'], $upload['path'])) {
                     //unlink($upload['tmp_name']);
@@ -677,7 +695,7 @@ class ClipboardUploader {
                     $files[] = $upload;
                 } else {
                     ClipboardAdmin::sendMessage(
-                            __('Failed to move uploaded file','coders_clipboard') . ' ' . $upload['name'],
+                            __('Failed to move uploaded file', 'coders_clipboard') . ' ' . $upload['name'],
                             'error');
                     //return new WP_Error('upload_failed', 'Failed to move uploaded file.');
                 }
