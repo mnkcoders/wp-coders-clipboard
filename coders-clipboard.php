@@ -94,9 +94,12 @@ add_action('template_redirect', function(){
         });
         $mode = get_query_var('mode');
         if($mode === 'view' ){
+            //require_once sprintf('%s/lib/public.php', CODER_CLIPBOARD_DIR);
+            //do_action( 'coder_clipboard' , $id );
             Clipboard::display( $id );
         }
         else{
+            //\CODERS\Clipboard\Clipboard::attach($id);
             Clipboard::attach( $id );
         }
         exit;                    

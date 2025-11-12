@@ -5,13 +5,88 @@ defined('ABSPATH') or die;
 
 class Clipboard{
     
+    /**
+     * 
+     */
+    protected function error404(){
+            status_header(404);
+            wp_die(__('Clipboard item not found.', 'coders_clipboard'));
+            exit;        
+    }
+    /**
+     * 
+     */
+    protected function errorDenied(){
+        status_header(403);
+        wp_die(__('Access denied', 'coders_clipboard'));
+        exit;
+    }
     
+    
+    /**
+     * @param string $id
+     */
+    public static function attach( $id ){
+        $clipboard = new Clipboard();
+        $clip = Clip::load($id);
+
+        switch(true){
+            case is_null($clip):
+                return $clipboard->error404();
+            case !$clip->valid():
+            case !$clip->ready():
+                return $clipboard->error404();
+            case !$clip->denied():
+                return $clipboard->errorDenied();
+        }
+        header('Content-Description: File Transfer');
+        header('Content-Type: ' . $clip->type);
+        header('Content-Disposition: ' . $clip->disposition() . '; filename=' . $clip->filename());
+        header('Content-Length: ' . $clip->size());
+        readfile($clip->path());
+        exit;        
+    }
+
+    /**
+     * @param string $role
+     * @return boolean
+     */
+    public static function permission( $role = '' ){
+        $roles = array(
+            'public',
+            apply_filters('coder_acl','')
+        );
+        return self::isAdmin() || in_array($role, $roles);
+    }    
+    
+    
+    /**
+     * @return  boolean
+     */
+    protected static function isAdmin(){
+        return current_user_can( 'administrator' );
+    }
+
+    /**
+     * @param String $id
+     * @return String
+     */
+    public static function clipboard( $id = ''){
+        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_APP,$id));
+    }
+    /**
+     * @param String $id
+     * @return String
+     */
+    public static function clip( $id = ''){
+        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_CLIP,$id));
+    }
     
     /**
      * @param string $id
      * @return {String}
      */
-    public static function path( $id = '' ){
+    public static function drive( $id = '' ){
         $path = sprintf('%s/clipboard/content/',wp_upload_dir()['basedir']);
         return strlen($id) ? $path . $id : $path;
     }    
@@ -20,8 +95,12 @@ class Clipboard{
      */
     public static function rewrite( $flush = false ){
         add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
-        add_rewrite_rule('^clipboard/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]', 'top');
-        add_rewrite_rule('^clipboards/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view', 'top');
+        add_rewrite_rule(
+                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]', CODER_CLIPBOARD_CLIP),
+                'top');
+        add_rewrite_rule(
+                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view', CODER_CLIPBOARD_APP),
+                'top');
 
         if( $flush ){
             flush_rewrite_rules();
@@ -34,7 +113,7 @@ class Clipboard{
         ClipData::intstall();
         self::rewrite(true);
         //check the upload directory
-        $uploads = Clipboard::path();
+        $uploads = Clipboard::drive();
         if( !file_exists($uploads)){
             wp_mkdir_p($uploads);
         }        
@@ -60,6 +139,7 @@ class Clip{
         'parent_id' => '',        
         'slot' => 0,
         'tags' => '',
+        //'drive' => '',
         'created_at' => '',
     );
     /**
@@ -70,7 +150,7 @@ class Clip{
     /**
      * @var \CODERS\Clipboard\Clip
      */
-    private $_collection = array(
+    private $_items = array(
         //clip contents
     );
 
@@ -79,15 +159,17 @@ class Clip{
      * @param array $input
      */
     public function __construct( $input = array()) {
-        $this->_content['created_at'] = self::timestamp();
+        $this->_content['created_at'] = date('Y-m-d H:i:s');
         $this->populate( $input );
     }
     /**
-     * @return String 
+     * @return String
      */
-    public static function timestamp(){
-        return date('Y-m-d H:i:s');
+    public function __get( $name ){
+        return array_key_exists($name, $this->_content) ? $this->_content[$name] : '';
     }
+    
+    
     /**
      * @param array $input
      */
@@ -101,9 +183,139 @@ class Clip{
     /**
      * @return \CODERS\Clipboard\Clip
      */
-    public function collection(){
-        return $this->_collection;
+    public function items(){
+        return $this->_items;
     }
+    /**
+     * @param bool $clipboard full clipboard view
+     * @return string
+     */
+    public function link( $clipboard = false ) {
+        return $clipboard ? Clipboard::clipboard($this->id) : Clipboard::clip($this->id);
+    }
+    /**
+     * @return array
+     */
+    public function tags(){
+        return explode(' ', $this->tags);
+    }
+    /**
+     * @return Boolean
+     */
+    public function valid(){
+        return strlen($this->id) > 0;
+    }
+    /**
+     * @return Boolean
+     */
+    public function ready(){
+        return file_exists($this->path());
+    }
+    /**
+     * @return Boolean
+     */
+    public function denied(){
+        return !Clipboard::permission($this->acl);
+    }
+    /**
+     * @return boolean
+     */
+    public function updated(){
+        return $this->_updated;
+    }    
+    /**
+     * @return Boolean
+     */
+    public function image( ){
+        return stripos( $this->type, 'image/') === 0;
+    }
+    /**
+     * @return Boolean
+     */
+    public function media( ){
+        return $this->image();
+    }
+    /**
+     * @return Boolean
+     */
+    public function embed(){
+        $inline_types = ['image/', 'text/', 'application/pdf'];
+        foreach ($inline_types as $type) {
+            if (stripos($this->type, $type) === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+    /**
+     * @return String
+     */
+    public function filename(){
+        $extension = explode('/', $this->type)[1] ?? 'txt';
+        return preg_replace('/[^a-zA-Z0-9_-]/', '_', sprintf('%s.%s',basename($this->name)),$extension);
+    }
+    /**
+     * @return String
+     */
+    public function path(){
+        return Clipboard::drive($this->id);
+    }
+    /**
+     * @return Int
+     */
+    public function size(){
+        return $this->ready() ? filesize($this->path()) : 0;
+    }
+    /**
+     * @return String
+     */
+    public function disposition(){
+        return $this->embed() ? 'inline' : 'attachment';
+    }
+    /**
+     * @return Int
+     */
+    public function count(){
+        return count($this->items());
+    }    
+    /**
+     * @return array
+     */
+    public function root( $toplevel = '' ){
+        if( $this->valid()){
+            if(strlen($this->parent_id) && $this->parent_id !== $this->id && $this->id !== $toplevel){
+                $parent = self::load($this->parent_id);
+                $path = $parent->root();
+                $path[ $this->id ] = $this->title;
+                return $path;
+            }
+            else{
+                return array( $this->id => $this->title );
+            }
+        }
+        return array();
+    }
+    /**
+     * @return boolean
+     */
+    protected function tagmedia(){
+        if($this->image()){
+            $size = getimagesize($this->path());
+            $aspect = count($size) > 1 ? $size[0] / $size[1] : 1;
+            if( $aspect > 1.5 ){
+                $this->tag('landscape');
+            }
+            elseif( $aspect < 0.75 ){
+                $this->tag('portrait');
+            }
+            else{
+                $this->tag('picture');
+            }
+            return true;
+        }
+        return false;
+    }
+
     
     
     /**
@@ -120,8 +332,15 @@ class Clip{
         }
         return $collection;
     }        
-    
-    
+    /**
+     * @param array $clipdata
+     * @return \CODERS\Clipboard\Clip
+     */
+    public static function create( array $clipdata = array()) {
+            $clip = new Clip($clipdata);
+            $clip->tagmedia();
+            return $clip->create() ? $clip : null;
+    }
     /**
      * @param string $id
      * @return \CODERS\Clipboard\Clip
@@ -175,23 +394,7 @@ class ClipData{
      */
     protected static function table(){
         return self::wpdb()->prefix . 'clipboard_items';
-    }
-    /**
-     * @param array $data clip data
-     * @param array $where filters
-     * @return bool
-     */
-    public function update( array $data = array() , array $where = array() ){
-        $wpdb = self::wpdb();
-        $result = $wpdb->update(self::table(), $data, $where );
-        $error = $wpdb->error;
-        if(strlen($error)){
-            $this->notify($error,'error');
-        }
-        return $result !== false;
-    }
-    
-    
+    }    
     /**
      * @param string $id
      * @param int $index
@@ -297,13 +500,18 @@ class ClipData{
         return array();
     }
     /**
-     * @param array $data
+     * @param array $data clip data
+     * @param array $where filters
      * @return bool
      */
-    public function save( array $data = array()){
-        $wpdb = $this->wpdb();
-        $this->notify($wpdb->error, 'error');
-        return false;
+    public function update( array $data = array() , array $where = array() ){
+        $wpdb = self::wpdb();
+        $result = $wpdb->update(self::table(), $data, $where );
+        $error = $wpdb->error;
+        if(strlen($error)){
+            $this->notify($error,'error');
+        }
+        return $result !== false;
     }
     /**
      * @param array $data
@@ -311,6 +519,11 @@ class ClipData{
      */
     public function create( array $data = array()){
         $wpdb = $this->wpdb();
+        $result = $wpdb->insert(self::table(), $data);
+
+        if( $result !== false) {
+            return true;
+        }
         $this->notify($wpdb->error, 'error');
         return false;
     }
