@@ -6,6 +6,27 @@ defined('ABSPATH') or die;
 class Clipboard{
     
     /**
+     * @return \CODERS\Clipboard\ClipData
+     */
+    public function data() {
+        return new ClipData();
+    }
+    /**
+     * @param string $id
+     * @return \CODERS\Clipboard\Clip
+     */
+    public function clip($id = ''){
+        return Clip::load($id);
+    }
+    /**
+     * @param array $data
+     * @return \CODERS\Clipboard\Clip
+     */
+    public function create(array $data = array()) {
+        return Clip::create($data);
+    }
+    
+    /**
      * 
      */
     protected function error404(){
@@ -78,7 +99,7 @@ class Clipboard{
      * @param String $id
      * @return String
      */
-    public static function clip( $id = ''){
+    public static function link( $id = ''){
         return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_CLIP,$id));
     }
     
@@ -191,7 +212,7 @@ class Clip{
      * @return string
      */
     public function link( $clipboard = false ) {
-        return $clipboard ? Clipboard::clipboard($this->id) : Clipboard::clip($this->id);
+        return $clipboard ? Clipboard::clipboard($this->id) : Clipboard::link($this->id);
     }
     /**
      * @return array
@@ -314,6 +335,20 @@ class Clip{
             return true;
         }
         return false;
+    }
+    /**
+     * @return array
+     */
+    public function meta(){
+        return array(
+            'id' => $this->id,
+            'name' => $this->name,
+            'title' => $this->title,
+            'type' => $this->type,
+            'parent_id' => $this->parent_id,
+            'tags' => $this->listTags(),
+            'link' => $this->getUrl(),
+        );        
     }
 
     
