@@ -1,4 +1,4 @@
-<?php namespace CODERS\ClipBoard\Admin;
+<?php namespace CODERS\Clipboard\Admin;
 
 defined('ABSPATH') or die;
 
@@ -7,7 +7,7 @@ add_action('admin_post_clipboard_action', function() {
         wp_die(__('Unauthorized', 'coders_clipboard'));
     }
 
-    $redirect = \CODERS\ClipBoard\Admin\Controller::redirect('post');
+    $redirect = \CODERS\Clipboard\Admin\Controller::redirect('post');
     
     wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
     exit;        
@@ -19,7 +19,7 @@ add_action('wp_ajax_clipboard_action', function() {
         wp_die(__('Unauthorized', 'coders_clipboard'));
     }
 
-    $response = \CODERS\ClipBoard\Admin\Controller::redirect('ajax');
+    $response = \CODERS\Clipboard\Admin\Controller::redirect('ajax');
     
     wp_send_json_success($response);
     
@@ -28,7 +28,7 @@ add_action('wp_ajax_clipboard_action', function() {
 
 add_action('admin_enqueue_scripts', function( $hook ) {
 
-    \CODERS\ClipBoard\Admin\View::attachheaders();
+    \CODERS\Clipboard\Admin\View::attachheaders();
 });
 
 add_action('admin_menu', function () {
@@ -39,7 +39,7 @@ add_action('admin_menu', function () {
             'upload_files', // or 'manage_options' if more restricted
             'coders_clipboard',
             function () {
-                \CODERS\ClipBoard\Admin\Controller::run();
+                \CODERS\Clipboard\Admin\Controller::run();
             }, 'dashicons-art',80);
     add_submenu_page(
             'coders_clipboard',
@@ -48,166 +48,9 @@ add_action('admin_menu', function () {
             'manage_options',
             'coders_clipboard_settings',
             function () {
-                \CODERS\ClipBoard\Admin\Controller::run('settings'); }
+                \CODERS\Clipboard\Admin\Controller::run('settings'); }
             );
 });
-/**
- * 
- */
-abstract class Content{
-
-    /**
-     * @param string $name
-     * @return string
-     */
-    abstract function __get($name);
-    /**
-     * 
-     */
-    abstract function __set($name,$value);
-    
-    
-    /**
-     * @param string $id
-     * @return \CODERS\Clipboard\Clipboard
-     */
-    public static function clipboard(){
-        return new \CODERS\Clipboard\Clipboard();
-    }
-    /**
-     * @param string $id
-     * @return url|string
-     */
-    public static function contextlink($id = '') {
-        $query = array(
-            'page' => 'coders_clipboard',
-        );
-        if(strlen($id)){
-            $query['context_id'] = $id;
-        }
-        return add_query_arg($query, admin_url('admin.php'));
-    }
-    /**
-     * @param \CODERS\Clipboard\Clip[] $clips
-     * @return array
-     */
-    public static function clipmeta( $clips = array() ){
-        return array_map(function( $clip ){
-                $meta = $clip->meta();
-                $meta['post'] = Content::contextlink($clip->id);
-                return $meta;
-            
-        }, $clips);
-    }
-}
-
-/**
- * 
- */
-class ClipContent extends Content{
-    
-    private $_clip = null;
-    /**
-     * @param string $id
-     */
-    public function __construct( $id = '' ) {
-        
-        $this->_clip = self::load($id) ?? null;
-    }
-    /**
-     * @param string $name
-     * @return string
-     */
-    public function __get($name) {
-        return !is_null($this->clip()) ? $this->clip()->$name : '';
-    }
-    /**
-     * @param string $name
-     * @param mixed $value
-     */
-    public function __set($name,$value) {
-        if(!is_null($this->clip())){
-            $this->clip()->$name = $value;
-        }
-    }
-    
-    /**
-     * @return \CODERS\Clipboard\Clip
-     */
-    private function clip() {
-        return $this->_clip;
-    }
-    
-    /**
-     * @param string $id
-     * @return \CODERS\Clipboard\Clip
-     */
-    public static function load( $id = '' ){
-        $content = new ClipContent();
-        return $content->clipboard()->clip($id);
-    }
-}
-/**
- * 
- */
-class SettingsContent extends Content{
-
-    private $_settings = array(
-        //add settings here
-    );
-    /**
-     * @param string $name
-     * @return string
-     */
-    public function __get($name): string {
-        return $this->has($name) ? $this->_settings[$name] : '';
-    }
-    /**
-     * 
-     * @param string $name
-     * @param mixed $value
-     */
-    public function __set($name,$value) {
-        if($this->has($name)){
-            $this->_settings[$name] = $value;
-        }
-    }
-    /**
-     * @param string $name
-     * @return bool
-     */
-    public function has($name) {
-        return array_key_exists($name, $this->_settings);
-    }
-    /**
-     * @return bool
-     */
-    public function resetContent(){
-        $data = self::clipboard()->data()->cleanup();
-        if($data){
-            return $this->cleardrive();
-        }
-        return false;
-    }
-    /**
-     * 
-     * @return bool
-     */
-    private function cleardrive(){
-            $drive = self::clipboard()->drive();
-            if (file_exists($drive)) {
-                $files = glob($drive . '/*');
-                foreach ($files as $file) {
-                    if (is_file($file)) {
-                        unlink($file);
-                    }
-                }
-                return true;
-            }
-        return false;
-    }
-}
-
 
 /**
  * 
@@ -348,115 +191,6 @@ abstract class Controller{
                 //error response
             );
     }
-    
-    
-    public static final function task($input = array()) {
-        $task = array_key_exists('task', $input) ? $input['task'] : '';
-        $context_id = array_key_exists('context_id', $input) ? $input['context_id'] : '';
-        $id = array_key_exists('id', $input) ? $input['id'] : '';
-        $parent_id = array_key_exists('parent_id', $input) ? $input['parent_id'] : '';
-        $output = array();
-        if (strlen($id)) {
-            $output['id'] = $id;
-        }
-        if (strlen($context_id)) {
-            $output['context_id'] = $context_id;
-        }
-
-        switch ($task) {
-            case 'upload':
-                $uploaded = self::upload('upload', $id);
-                $output['content'] = $uploaded;
-                break;
-            case 'update':
-                $content = ClipContent::load($id);
-                if (!is_null($content) && $content->override($input)->update()) {
-                    $output[$task] = 'done';
-                }
-                break;
-            case 'delete':
-                $content = ClipContent::load($id);
-                if (!is_null($content) && $content->remove()) {
-                    $output[$task] = 'done';
-                    if ($content->id === $context_id) {
-                        $context_id = $content->parent_id;
-                    }
-                    $output['context_id'] = $context_id;
-                }
-                break;
-            case 'sort':
-                $item = ClipContent::load($id);
-                $index = isset($input['slot']) ? $input['slot'] : 0;
-                if (!is_null($item)) {
-                    $count = $item->sort($index);
-                    $output['slot'] = $index;
-                    $output['count'] = $count;
-                    $output[$task] = 'done';
-                }
-                break;
-            case 'move':
-                $content = ClipContent::load($id);
-                if (!is_null($content) && $content->moveto($parent_id)) {
-                    $output[$task] = 'done';
-                }
-                break;
-            case 'moveup':
-                $content = ClipContent::load($id);
-                //get here the upper parent Id
-                if (!is_null($content) && $content->moveup()) {
-                    $output[$task] = 'done';
-                }
-                break;
-            case 'moveto':
-                $content = ClipContent::load($id);
-                //get here the selected container id
-                if (!is_null($content) && $content->moveto()) {
-                    $output[$task] = 'done';
-                }
-                break;
-            case 'recover':
-                $lost = self::fetchLost();
-                $count = self::fixParents();
-                $output['fixed'] = $count;
-                $output['items'] = $lost;
-                $output[$task] = 'done';
-                break;
-            case 'renameall':
-                $count = ClipContent::renameAll($context_id);
-                if ($count) {
-                    $output[$task] = 'done';
-                    $output['count'] = $count;
-                }
-                break;
-            case 'propagate':
-                $count = ClipContent::copyPermissions($context_id);
-                if ($count) {
-                    $output[$task] = 'done';
-                    $output['count'] = $count;
-                }
-                break;
-            case 'layout':
-                $count = ClipContent::copyLayouts($context_id);
-                if ($count) {
-                    $output[$task] = 'done';
-                    $output['count'] = $count;
-                }
-                break;
-            case 'arrange':
-                $count = ClipContent::arrange($context_id);
-                $output[$task] = 'done';
-                $output['count'] = $count;
-                break;
-            case 'nuke':
-                $output['page'] = self::CONTEXT_SETTINGS;
-                if (ClipContent::resetContent()) {
-                    $output[$task] = 'done';
-                }
-                break;
-        }
-
-        return $output;
-    }
 }
 /**
  * 
@@ -483,10 +217,9 @@ class MainController extends Controller{
     protected function uploadAction( array $input = array()) : bool {
         
         $id = array_key_exists('id', $input)?  $input['id'] : '';
-        $upload = array_key_exists('upload', $input)?  $input['upload'] : 'upload';
-        $clips = Uploader::create( $upload)->items( $id );
-        //$meta = Content::clipmeta($clips);
+        $clips = Uploader::create( 'upload' )->items( $id );
         $this->notify(sprintf('%s items uploaded!','update'),count($clips));
+        
         return $this->defaultAction( $input );
     }
     /**
@@ -494,84 +227,140 @@ class MainController extends Controller{
      * @return bool
      */
     protected function updateAction( array $input = array()) : bool {
-        return false;
+        $id = $input['id'] ?? '';
+        $clip = ClipContent::load($id);
+        if ( !is_null($clip) && $clip->override($input)->update()) {
+            $this->notify(sprintf('%s updated!',$clip->name), 'update');
+        }
+        else{
+            $this->notify("Can't update", 'error');
+        }
+
+        return $this->defaultAction();
     }
     /**
      * @param array $input
      * @return bool
      */
     protected function deleteAction( array $input = array()) : bool {
-        return false;
+        if ( ClipContent::remove($input['id'] ?? '')) {
+            $this->notify('Removed!','update');
+        }
+        return $this->defaultAction();
     }
     /**
      * @param array $input
      * @return bool
      */
     protected function sortAction( array $input = array()) : bool {
-        return false;
+
+        $index = isset($input['slot']) ? $input['slot'] : 0;
+        $item = ClipContent::load($id);
+        if (!is_null($item)) {
+            $count = $item->sort($index);
+            $this->notify('Updated!', 'update');
+        }
+        return $this->defaultAction();
     }
     /**
      * @param array $input
      * @return bool
      */
     protected function arrangeAction( array $input = array()) : bool {
-        return false;
+        $id = $input['id'] ?? '';
+        if($id ){
+            $db = ClipContent::clipboard()->data();
+            $db->arrange($id);
+            $this->notify('Updated!', 'update');
+        }
+        return $this->defaultAction();
     }
     /**
      * @param array $input
      * @return bool
      */
     protected function moveAction( array $input = array()) : bool {
-        return false;
+        $id = $input['id'] ?? '';
+        $parent_id = $input['parent_id'] ?? '';
+        $clip = ClipContent::load($id);
+        if( $id && $clip && $clip->moveto($parent_id) ){
+            $this->notify('Moved!','update');
+        }
+        return $this->defaultAction();
     }
     /**
      * @param array $input
      * @return bool
      */
-    protected function moveupAction( array $input = array()) : bool {
-        return false;
+    protected function moveupAction(array $input = array()): bool {
+        $clip = ClipContent::load($input['id'] ?? '');
+        if (!is_null($clip) && $clip->moveup()) {
+            $this->notify('Moved!','update');
+        }
+        return $this->defaultAction();
     }
+
     /**
      * @param array $input
      * @return bool
      */
     protected function movetoAction( array $input = array()) : bool {
-        return false;
+        return $this->moveAction($input);
     }
     /**
      * @param array $input
      * @return bool
      */
     protected function recoverAction( array $input = array()) : bool {
-        return false;
+        $lostfiles = ClipContent::findLost();
+        $orphen = ClipContent::restoreLost();
+        $this->notify('Recovered %s lost items and %s unparented items',$lostfiles,$orphen);
+        return $this->defaultAction();
     }
     /**
      * @param array $input
      * @return bool
      */
-    protected function remameAction( array $input = array()) : bool {
-        return false;
+    protected function renameAction( array $input = array()) : bool {
+        $clip = ClipContent::load($input['id'] ?? '');
+        if($clip){
+            $count = $clip->rename();
+            $this->notify(sprintf('%s items updated!',$count),'update');
+        }
+        else{
+            $this->notify('Invalid clip','error');
+        }
+        return $this->defaultAction();
     }
     /**
      * @param array $input
      * @return bool
      */
     protected function propagateAction( array $input = array()) : bool {
-        return false;
+        $clip = ClipContent::load($input['id'] ?? '');
+        if($clip){
+            $count = $clip->setroles();
+            $this->notify(sprintf('%s items updated!',$count),'update');
+        }
+        else{
+            $this->notify('Invalid clip','error');
+        }
+        return $this->defaultAction();
     }
-}
-/**
- * 
- */
-class ClipController extends Controller{
     /**
      * @param array $input
      * @return bool
      */
-    protected function defaultAction(array $input = array()): bool {
-       
-        View::create('clip')->view('default');
-        return true;
+    protected function layoutAction( array $input = array())  : bool{
+        $clip = ClipContent::load($input['id'] ?? '');
+        if($clip){
+            $count = $clip->setlayouts();
+            $this->notify(sprintf('%s items updated!',$count),'update');
+        }
+        else{
+            $this->notify('Invalid clip','error');
+        }
+        return $this->defaultAction();
     }
 }
 /**
@@ -593,12 +382,20 @@ class SettingsController extends Controller{
      * @return bool
      */
     protected function nukeAction( ) : bool {
-        $content = new ClipContent();
-        if( $content->resetContent()){
+        $settings = new Settings();
+        $data = $settings->cleardata();
+        $files = $settings->cleardrive();
+        if( $data){
             $this->notify(__('Clipboard data clear','coders_clipboard'));
         }
         else{
             $this->notify(__('Unable to clear Clipboard data','coders_clipboard'),'warning');            
+        }
+        if( $files){
+            $this->notify(__('Clipboard drive clear','coders_clipboard'));
+        }
+        else{
+            $this->notify(__('Unable to clear Clipboard drive','coders_clipboard'),'warning');            
         }
         return $this->defaultAction();
     }
@@ -625,8 +422,8 @@ class PostController extends Controller{
 
 
     protected function defaultAction(array $input = []): bool {
-
-        return false;;        
+        
+        return false; 
     }
 }
 /**
@@ -655,8 +452,285 @@ class AjaxController extends Controller{
 
         return true;
     }
+    /**
+     * @param array $input
+     * @return boolean
+     */
+    protected function uploadAction( array $input = array()){
+        $id = array_key_exists('id', $input)?  $input['id'] : '';
+        $clips = Uploader::create( 'upload' )->items( $id );
+        $meta = ClipContent::clipmeta($clips);
+        $meta['count'] = count($clips);
+        $this->fill($meta);
+        return true;
+    }
 }
 
+
+
+/**
+ * 
+ */
+class ClipContent extends \CODERS\Clipboard\Clip{
+    /**
+     * @var bool
+     */
+    private $_updated = false;
+    /**
+     * @param string $name
+     * @param string $value
+     */
+    public function __set($name, $value) {
+        parent::__set($name, $value);
+        if($name !== 'id'){
+            $this->_updated = true;
+        }
+    }
+
+    /**
+     * @param array $data
+     * @return \CODERS\Clipboard\Admin\ClipContent
+     */
+    public function override( array $data = array() ){
+        foreach($data as $key => $val ){
+            $this->$key = $val;
+        }
+        return $this;
+    }
+    
+    
+    /**
+     * @param string $id
+     * @return boolean
+     */
+    public static function remove( $id = '' ){
+        if(strlen($id)){
+            $db = self::clipboard()->data();
+            return $db->delete(array($id));
+        }
+        return false;
+    }
+    
+    /**
+     * @return boolean
+     */
+    public function moveto( $parent_id = '') {
+        if ($this->isValid() && $this->parent_id !== $parent_id) {
+            $parent = self::load($parent_id);
+            if( $parent ){
+                $count = $parent->count();
+                $data = array(
+                    'parent_id' => strlen($parent_id) ? $parent_id : null,
+                    'slot' => $count,
+                );
+                $db = self::clipboard()->data();
+                if( $db->update($data,array('id'=>$this->id)) ){
+                    $parent->arrange();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    /**
+     * @return boolean
+     */
+    public function moveup(){
+        if( $this->parent_id ){
+            $parent = self::load($this->parent_id);
+            return $this->moveto($parent->parent_id);
+        }
+        return false;
+    }    
+    
+    
+    
+    /**
+     * @param string $parent_id
+     * @param int $slot
+     * @param int $range
+     * @return int
+     */
+    public function arrange($parent_id = '', $slot = -1 , $range = 0 ){
+        $db = self::clipboard()->data();
+        return $db->arrange($parent_id, $slot, $range);
+    }    
+    /**
+     * @return int
+     */
+    public static function restoreLost(){
+        return $this->clipboard()->data()->recover();
+    }
+
+    /**
+     * @global wpdb $wpdb
+     * @return int
+     */
+    public static function findLost() {
+        
+        $db_ids = array_map('strtolower', $this->clipboard()->data()->listids());
+        $drive = $this->clipboard()->drive();
+        $files = scandir($drive);
+        $lost = [];
+        $skip = array('.','..');
+
+        foreach ($files as $file) {
+            if (!in_array($file, $skip) && !in_array(strtolower($file), $db_ids)) {
+                $path = $drive . $file;
+                $lost[$file] = mime_content_type($path);
+            }
+        }
+        return $lost;
+    }    
+    
+    /**
+     * @return int
+     */
+    public function rename() {
+        $name = $this->name;
+        $title = $this->title;
+        $db = $this->clipboard()->data();
+        $count = $db->update(array(
+            'name' => $name,
+            'title' => $title,
+        ), array('parent_id' => $this->id));
+        return $count ?? 0;
+    }
+
+    /**
+     * @return int
+     */
+    public function setlayouts(){
+        
+        $db = $this->clipboard()->data();
+        
+        $count = $db->update(array(
+            'layout' => $this->layout
+        ), array( 'parent_id'=>$this->parent_id));
+        
+        return $count ?? 0;
+    }
+    /**
+     * @return int
+     */
+    public function setroles( ){
+        $db = $this->clipboard()->data();
+        
+        $count = $db->update(array(
+            'acl' => $this->acl
+        ), array( 'parent_id'=>$this->parent_id));
+        
+        return $count ?? 0;
+    }    
+    
+    /**
+     * @param string $id
+     * @return \CODERS\Clipboard\Admin\ClipContent
+     */
+    public static function load($id = '' ){
+        return parent::load($id);
+    }
+    /**
+     * @param string $id
+     * @return url|string
+     */
+    public static function contextlink($id = '') {
+        $query = array(
+            'page' => 'coders_clipboard',
+        );
+        if(strlen($id)){
+            $query['context_id'] = $id;
+        }
+        return add_query_arg($query, admin_url('admin.php'));
+    }
+    /**
+     * @param \CODERS\Clipboard\Clip[] $clips
+     * @return array
+     */
+    public static function clipmeta( $clips = array() ){
+        return array_map(function( $clip ){
+                $meta = $clip->meta();
+                $meta['post'] = ClipContent::contextlink($clip->id);
+                return $meta;
+            
+        }, $clips);
+    }    
+    /**
+     * @param string $id
+     * @return \CODERS\Clipboard\Clipboard
+     */
+    public static function clipboard(){
+        return new \CODERS\Clipboard\Clipboard();
+    }    
+}
+/**
+ * 
+ */
+class Settings{
+    /**
+     * @var array
+     */
+    private $_settings = array(
+        //add settings here
+    );
+    /**
+     * @param string $name
+     * @return string
+     */
+    public function __get($name): string {
+        return $this->has($name) ? $this->_settings[$name] : '';
+    }
+    /**
+     * 
+     * @param string $name
+     * @param mixed $value
+     */
+    public function __set($name,$value) {
+        if($this->has($name)){
+            $this->_settings[$name] = $value;
+        }
+    }
+    /**
+     * @param string $name
+     * @return bool
+     */
+    public function has($name) {
+        return array_key_exists($name, $this->_settings);
+    }
+    /**
+     * @return array
+     */
+    public function listSettings(){
+        return $this->_settings;
+    }
+
+
+    /**
+     * @return bool
+     */
+    public function cleardata(){
+        return self::clipboard()->data()->cleanup();
+    }
+    
+    
+    /**
+     * 
+     * @return bool
+     */
+    public function cleardrive(){
+            $drive = self::clipboard()->drive();
+            if (file_exists($drive)) {
+                $files = glob($drive . '/*');
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        unlink($file);
+                    }
+                }
+                return true;
+            }
+        return false;
+    }
+}
 
 
 
@@ -666,7 +740,7 @@ class AjaxController extends Controller{
  */
 class View{
     /**
-     * @var \CODERS\Clipboard\Admin\Content
+     * @var object
      */
     private $_content = null;
     /**
@@ -688,15 +762,17 @@ class View{
         return new View($context);
     }
     /**
-     * @param \CODERS\Clipboard\Admin\Content $content
+     * @param object $content
      * @return \View Description
      */
-    public function setContent( Content $content = null ){
-        $this->_content = $content;
+    public function setContent( $content = null ){
+        if(is_object($content)){
+            $this->_content = $content;
+        }
         return $this;
     }
     /**
-     * @return \CODERS\Clipboard\Admin\Content
+     * @return object
      */
     protected function content(){
         return $this->_content;
@@ -748,6 +824,9 @@ class View{
      */
     protected function __list($list = ''){
         $call = sprintf('list%s', ucfirst($list));
+        if( $this->hasContent()  && method_exists($this->content(), $call) ){
+            return $this->content()->$call();
+        }
         return method_exists($this, $call) ? $this->$call() : array();
     }
     /**
@@ -756,6 +835,9 @@ class View{
      */
     protected function __has($has = '') {
         $call = sprintf('has%s', ucfirst($has));
+        if( $this->hasContent()  && method_exists($this->content(), $call) ){
+            return $this->content()->$call();
+        }
         return method_exists($this, $call) ? $this->$call() : false;
     }
     /*
@@ -764,6 +846,9 @@ class View{
      */
     protected function __is( $is = '' ){
         $call = sprintf('is%s', ucfirst($is));
+        if( $this->hasContent()  && method_exists($this->content(), $call) ){
+            return $this->content()->$call();
+        }
         return method_exists($this, $call) ? $this->$call() : false;
     }
     
@@ -919,7 +1004,7 @@ class Uploader {
      * @return \CODERS\Clipboard\Clip[]
      */
     public function items( $id = '' ) {
-        $clipboard = Content::clipboard();
+        $clipboard = ClipContent::clipboard();
         $clip = $clipboard->clip($id);
         $slot = !is_null($clip) ? $clip->count() : 0;
         $layout = !is_null($clip) ? $clip->layout : '';
@@ -1034,7 +1119,7 @@ class Uploader {
      */
     public static function upload($from = 'upload', $id = '') {
         $uploaded = array();
-        $clipboard = Content::clipboard();
+        $clipboard = ClipContent::clipboard();
         $container = $clipboard->clip($id);
         $slot = !is_null($container) ? $container->count() : 0;
         $layout = !is_null($container) ? $container->layout : '';
@@ -1050,7 +1135,7 @@ class Uploader {
             $clip = $clipboard->create($file);
             if(!is_null($clip)){
                 $uploaded[] = $clip->meta();
-                $uploaded['post'] = Content::contextlink($clip->id);
+                $uploaded['post'] = ClipContent::contextlink($clip->id);
             }
             //then set the next to the first file ID
             if (strlen($id) === 0) {

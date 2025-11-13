@@ -117,12 +117,11 @@ class Clipboard{
     public static function rewrite( $flush = false ){
         add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
         add_rewrite_rule(
-                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]', CODER_CLIPBOARD_CLIP),
-                'top');
+                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]',
+                        CODER_CLIPBOARD_CLIP), 'top');
         add_rewrite_rule(
-                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view', CODER_CLIPBOARD_APP),
-                'top');
-
+                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view',
+                        CODER_CLIPBOARD_APP), 'top');
         if( $flush ){
             flush_rewrite_rules();
         }
@@ -169,7 +168,7 @@ class Clip{
     private $_updated = false;
     
     /**
-     * @var \CODERS\Clipboard\Clip
+     * @var \CODERS\Clipboard\Clip[]
      */
     private $_items = array(
         //clip contents
@@ -187,8 +186,26 @@ class Clip{
      * @return String
      */
     public function __get( $name ){
-        return array_key_exists($name, $this->_content) ? $this->_content[$name] : '';
+        return $this->has($name) ? $this->_content[$name] : '';
     }
+    /**
+     * @param string $name
+     * @param string $value
+     */
+    public function __set($name, $value) {
+        if( $this->has($name) && $name !== 'id' ){
+            $this->_content[$name] = $value;
+        }
+    }
+    /**
+     * @param string $name
+     * @return bool
+     */
+    public function has($name = ''){
+        return strlen($name) && array_key_exists($name, $this->_content);
+    }
+    
+    
     
     
     /**
@@ -202,7 +219,7 @@ class Clip{
         }
     }    
     /**
-     * @return \CODERS\Clipboard\Clip
+     * @return \CODERS\Clipboard\Clip[]
      */
     public function items(){
         return $this->_items;
@@ -429,7 +446,21 @@ class ClipData{
      */
     protected static function table(){
         return self::wpdb()->prefix . 'clipboard_items';
-    }    
+    }   
+    /**
+     * 
+     */
+    public function recover(){
+        $query = sprintf("UPDATE `%s` SET parent_id = NULL WHERE id = parent_id OR parent_id = ''", self::table());
+        return $this->wpdb()->query($query) ?? 0;
+    }
+    /**
+     * @return array
+     */
+    public function listids(){
+        return $this->wpdb()->get_col(sprintf("SELECT `id` FROM `%s`", self::table()));
+    }
+
     /**
      * @param string $id
      * @param int $index
