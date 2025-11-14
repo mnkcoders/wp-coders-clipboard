@@ -12,8 +12,8 @@
 
 define('CODER_CLIPBOARD_DIR', plugin_dir_path(__FILE__));
 define('CODER_CLIPBOARD_URL', plugin_dir_url(__FILE__));
-define('CODER_CLIPBOARD_CLIP','clipdata');
-define('CODER_CLIPBOARD_APP','clipboard');
+define('CODER_CLIPBOARD_CONTENT','clipdata');
+define('CODER_CLIPBOARD_UI','clipboard');
 
 //require_once sprintf('%s/lib/classes.php', CODER_CLIPBOARD_DIR);
 
@@ -70,7 +70,7 @@ add_filter('query_vars', function($vars) {
     return $vars;
 });
 
-add_filter('coders_role', function($role = array()) {
+add_filter('coder_role', function($role) {
     return $role;
 }, 10, 2);
 

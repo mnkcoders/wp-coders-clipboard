@@ -2,7 +2,6 @@
 
 defined('ABSPATH') or die;
 
-
 class Clipboard{
     
     /**
@@ -15,7 +14,7 @@ class Clipboard{
      * @param string $id
      * @return \CODERS\Clipboard\Clip
      */
-    public function clip($id = ''){
+    public function load($id = ''){
         return Clip::load($id);
     }
     /**
@@ -47,17 +46,16 @@ class Clipboard{
     /**
      * @param string $id
      */
-    public static function attach( $id ){
+    public static function attach( $id = ''){
         $clipboard = new Clipboard();
-        $clip = Clip::load($id);
-
+        $clip = Clip::load( $id );
         switch(true){
             case is_null($clip):
                 return $clipboard->error404();
             case !$clip->valid():
             case !$clip->ready():
                 return $clipboard->error404();
-            case !$clip->denied():
+            case $clip->denied():
                 return $clipboard->errorDenied();
         }
         header('Content-Description: File Transfer');
@@ -67,40 +65,45 @@ class Clipboard{
         readfile($clip->path());
         exit;        
     }
+    /**
+     * @param string $id
+     * @return true
+     */
+    public static function board( $id = '' ) {
+        if(strlen($id)){
+                require_once sprintf('%s/lib/public.php', CODER_CLIPBOARD_DIR);
+                do_action('coder_clipboard',$id);
+                return true;
+        }
+        return false;
+    }
 
     /**
      * @param string $role
      * @return boolean
      */
-    public static function permission( $role = '' ){
+    public static function acl( $role = '' ){
+        $admin = current_user_can( 'administrator' );
         $roles = array(
             'public',
             apply_filters('coder_acl','')
         );
-        return self::isAdmin() || in_array($role, $roles);
+        return $admin || in_array($role, $roles);
     }    
     
-    
-    /**
-     * @return  boolean
-     */
-    protected static function isAdmin(){
-        return current_user_can( 'administrator' );
-    }
-
-    /**
-     * @param String $id
-     * @return String
-     */
-    public static function clipboard( $id = ''){
-        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_APP,$id));
-    }
     /**
      * @param String $id
      * @return String
      */
     public static function link( $id = ''){
-        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_CLIP,$id));
+        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_UI,$id));
+    }
+    /**
+     * @param String $id
+     * @return String
+     */
+    public static function content( $id = ''){
+        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_CONTENT,$id));
     }
     
     /**
@@ -115,27 +118,32 @@ class Clipboard{
      * @param bool $flush
      */
     public static function rewrite( $flush = false ){
+
         add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
-        add_rewrite_rule(
-                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]',
-                        CODER_CLIPBOARD_CLIP), 'top');
-        add_rewrite_rule(
-                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view',
-                        CODER_CLIPBOARD_APP), 'top');
+        add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
+
+        $content = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_CONTENT);
+        $clipboard = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_UI);
+       
+        add_rewrite_rule( $content , 'index.php?clip_id=$matches[1]' , 'top');
+        add_rewrite_rule( $clipboard, 'index.php?clipboard_id=$matches[1]', 'top');
+
         if( $flush ){
             flush_rewrite_rules();
         }
     }
     /**
-     * 
+     * Install plugin
      */
     public static function setup(){
-        ClipData::intstall();
+        //flush_rewrite_rules();
         self::rewrite(true);
+        
+        ClipData::intstall();
         //check the upload directory
-        $uploads = Clipboard::drive();
-        if( !file_exists($uploads)){
-            wp_mkdir_p($uploads);
+        $drive = Clipboard::drive();
+        if( !file_exists($drive)){
+            wp_mkdir_p($drive);
         }        
     }
 }
@@ -253,7 +261,7 @@ class Clip{
      * @return Boolean
      */
     public function denied(){
-        return !Clipboard::permission($this->acl);
+        return !Clipboard::acl($this->acl);
     }
     /**
      * @return boolean
@@ -290,7 +298,8 @@ class Clip{
      */
     public function filename(){
         $extension = explode('/', $this->type)[1] ?? 'txt';
-        return preg_replace('/[^a-zA-Z0-9_-]/', '_', sprintf('%s.%s',basename($this->name)),$extension);
+        $filename = sprintf('%s.%s',basename($this->name),$extension);
+        return preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename );
     }
     /**
      * @return String
@@ -403,8 +412,6 @@ class Clip{
         return count($clipdata) ? new Clip( $clipdata ) : null;
     }
 }
-
-
 
 /**
  * 

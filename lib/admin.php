@@ -559,7 +559,7 @@ class ClipContent extends \CODERS\Clipboard\Clip{
      * @return int
      */
     public static function restoreLost(){
-        return $this->clipboard()->data()->recover();
+        return self::clipboard()->data()->recover();
     }
 
     /**
@@ -567,9 +567,9 @@ class ClipContent extends \CODERS\Clipboard\Clip{
      * @return int
      */
     public static function findLost() {
-        
-        $db_ids = array_map('strtolower', $this->clipboard()->data()->listids());
-        $drive = $this->clipboard()->drive();
+        $clipboard = self::clipboard();
+        $db_ids = array_map('strtolower', $clipboard->data()->listids());
+        $drive = $clipboard->drive();
         $files = scandir($drive);
         $lost = [];
         $skip = array('.','..');
@@ -797,7 +797,7 @@ class View{
             case preg_match('/^action_/', $name):
                 return $this->action(substr($name, 7) , ...$args );
             case preg_match('/^link_/', $name):
-                return $this->link( substr($name, 5), ...$args );
+                return $this->link( substr($name, 5) );
             case preg_match('/^url_/', $name):
                 return $this->url( explode( '_', substr($name, 4)), ...$args );
         }
