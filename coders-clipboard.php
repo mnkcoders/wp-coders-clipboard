@@ -1,6 +1,6 @@
 <?php defined('ABSPATH') or die;
 /* * *****************************************************************************
- * Plugin Name: Coders Clipboard
+ * Plugin Name: Coders Clipboard (Backup Release)
  * Description: Hierarchical Drag-Drop media gallery with access control and collection display
  * Version: 0.5
  * Author: Coder01
@@ -12,15 +12,9 @@
 
 define('CODER_CLIPBOARD_DIR', plugin_dir_path(__FILE__));
 define('CODER_CLIPBOARD_URL', plugin_dir_url(__FILE__));
-define('CODER_CLIPBOARD_CLIP','clipdata');
-define('CODER_CLIPBOARD_APP','clipboard');
-
-//require_once sprintf('%s/lib/classes.php', CODER_CLIPBOARD_DIR);
 
 // Activation Hook
 register_activation_hook(__FILE__, function() {
-    
-    //\CODERS\Clipboard\Clipboard::setup();
     
     flush_rewrite_rules();
 
@@ -39,13 +33,9 @@ register_deactivation_hook(__FILE__, function() {
 
 // Rewrite Rules
 add_action('init', function() {
-    //\CODERS\Clipboard\Clipboard::rewrite();
-    //flush_rewrite_rules();
-    
     add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
     add_rewrite_rule('^clipboard/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]', 'top');
     add_rewrite_rule('^clipboards/([a-zA-Z0-9_-]+)/?$', 'index.php?clipboard_id=$matches[1]&mode=view', 'top');
-    //add_rewrite_rule('^clipboards/?$', 'index.php?clipboards=1', 'top');
     
     add_shortcode('clipboard_view', function($atts){
         $atts = shortcode_atts(['id' => ''], $atts);
@@ -55,11 +45,7 @@ add_action('init', function() {
     });
     
     if(is_admin()){
-        //require_once sprintf('%s/lib/admin.php', CODER_CLIPBOARD_DIR);
         require_once sprintf('%s/admin.php', CODER_CLIPBOARD_DIR);
-        /*add_action( 'admin_init',function(){
-            require_once sprintf('%s/admin.php',CODER_CLIPBOARD_DIR);
-        });*/
     }
 });
 
