@@ -1,6 +1,6 @@
 <?php defined('ABSPATH') or die;
 /* * *****************************************************************************
- * Plugin Name: Coders Clipboard
+ * Plugin Name: Coders Clipboard (Refactor 1)
  * Description: Multi-Level Drag-Drop media gallery with access control and collection display
  * Version: 0.81
  * Author: Coder01
