@@ -101,6 +101,13 @@ class Dashboard{
         return sprintf('%s/html/public/%s', CODER_CLIPBOARD_DIR,$file);
     }
     /**
+     * @param string $file
+     * @return string
+     */
+    public static function url( $file = '' ) {
+        return sprintf('%s/html/public/%s', CODER_CLIPBOARD_URL,$file);
+    }
+    /**
      * @param string $view
      * @return bool
      */
@@ -132,10 +139,10 @@ class Dashboard{
         add_action( 'wp_enqueue_scripts' , function(){
             wp_enqueue_style(
                     'coders-clipboard-style',
-                    \CODERS\Clipboard\Dashboard::path('content/style.css'));
+                    \CODERS\Clipboard\Dashboard::url('content/style.css'));
             wp_enqueue_script(
                     'coders-clipboard-script',
-                    \CODERS\Clipboard\Dashboard::path('content/script.js'));
+                    \CODERS\Clipboard\Dashboard::url('content/script.js'));
         });
         
         $layout = $this->layout;

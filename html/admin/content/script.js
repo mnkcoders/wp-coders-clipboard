@@ -1,13 +1,254 @@
+
+//Loader
+document.addEventListener('DOMContentLoaded', function () {
+
+    CodersClipboard.instance();
+
+    //console.log(CodersClipboard.instance());
+});
+
+
 /**
- * @class {CodersClipboard}
+ * 
+ * @type CodersClipboard
  */
-class CodersClipboard {
+class CodersClipboard{
+    /**
+     * @returns {CodersClipboard}
+     */
+    constructor(){
+        if( CodersClipboard.__instance ){
+            return CodersClipboard.__instance;
+        }
+        this._clipboard = ClipboardContent.create();
+        this.initialize(  );
+    }
+    /**
+     * @returns {CodersClipboard}
+     */
+    static instance(){
+        return CodersClipboard.__intsance || new CodersClipboard();
+    }
+    /**
+     * @returns {ClipboardContent}
+     */
+    clipboard(){
+        return this._clipboard;
+    }
+    /**
+     * @returns {Element}
+     */
+    collection(){
+        return this.clipboard() && this.clipboard().view().itemBox() || null;
+    }
+    /**
+     * @param {ClipboardContent} cb
+     * @returns {bool}
+     */
+    initialize(  ){
+        if(this.clipboard().ready()){
+            this.setupFileInput();
+            this.setupDragDrop();
+            this.setupDragStart();
+            this.setupDragEnd();
+            this.setupDragOver();
+            this.setupDrop();
+            
+            this.setupCopy();
+            this.setupPaste();
+        }
+        this.setupTabs();        
+    }
+    /**
+     * 
+     */
+    setupTabs(){
+        const tabs = document.querySelector('.coders-clipboard .container .tab > .toggle');
+
+        //tabs.prepend( document.createElement('span') );
+        if (tabs) {
+            tabs.addEventListener('click', function (e) {
+                e.preventDefault();
+                (this).parentNode.classList.toggle('collapsed');
+                return true;
+            });
+        }
+    }
+    
+    setupFileInput(){
+        const cb = this.clipboard();
+        //file upload
+        document.querySelectorAll('input[type=file]').forEach(input => {
+            input.addEventListener('change', (e) => {
+                cb.upload(e.target.files);
+            });
+        });        
+    }
+    setupDragDrop(){
+        // Drag-drop
+        const cb = this.clipboard();
+        document.addEventListener('dragover', e => e.preventDefault());
+        document.addEventListener('drop', e => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length) {
+                cb.upload(e.dataTransfer.files);
+            }
+        });
+    }
+    setupPaste(){
+        const cb = this.clipboard();
+        // Paste
+        document.addEventListener('paste', (e) => {
+            if (e.clipboardData.files.length) {
+                cb.upload(e.clipboardData.files);
+            }
+            else {
+                cb.upload((e.clipboardData.items || [])
+                    .filter(item => item.kind === 'file')
+                    .map(item => item.getAsFile() || null)
+                    .filter(item => item !== null));
+            }
+        });        
+    }
+    /**
+     * 
+     */
+    setupDragEnd(){
+        const collection = this.collection();
+        document.addEventListener('dragend', (e) => {
+            e.preventDefault();
+            collection.classList.remove('move');
+            const source = collection.querySelector('li.item.moving');
+            source.classList.remove('moving');
+        });
+    }
+    /**
+     * 
+     */
+    setupDragStart(){
+
+        const cb = this.clipboard();
+        const collection = this.collection();
+
+        document.addEventListener('dragstart', (e) => {
+            /*e.preventDefault();*/
+            const item = e.target.closest('li.item');
+            if (!item || !collection.contains(item)) return;
+
+            collection.classList.add('move');
+            item.classList.add('moving');
+
+            //console.log(item.dataset.id,item.dataset.slot);
+            const item_id = item.dataset.id;
+            const slot = item.dataset.slot;
+
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('application/json', JSON.stringify({ 'id': item_id, 'slot': slot })); // store item ID
+            //console.log('DRAG!!', item_id, slot);
+
+            // Create a custom drag image
+            //const ghost = e.target.cloneNode(true);
+            //const image = e.target.closest('img.media');
+            const image = item.querySelector('img.media');
+            const ghost = image.cloneNode(true);
+            if( ghost ){
+                console.log(ghost);
+                ghost.style.borderRadius = '50%';
+                ghost.style.position = 'absolute';
+                ghost.style.top = '-1000px';
+                ghost.style.left = '-1000px';
+                ghost.style.zIndex = '-1'; // avoid blocking other elements
+                ghost.style.pointerEvents = 'none';
+                document.body.appendChild(ghost);
+
+                // Wait for the browser to render the ghost before setting it as the drag image
+                requestAnimationFrame(() => {
+                    e.dataTransfer.setDragImage(ghost, 0, 0);
+                    // Optional cleanup
+                    setTimeout(() => ghost.remove(), 1000);
+                });            
+            }
+        });
+    }
+    /**
+     * 
+     */
+    setupDragOver(){
+        const collection = this.collection();
+        collection.addEventListener('dragover', (e) => {
+            e.preventDefault(); // allow drop
+        });
+    }
+    setupDrop(){
+        this.collection().addEventListener('drop', (e) => {
+            e.preventDefault();
+            const target = e.target;
+            console.log(target.closest('li.item'));
+            const targetItem = target.closest('li.item');
+            const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
+            const source_id = data.id;
+            const source_slot = parseInt(data.slot);
+
+            const action = target.classList.contains('placeholder') && 'sort' || target.classList.contains('caption') && 'move' || '';
+
+            switch (action) {
+                case 'move':
+                    const target_id = targetItem && targetItem.dataset.id || '';
+                    //const target_id = target.dataset.id;
+                    if (source_id !== target_id) {
+                        //console.log(`Moving ${source_id} to ${target_id}`);
+                        cb.move(source_id, target_id);
+                    }
+                    break;
+                case 'sort':
+                    const slot = targetItem && parseInt(targetItem.dataset.slot) || false;
+                    //const slot = target.dataset.slot;
+                    if ( slot !== false && source_slot !== slot) {
+                        //console.log(`Moving ${source_id} to slot ${slot}`);
+                        cb.sort(source_id, slot);
+                    }
+                    break;
+                default:
+                    //console.log(`No target selected`);
+                    break;
+            }
+        });
+    }
+    /**
+     * 
+     */
+    setupCopy(){
+        const copylink = document.querySelector('.copy-link');
+        if( copylink ){
+            copylink.addEventListener('click', function(e){
+                e.preventDefault();
+                const link = this.dataset.link || '';
+                if( link ){
+                    navigator.clipboard.writeText(link)
+                    .then(() => {
+                        ClipboardView.notify('URL copied to clipboard!','updated');
+                    })
+                    .catch(err => {
+                        ClipboardView.notify('Failed to copy: ', err);
+                    });
+                }
+                return true;
+            });
+        }        
+    }
+}
+
+
+/**
+ * @class {ClipboardContent}
+ */
+class ClipboardContent {
     /**
      * @param {String} uploadBox 
      * @param {String} itemBox 
      */
     constructor(uploadBox = '', itemBox = '') {
-        this._ts = CodersClipboard.createTimeStamp();
+        this._ts = this.timestamp();
         this._view = new ClipboardView(uploadBox, itemBox);
         this._tasks = [];
         this._timeout = 200;
@@ -17,22 +258,22 @@ class CodersClipboard {
     /**
      * @param {String} uploads 
      * @param {String} items 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
-    static createClipboard( uploads = 'clipboard-box', items = 'collections' ){
-        const _uploadBox = [...document.getElementsByClassName(uploads)][0] || null;
-        const _itemBox = [...document.getElementsByClassName(items)][0] || null;     
-        
-        if( _uploadBox && _itemBox ){
-            return new CodersClipboard(uploads , items);
-        }
-        return null;
+    static create( uploads = 'clipboard-box', items = 'collections' ){
+        return new ClipboardContent(uploads , items);
     }
     /**
      * @returns {ClipboardView}
      */
     view() {
         return this._view;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    ready(){
+        return !!(this.view().uploadBox() && this.view().itemBox());
     }
     /**
      * @returns {Boolean}
@@ -54,7 +295,7 @@ class CodersClipboard {
         return listReady ? this._tasks.filter(task => task.ready() ) : this._tasks;
     }
     /**
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     reset(){
         this._tasks = [];
@@ -81,12 +322,12 @@ class CodersClipboard {
     /**
      * @returns {String}
      */
-    static createTimeStamp() {
+    timestamp() {
         return new Date().toISOString();
     }
     /**
      * @param {File[]} files 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     queue(files) {
         this._headerDone = false;
@@ -103,7 +344,7 @@ class CodersClipboard {
         return this.wait2Next()
     }
     /**
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     next() {
         const ready = this.tasks(true);
@@ -116,7 +357,7 @@ class CodersClipboard {
         return this;
     }
     /**
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     wait2Next(){
         window.setTimeout(() => { this.next() }, this._timeout);
@@ -126,7 +367,7 @@ class CodersClipboard {
      * 
      * @param {Object[]} response 
      * @param {ClipTask} task 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     uploaded(response = {}, task = null) {
         //console.log('UPLOADED!!',response,task);
@@ -152,7 +393,7 @@ class CodersClipboard {
     }
     /**
      * @param {String} id 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     setHeader( id = ''){
         if(id ){
@@ -165,7 +406,7 @@ class CodersClipboard {
     /**
      * 
      * @param {DataTransferItem[]} items 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     upload(items = []) {
         if (items.length) {
@@ -176,11 +417,11 @@ class CodersClipboard {
     /**
      * @param {Blob} blob 
      * @param {String} filename 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     /*paste(blob, filename = '') {
         if (filename.length === 0) {
-            filename = CodersClipboard.createTimeStamp();
+            filename = this.timestamp();
         }
         const file = new File([blob], filename, { type: blob.type });
         return this.queue([file]);
@@ -190,7 +431,7 @@ class CodersClipboard {
      * 
      * @param {String} id 
      * @param {String} parent_id 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     move(id = '', parent_id = '') {
         if (id) {
@@ -207,13 +448,16 @@ class CodersClipboard {
     /**
      * @param {String} id 
      * @param {Number} slot 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     sort(id = '', slot = 0) {
         if (id) {
             //console.log(`Moving [${id}] to slot [${slot}]`);
             const _view = this.view();
-            const task = new ClipTask('sort',{'id':id,'slot':slot,'context_id':this.contextId()},_view.sort.bind(_view));
+            const task = new ClipTask(
+                    'sort',
+                    {'id':id,'slot':slot,'context_id':this.contextId()},
+                    _view.sort.bind(_view));
             task.send();
         }
         return this;
@@ -329,7 +573,7 @@ class ClipTask {
         return this.ref() !== null;
     }
     /**
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     send() {
         if ( this.valid() ) {
@@ -402,8 +646,16 @@ ClipTask.Status = {
  * @type {ClipItem}
  */
 class ClipItem {
-    constructor() {
-
+    /**
+     * @param {String} id
+     * @param {Number} slot
+     * @param {String} context
+     * @returns {ClipItem}
+     */
+    constructor( id = '', slot = 0 , context = '') {
+        this.id = id || '';
+        this.slot = slot || 0;
+        this.context_id = context || '';
     }
     /**
      * @param {String} data
@@ -424,17 +676,13 @@ class ClipItem {
         var byteArrays = [];
 
         for (var offset = 0; offset < byteCharacters.length; offset += 512) {
-            var slice = byteCharacters.slice(offset, offset + 512);
-
-            var byteNumbers = new Array(slice.length);
-            for (var i = 0; i < slice.length; i++) {
+            const slice = byteCharacters.slice(offset, offset + 512);
+            let byteNumbers = new Array(slice.length);
+            for (let i = 0; i < slice.length; i++) {
                 byteNumbers[i] = slice.charCodeAt(i);
             }
-
-            var byteArray = new Uint8Array(byteNumbers);
-            byteArrays.push(byteArray);
+            byteArrays.push(new Uint8Array(byteNumbers));
         }
-
         return new Blob(byteArrays, { type: contentType });
     }    
 }
@@ -448,9 +696,8 @@ class ClipboardView {
      */
     constructor(uploadBox, itemBox) {
         //this._queue = document.getElementById(list);
-        this._uploadBox = [...document.getElementsByClassName(uploadBox)][0] || null;
-        this._collectionBox = [...document.getElementsByClassName(itemBox)][0] || null;
-
+        this._uploader = [...document.getElementsByClassName(uploadBox)][0] || null;
+        this._collection = [...document.getElementsByClassName(itemBox)][0] || null;
         this._contextId = this.importContext();
     }
     /**
@@ -482,13 +729,13 @@ class ClipboardView {
      * @returns {Element}
      */
     uploadBox() {
-        return this._uploadBox;
+        return this._uploader;
     }
     /**
      * @returns {Element}
      */
     itemBox() {
-        return this._collectionBox;
+        return this._collection;
     }
     /**
      * @param {String} name 
@@ -634,7 +881,7 @@ class ClipboardView {
     /**
      * 
      * @param {String} id 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     remove( response = {}) {
         if ( response && response.id) {
@@ -685,165 +932,6 @@ class ClipboardView {
         }
     }
 }
-
-/**
- * @param {CodersClipboard} cb 
- */
-function initialize_clipboard( cb ){
-
-    const collection = cb.view().itemBox();
-
-    // File input
-    document.querySelectorAll('input[type=file]').forEach(input => {
-        input.addEventListener('change', (e) => {
-            cb.upload(e.target.files);
-        });
-    });
-
-    // Drag-drop
-    document.addEventListener('dragover', e => e.preventDefault());
-    document.addEventListener('drop', e => {
-        e.preventDefault();
-        if (e.dataTransfer.files.length) {
-            cb.upload(e.dataTransfer.files);
-        }
-    });
-
-    // Paste
-    document.addEventListener('paste', (e) => {
-        if (e.clipboardData.files.length) {
-            cb.upload(e.clipboardData.files);
-        }
-        else {
-            cb.upload((e.clipboardData.items || [])
-                .filter(item => item.kind === 'file')
-                .map(item => item.getAsFile() || null)
-                .filter(item => item !== null));
-        }
-    });
-
-    document.addEventListener('dragstart', (e) => {
-        /*e.preventDefault();*/
-        const item = e.target.closest('li.item');
-        if (!item || !collection.contains(item)) return;
-
-        collection.classList.add('move');
-        item.classList.add('moving');
-
-        //console.log(item.dataset.id,item.dataset.slot);
-        const item_id = item.dataset.id;
-        const slot = item.dataset.slot;
-
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('application/json', JSON.stringify({ 'id': item_id, 'slot': slot })); // store item ID
-        //console.log('DRAG!!', item_id, slot);
-
-        // Create a custom drag image
-        //const ghost = e.target.cloneNode(true);
-        //const image = e.target.closest('img.media');
-        const image = item.querySelector('img.media');
-        const ghost = image?.cloneNode(true);
-        if( ghost ){
-            console.log(ghost);
-            ghost.style.borderRadius = '50%';
-            ghost.style.position = 'absolute';
-            ghost.style.top = '-1000px';
-            ghost.style.left = '-1000px';
-            ghost.style.zIndex = '-1'; // avoid blocking other elements
-            ghost.style.pointerEvents = 'none';
-            document.body.appendChild(ghost);
-
-            // Wait for the browser to render the ghost before setting it as the drag image
-            requestAnimationFrame(() => {
-                e.dataTransfer.setDragImage(ghost, 0, 0);
-                // Optional cleanup
-                setTimeout(() => ghost.remove(), 1000);
-            });            
-        }
-    });
-
-    document.addEventListener('dragend', (e) => {
-        e.preventDefault();
-        collection.classList.remove('move');
-        const source = collection.querySelector('li.item.moving');
-        source.classList.remove('moving');
-    });
-
-    collection.addEventListener('dragover', (e) => {
-        e.preventDefault(); // allow drop
-    });
-    collection.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const target = e.target;
-        console.log(target.closest('li.item'));
-        const targetItem = target.closest('li.item');
-        const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
-        const source_id = data.id;
-        const source_slot = parseInt(data.slot);
-
-        const action = target.classList.contains('placeholder') && 'sort' || target.classList.contains('caption') && 'move' || '';
-
-        switch (action) {
-            case 'move':
-                const target_id = targetItem && targetItem.dataset.id || '';
-                //const target_id = target.dataset.id;
-                if (source_id !== target_id) {
-                    //console.log(`Moving ${source_id} to ${target_id}`);
-                    cb.move(source_id, target_id);
-                }
-                break;
-            case 'sort':
-                const slot = targetItem && parseInt(targetItem.dataset.slot) || false;
-                //const slot = target.dataset.slot;
-                if ( slot !== false && source_slot !== slot) {
-                    //console.log(`Moving ${source_id} to slot ${slot}`);
-                    cb.sort(source_id, slot);
-                }
-                break;
-            default:
-                //console.log(`No target selected`);
-                break;
-        }
-    });
-
-    const copylink = document.querySelector('.copy-link');
-    if( copylink ){
-        copylink.addEventListener('click', function(e){
-            e.preventDefault();
-            const link = this.dataset.link || '';
-            if( link ){
-                navigator.clipboard.writeText(link)
-                .then(() => {
-                    ClipboardView.notify('URL copied to clipboard!','updated');
-                })
-                .catch(err => {
-                    ClipboardView.notify('Failed to copy: ', err);
-                });
-            }
-            return true;
-        });
-    }
-}
-
-//Loader
-document.addEventListener('DOMContentLoaded', function () {
-
-    const clipboard = CodersClipboard.createClipboard();
-    if( clipboard ){
-        initialize_clipboard(clipboard);
-    }
-
-    const tabs = document.querySelector('.coders-clipboard .container .tab > .toggle');
-
-    //tabs.prepend( document.createElement('span') );
-    if( tabs ){
-        tabs.addEventListener('click',function(e) {
-            e.preventDefault();
-            (this).parentNode.classList.toggle('collapsed');
-            return true;
-        });    
-    }
-});
 
 
 
