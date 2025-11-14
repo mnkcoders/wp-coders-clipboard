@@ -1,21 +1,21 @@
 <?php defined('ABSPATH') or die; ?>
 
 <div class="wrap coders-clipboard main">
-    <?php $this->part_header() ?>
-    <?php $this->part_messages() ?>
+    <?php $this->show_header() ?>
+    <?php $this->show_messages() ?>
 
     <?php if ($this->is_valid()) : ?>
         <!-- CONTENT BLOCK -->
         <div class="content container">
-            <?php $this->part_content() ?>
+            <?php $this->show_content() ?>
         </div>
     <?php else: ?>
         <div class="container main">
         </div>
     <?php endif; ?>
     <!-- UPLOADER -->
-    <?php $this->part_uploader() ?>
-    <?php $this->part_tasks() ?>    
-    <?php $this->part_items() ?>
+    <?php $this->show_uploader() ?>
+    <?php $this->show_tasks() ?>    
+    <?php $this->show_items() ?>
 </div>
 

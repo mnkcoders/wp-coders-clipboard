@@ -47,7 +47,7 @@
         </div>
         <div class="container half compact clip">
             <!-- content right -->
-            <?php $this->part_attachment() ?>
+            <?php $this->show_attachment() ?>
         </div>
         <div class="container">
             <!-- content bottom -->

@@ -167,7 +167,7 @@ abstract class Controller{
      * @return Controller
      */
     protected static final function create( $context = '' ){
-        $class = sprintf('%sController', ucfirst($context));
+        $class = sprintf('\CODERS\Clipboard\Admin\%sController', ucfirst($context));
         return class_exists($class) && is_subclass_of($class, self::class ,true ) ? new $class() : null;
     } 
     /**
@@ -202,7 +202,7 @@ class MainController extends Controller{
      */
     protected function defaultAction(array $input = array()): bool {
         
-        $content = new ClipContent($input['id'] ?? '');
+        $content = Content::load($input['id'] ?? '');
         
         View::create('main')
                 ->setContent( $content )
@@ -228,7 +228,7 @@ class MainController extends Controller{
      */
     protected function updateAction( array $input = array()) : bool {
         $id = $input['id'] ?? '';
-        $clip = ClipContent::load($id);
+        $clip = Content::load($id);
         if ( !is_null($clip) && $clip->override($input)->update()) {
             $this->notify(sprintf('%s updated!',$clip->name), 'update');
         }
@@ -243,7 +243,7 @@ class MainController extends Controller{
      * @return bool
      */
     protected function deleteAction( array $input = array()) : bool {
-        if ( ClipContent::remove($input['id'] ?? '')) {
+        if ( Content::remove($input['id'] ?? '')) {
             $this->notify('Removed!','update');
         }
         return $this->defaultAction();
@@ -255,7 +255,7 @@ class MainController extends Controller{
     protected function sortAction( array $input = array()) : bool {
 
         $index = isset($input['slot']) ? $input['slot'] : 0;
-        $item = ClipContent::load($id);
+        $item = Content::load($id);
         if (!is_null($item)) {
             $count = $item->sort($index);
             $this->notify('Updated!', 'update');
@@ -269,7 +269,7 @@ class MainController extends Controller{
     protected function arrangeAction( array $input = array()) : bool {
         $id = $input['id'] ?? '';
         if($id ){
-            $db = ClipContent::clipboard()->data();
+            $db = Content::clipboard()->data();
             $db->arrange($id);
             $this->notify('Updated!', 'update');
         }
@@ -282,7 +282,7 @@ class MainController extends Controller{
     protected function moveAction( array $input = array()) : bool {
         $id = $input['id'] ?? '';
         $parent_id = $input['parent_id'] ?? '';
-        $clip = ClipContent::load($id);
+        $clip = Content::load($id);
         if( $id && $clip && $clip->moveto($parent_id) ){
             $this->notify('Moved!','update');
         }
@@ -293,7 +293,7 @@ class MainController extends Controller{
      * @return bool
      */
     protected function moveupAction(array $input = array()): bool {
-        $clip = ClipContent::load($input['id'] ?? '');
+        $clip = Content::load($input['id'] ?? '');
         if (!is_null($clip) && $clip->moveup()) {
             $this->notify('Moved!','update');
         }
@@ -312,8 +312,8 @@ class MainController extends Controller{
      * @return bool
      */
     protected function recoverAction( array $input = array()) : bool {
-        $lostfiles = ClipContent::findLost();
-        $orphen = ClipContent::restoreLost();
+        $lostfiles = Content::findLost();
+        $orphen = Content::restoreLost();
         $this->notify('Recovered %s lost items and %s unparented items',$lostfiles,$orphen);
         return $this->defaultAction();
     }
@@ -322,7 +322,7 @@ class MainController extends Controller{
      * @return bool
      */
     protected function renameAction( array $input = array()) : bool {
-        $clip = ClipContent::load($input['id'] ?? '');
+        $clip = Content::load($input['id'] ?? '');
         if($clip){
             $count = $clip->rename();
             $this->notify(sprintf('%s items updated!',$count),'update');
@@ -337,7 +337,7 @@ class MainController extends Controller{
      * @return bool
      */
     protected function propagateAction( array $input = array()) : bool {
-        $clip = ClipContent::load($input['id'] ?? '');
+        $clip = Content::load($input['id'] ?? '');
         if($clip){
             $count = $clip->setroles();
             $this->notify(sprintf('%s items updated!',$count),'update');
@@ -352,7 +352,7 @@ class MainController extends Controller{
      * @return bool
      */
     protected function layoutAction( array $input = array())  : bool{
-        $clip = ClipContent::load($input['id'] ?? '');
+        $clip = Content::load($input['id'] ?? '');
         if($clip){
             $count = $clip->setlayouts();
             $this->notify(sprintf('%s items updated!',$count),'update');
@@ -459,7 +459,7 @@ class AjaxController extends Controller{
     protected function uploadAction( array $input = array()){
         $id = array_key_exists('id', $input)?  $input['id'] : '';
         $clips = Uploader::create( 'upload' )->items( $id );
-        $meta = ClipContent::clipmeta($clips);
+        $meta = Content::clipmeta($clips);
         $meta['count'] = count($clips);
         $this->fill($meta);
         return true;
@@ -471,11 +471,12 @@ class AjaxController extends Controller{
 /**
  * 
  */
-class ClipContent extends \CODERS\Clipboard\Clip{
+class Content extends \CODERS\Clipboard\Clip{
     /**
      * @var bool
      */
     private $_updated = false;
+    
     /**
      * @param string $name
      * @param string $value
@@ -489,7 +490,7 @@ class ClipContent extends \CODERS\Clipboard\Clip{
 
     /**
      * @param array $data
-     * @return \CODERS\Clipboard\Admin\ClipContent
+     * @return \CODERS\Clipboard\Admin\Content
      */
     public function override( array $data = array() ){
         foreach($data as $key => $val ){
@@ -625,7 +626,7 @@ class ClipContent extends \CODERS\Clipboard\Clip{
     
     /**
      * @param string $id
-     * @return \CODERS\Clipboard\Admin\ClipContent
+     * @return \CODERS\Clipboard\Admin\Content
      */
     public static function load($id = '' ){
         return parent::load($id);
@@ -650,7 +651,7 @@ class ClipContent extends \CODERS\Clipboard\Clip{
     public static function clipmeta( $clips = array() ){
         return array_map(function( $clip ){
                 $meta = $clip->meta();
-                $meta['post'] = ClipContent::contextlink($clip->id);
+                $meta['post'] = Content::contextlink($clip->id);
                 return $meta;
             
         }, $clips);
@@ -793,9 +794,10 @@ class View{
             case preg_match('/^has_/', $name):
                 return $this->__has(substr($name, 4));
             case preg_match('/^show_/', $name):
-                return $this->__show(substr($name, 5));
+                $view = substr($name, 5) ?? '_';
+                return $this->view('parts/'.$view);
             case preg_match('/^action_/', $name):
-                return $this->action(substr($name, 7) , ...$args );
+                return $this->action(substr($name, 7) , $args );
             case preg_match('/^link_/', $name):
                 return $this->link( substr($name, 5) );
             case preg_match('/^url_/', $name):
@@ -918,14 +920,13 @@ class View{
      * @return string
      */
     protected function path($name = ''){
-        return sprintf('%s/html/admin/%s',CODERS_CLIPBOARD_DIR,$name);
+        return sprintf('%s/html/admin/%s',CODER_CLIPBOARD_DIR,$name);
     }
     /**
      * @param string $view
      * @return bool
      */
     public function view($view = ''){
-        $this->viewMessages(Controller::mailbox() );
         $path = $this->path(sprintf('%s.php', strlen($view) ? $view : $this->_context));
         if(file_exists($path)){
             require $path;
@@ -936,14 +937,10 @@ class View{
         return $this;
     }
     /**
-     * @param array $messages
-     * @return \View
+     * @return array
      */
-    protected function viewMessages( array $messages = array() ){
-        foreach( $messages as $message ){
-            printf('<div class="notice is-dismissible %s">%s</div>',$message['type'],$message['content']);
-        }
-        return $this;
+    protected function listMessages( ){
+        return Controller::mailbox();
     }    
     /**
      * @return bool
@@ -957,16 +954,16 @@ class View{
      * 
      */
     public static function attachheaders(){
-
-        $style_mime = sprintf('%s/html/admin/style.css', CODER_CLIPBOARD_DIR);
-        $style = sprintf('%s/html/admin/style.css', CODER_CLIPBOARD_URL);
-        $script_mime = sprintf('%s/html/admin/script.js', CODER_CLIPBOARD_DIR);
-        $script = sprintf('%s/html/admin/script.js', CODER_CLIPBOARD_URL);
+        
+        $style = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_URL);
+        $style_path = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_DIR);
+        $script = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_URL);
+        $script_path = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_DIR);
         // Register and enqueue CSS
-        wp_enqueue_style('clipboard-admin-style',$style,[],filemtime($style_mime));
+        wp_enqueue_style('clipboard-admin-style',$style,[],filemtime($style_path));
 
         // Register and enqueue JS
-        wp_enqueue_script('clipboard-admin-script', $script,['jquery'],filemtime($script_mime),true);
+        wp_enqueue_script('clipboard-admin-script', $script,['jquery'],filemtime($script_path),true);
 
         // Optional: Pass variables to JS
         wp_localize_script('clipboard-admin-script', 'ClipboardData', [
@@ -1004,7 +1001,7 @@ class Uploader {
      * @return \CODERS\Clipboard\Clip[]
      */
     public function items( $id = '' ) {
-        $clipboard = ClipContent::clipboard();
+        $clipboard = Content::clipboard();
         $clip = $clipboard->clip($id);
         $slot = !is_null($clip) ? $clip->count() : 0;
         $layout = !is_null($clip) ? $clip->layout : '';
@@ -1119,7 +1116,7 @@ class Uploader {
      */
     public static function upload($from = 'upload', $id = '') {
         $uploaded = array();
-        $clipboard = ClipContent::clipboard();
+        $clipboard = Content::clipboard();
         $container = $clipboard->clip($id);
         $slot = !is_null($container) ? $container->count() : 0;
         $layout = !is_null($container) ? $container->layout : '';
@@ -1135,7 +1132,7 @@ class Uploader {
             $clip = $clipboard->create($file);
             if(!is_null($clip)){
                 $uploaded[] = $clip->meta();
-                $uploaded['post'] = ClipContent::contextlink($clip->id);
+                $uploaded['post'] = Content::contextlink($clip->id);
             }
             //then set the next to the first file ID
             if (strlen($id) === 0) {
