@@ -64,10 +64,7 @@ class Dashboard{
                 $can = sprintf('can%s', ucfirst(substr($name, 4)));
                 return method_exists($this, $can) ? $this->$can() : false;
             case preg_match('/^show_/', $name):
-                $view = substr($name, 5);
-                return (strlen($view) && $this->view('parts/'.$view)) ?
-                    sprintf('<!-- part [%s] -->',$view) :
-                    sprintf('<!-- part [%s] not found -->',$view);
+                return $this->template(substr($name, 5));
             case preg_match('/^action_/', $name):
                 return $this->action( substr($name, 7), ... $args );
             case preg_match('/^link/', $name):
@@ -107,9 +104,17 @@ class Dashboard{
      * @param string $view
      * @return bool
      */
+    protected function template( $view = '' ){
+        return strlen($view) && $this->view(sprintf('templates/%s',$view));
+    }
+
+    /**
+     * @param string $view
+     * @return bool
+     */
     protected function view($view = '') {
         $path = $this->path($view . '.php' );
-        if(file_exists($path)){
+        if( file_exists($path)){
             require $path;
             return true;
         }

@@ -794,8 +794,7 @@ class View{
             case preg_match('/^has_/', $name):
                 return $this->__has(substr($name, 4));
             case preg_match('/^show_/', $name):
-                $view = substr($name, 5) ?? '_';
-                return $this->view('parts/'.$view);
+                return $this->template(substr($name, 5));
             case preg_match('/^action_/', $name):
                 return $this->action(substr($name, 7) , $args );
             case preg_match('/^link_/', $name):
@@ -936,6 +935,13 @@ class View{
         }
         return $this;
     }
+    /**
+     * @param string $view
+     * @return bool
+     */
+    protected function template( $view = '' ){
+        return strlen($view) && $this->view(sprintf('templates/%s',$view));
+    }    
     /**
      * @return array
      */
