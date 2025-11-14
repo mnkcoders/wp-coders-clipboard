@@ -42,11 +42,11 @@ add_action('template_redirect', function(){
     
     if( $clip_id ){
         \CODERS\Clipboard\Clipboard::attach( $clip_id );
-        exit;                    
+        exit;
     }
     if( $clipboard_id ){
         \CODERS\Clipboard\Clipboard::board( $clipboard_id );
-        exit;                    
+        exit;
     }
 });
 

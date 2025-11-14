@@ -2,8 +2,39 @@
 
 defined('ABSPATH') or die;
 
+/**
+ * 
+ */
 class Clipboard{
+    /**
+     * @var \CODERS\Clipboard\Clipboard
+     */
+    private static $_instance = null;
+    /**
+     * 
+     */
+    private function __construct() {
+        //
+    }
+    /**
+     * @return \CODERS\Clipboard\Clipboard
+     */
+    public static function instance(){
+        if(is_null(self::$_instance)){
+            self::$_instance = new Clipboard();
+        }
+        return self::$_instance;
+    }
     
+    
+    
+    /**
+     * @param string $drive
+     * @return \CODERS\Clipboard\Storage
+     */
+    public function storage( $drive = ''){
+        return new Storage( strlen($drive) ? $drive : 'content' );
+    }
     /**
      * @return \CODERS\Clipboard\ClipData
      */
@@ -29,9 +60,8 @@ class Clipboard{
      * 
      */
     protected function error404(){
-            status_header(404);
-            wp_die(__('Clipboard item not found.', 'coders_clipboard'));
-            exit;        
+        status_header(404);
+        wp_die(__('Clipboard item not found.', 'coders_clipboard'));
     }
     /**
      * 
@@ -39,7 +69,6 @@ class Clipboard{
     protected function errorDenied(){
         status_header(403);
         wp_die(__('Access denied', 'coders_clipboard'));
-        exit;
     }
     
     
@@ -47,23 +76,21 @@ class Clipboard{
      * @param string $id
      */
     public static function attach( $id = ''){
-        $clipboard = new Clipboard();
-        $clip = Clip::load( $id );
+        $clipboard = self::instance();
+        $clip = $clipboard->load($id);
         switch(true){
             case is_null($clip):
                 return $clipboard->error404();
-            case !$clip->valid():
             case !$clip->ready():
                 return $clipboard->error404();
             case $clip->denied():
                 return $clipboard->errorDenied();
         }
-        header('Content-Description: File Transfer');
-        header('Content-Type: ' . $clip->type);
-        header('Content-Disposition: ' . $clip->disposition() . '; filename=' . $clip->filename());
-        header('Content-Length: ' . $clip->size());
+        foreach( $clip->headers() as $header ){
+            header($header);
+        }
         readfile($clip->path());
-        exit;        
+        exit;
     }
     /**
      * @param string $id
@@ -138,13 +165,9 @@ class Clipboard{
     public static function setup(){
         //flush_rewrite_rules();
         self::rewrite(true);
-        
-        ClipData::intstall();
-        //check the upload directory
-        $drive = Clipboard::drive();
-        if( !file_exists($drive)){
-            wp_mkdir_p($drive);
-        }        
+        $cb = self::instance();
+        $cb->data()->install();
+        $cb->storage()->create();
     }
 }
 
@@ -213,9 +236,6 @@ class Clip{
         return strlen($name) && array_key_exists($name, $this->_content);
     }
     
-    
-    
-    
     /**
      * @param array $input
      */
@@ -231,6 +251,17 @@ class Clip{
      */
     public function items(){
         return $this->_items;
+    }
+    /**
+     * @return String[]
+     */
+    public function headers(){
+        return array(
+            'Content-Description: File Transfer',
+            sprintf('Content-Type: %s',$this->type),
+            sprintf('Content-Disposition: %s; filename=%s',$this->disposition(),$this->filename()),
+            sprintf('Content-Length: %s',$this->size()),
+        );
     }
     /**
      * @param bool $clipboard full clipboard view
@@ -255,7 +286,7 @@ class Clip{
      * @return Boolean
      */
     public function ready(){
-        return file_exists($this->path());
+        return $this->valid() && file_exists($this->path());
     }
     /**
      * @return Boolean
@@ -305,7 +336,7 @@ class Clip{
      * @return String
      */
     public function path(){
-        return Clipboard::drive($this->id);
+        return Clipboard::instance()->storage()->route($this->id);
     }
     /**
      * @return Int
@@ -624,7 +655,7 @@ class ClipData{
         /**
      * 
      */
-    public static function intstall(){
+    public function install(){
         
         $wpdb = self::wpdb();
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -644,3 +675,58 @@ class ClipData{
         dbDelta($sql);            
     }
 }
+
+/**
+ * 
+ */
+class Storage{
+    /**
+     * @var string
+     */
+    private $_drive = 'content';
+    
+    /**
+     * @param string $folder
+     */
+    public function __construct( $folder = 'content' ) {
+        
+        $this->_drive = $folder;
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function route( $id = '' ){
+        $route = array( $this->_drive );
+        if(strlen($id)){
+            $route[] =  $id;
+        }
+        return preg_replace('/\\\\/','/',self::root() . implode('/', $route));
+    }
+    /**
+     * @param string $id
+     * @return bool
+     */
+    public function exists( $id = '' ){
+        return file_exists($this->route( $id ) );
+    }
+    /**
+     * @return boolean
+     */
+    public function create( ){
+        $route = $this->route();
+        if( !file_exists($route)){
+            return wp_mkdir_p($route);
+        }
+        return false;
+    }
+
+    /**
+     * @return {String}
+     */
+    private static function root(){
+        return sprintf('%s/clipboard/',wp_upload_dir()['basedir']);
+    }    
+}
+
+

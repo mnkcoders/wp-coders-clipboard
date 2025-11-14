@@ -661,7 +661,7 @@ class Content extends \CODERS\Clipboard\Clip{
      * @return \CODERS\Clipboard\Clipboard
      */
     public static function clipboard(){
-        return new \CODERS\Clipboard\Clipboard();
+        return \CODERS\Clipboard\Clipboard::instance();
     }    
 }
 /**
