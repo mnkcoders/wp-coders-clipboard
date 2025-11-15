@@ -235,7 +235,7 @@ class View{
      * @return bool
      */
     protected function canAccess() {
-        return $this->hasContent() && !$this->clip()->denied();
+        return $this->hasContent() && !$this->clip()->isDenied();
     }
     /**
      * @return bool
@@ -265,7 +265,7 @@ class View{
      * @return \CODERS\Clipboard\Clip[]
      */
     protected function listItems() {
-        return $this->hasContent() ? $this->clip()->items() : array();
+        return $this->hasContent() ? $this->clip()->listItems() : array();
     }
     /**
      * @return string

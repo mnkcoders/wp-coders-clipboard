@@ -202,15 +202,12 @@ class MainController extends Controller{
      */
     protected function defaultAction(array $input = array()): bool {
         
-        $content = Content::load($input['id'] ?? '');
+        $content = Content::load($input['id'] ?? '',true);
         
         $view = View::create('main')
                 ->setContent( $content )
                 ->view('default');
-        
-        var_dump($view->has_content());
-        var_dump($view->get_post());
-        var_dump($view->listItems());
+
         return true;
     }
     /**
@@ -232,7 +229,7 @@ class MainController extends Controller{
     protected function updateAction( array $input = array()) : bool {
         $id = $input['id'] ?? '';
         $clip = Content::load($id);
-        if ( !is_null($clip) && $clip->override($input)->update()) {
+        if ( !is_null($clip) && $clip->update($input)) {
             $this->notify(sprintf('%s updated!',$clip->name), 'update');
         }
         else{
@@ -246,8 +243,9 @@ class MainController extends Controller{
      * @return bool
      */
     protected function deleteAction( array $input = array()) : bool {
-        if ( Content::remove($input['id'] ?? '')) {
-            $this->notify('Removed!','update');
+        $content = Content::load($input['id'] ?? '');
+        if ( $content->remove()) {
+            $this->notify(sprintf('%s removed!',$content->name),'update');
         }
         return $this->defaultAction();
     }
@@ -272,7 +270,7 @@ class MainController extends Controller{
     protected function arrangeAction( array $input = array()) : bool {
         $id = $input['id'] ?? '';
         if($id ){
-            $db = Content::clipboard()->data();
+            $db = Content::clipboard()->db();
             $db->arrange($id);
             $this->notify('Updated!', 'update');
         }
@@ -324,10 +322,10 @@ class MainController extends Controller{
      * @param array $input
      * @return bool
      */
-    protected function renameAction( array $input = array()) : bool {
+    protected function copynamesAction( array $input = array()) : bool {
         $clip = Content::load($input['id'] ?? '');
         if($clip){
-            $count = $clip->rename();
+            $count = $clip->copynames();
             $this->notify(sprintf('%s items updated!',$count),'update');
         }
         else{
@@ -342,7 +340,7 @@ class MainController extends Controller{
     protected function propagateAction( array $input = array()) : bool {
         $clip = Content::load($input['id'] ?? '');
         if($clip){
-            $count = $clip->setroles();
+            $count = $clip->copyroles();
             $this->notify(sprintf('%s items updated!',$count),'update');
         }
         else{
@@ -357,7 +355,7 @@ class MainController extends Controller{
     protected function layoutAction( array $input = array())  : bool{
         $clip = Content::load($input['id'] ?? '');
         if($clip){
-            $count = $clip->setlayouts();
+            $count = $clip->copylayouts();
             $this->notify(sprintf('%s items updated!',$count),'update');
         }
         else{
@@ -395,7 +393,7 @@ class SettingsController extends Controller{
             $this->notify(__('Unable to clear Clipboard data','coders_clipboard'),'warning');            
         }
         if( $files){
-            $this->notify(__('Clipboard drive clear','coders_clipboard'));
+            $this->notify(sprintf('%s %s',$files,__('files removed','coders_clipboard')),'update');
         }
         else{
             $this->notify(__('Unable to clear Clipboard drive','coders_clipboard'),'warning');            
@@ -452,7 +450,6 @@ class AjaxController extends Controller{
      * @return bool
      */
     protected function defaultAction(array $input = []): bool {
-
         return true;
     }
     /**
@@ -470,214 +467,21 @@ class AjaxController extends Controller{
 }
 
 
-
 /**
  * 
  */
 class Content extends \CODERS\Clipboard\Clip{
-    /**
-     * @var bool
-     */
-    private $_updated = false;
     
     /**
-     * @param array $input
-     * @param bool $preload
-     */
-    public function __construct( array $input = array() , $preload = false ) {
-        parent::__construct($input, $preload);
-    }
-    
-    /**
-     * @param string $id
-     * @param  bool $preload
-     * @return \CODERS\Clipboard\Admin\Content
-     */
-    public static function load($id = '' , $preload = false ){
-        $data = self::clipboard()->data()->load($id);
-        return count($data) ? new Content($data,$preload) : null;
-    }
-    /**
-     * @param \CODERS\Clipboard\Clip $clip
-     * @return \CODERS\Clipboard\Admin\Content
-     */
-    public static function copyfrom( \CODERS\Clipboard\Clip $clip = null ){
-        return !is_null($clip) ? new Content( $clip->content() ) : null;
-    }
-    /**
-     * @param type $id
-     * @return \CODERS\Clipboard\Admin\Content[]
-     */
-    public static function listItems($id = ''){
-        $items = self::db()->list($id);
-        return array_map(function($data){
-            return new \CODERS\Clipboard\Admin\Content($data);
-        }, $items);
-    }
-    /**
-     * @return \CODERS\Clipboard\Admin\Content[]
-     */
-    public function loaditems() {
-        return strlen($this->id) ? self::listItems($this->id) : array();
-    }
- 
-    /**
-     * @param string $name
-     * @param string $value
-     */
-    public function __set($name, $value) {
-        parent::__set($name, $value);
-        if($name !== 'id'){
-            $this->_updated = true;
-        }
-    }
-
-    /**
-     * @param array $data
-     * @return \CODERS\Clipboard\Admin\Content
-     */
-    public function override( array $data = array() ){
-        foreach($data as $key => $val ){
-            $this->$key = $val;
-        }
-        return $this;
-    }
-    
-    
-    /**
-     * @param string $id
-     * @return boolean
-     */
-    public static function remove( $id = '' ){
-        if(strlen($id)){
-            $db = self::clipboard()->data();
-            return $db->delete(array($id));
-        }
-        return false;
-    }
-    
-    /**
-     * @return boolean
-     */
-    public function moveto( $parent_id = '') {
-        if ($this->isValid() && $this->parent_id !== $parent_id) {
-            $parent = self::load($parent_id);
-            if( $parent ){
-                $count = $parent->count();
-                $data = array(
-                    'parent_id' => strlen($parent_id) ? $parent_id : null,
-                    'slot' => $count,
-                );
-                $db = self::clipboard()->data();
-                if( $db->update($data,array('id'=>$this->id)) ){
-                    $parent->arrange();
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    /**
-     * @return boolean
-     */
-    public function moveup(){
-        if( $this->parent_id ){
-            $parent = self::load($this->parent_id);
-            return $this->moveto($parent->parent_id);
-        }
-        return false;
-    }    
-    
-    
-    
-    /**
-     * @param string $parent_id
-     * @param int $slot
-     * @param int $range
-     * @return int
-     */
-    public function arrange($parent_id = '', $slot = -1 , $range = 0 ){
-        $db = self::clipboard()->data();
-        return $db->arrange($parent_id, $slot, $range);
-    }    
-    /**
-     * @return int
-     */
-    public static function restoreLost(){
-        return self::clipboard()->data()->recover();
-    }
-
-    /**
-     * @global wpdb $wpdb
-     * @return int
-     */
-    public static function findLost() {
-        $clipboard = self::clipboard();
-        $db_ids = array_map('strtolower', $clipboard->data()->listids());
-        $drive = $clipboard->drive();
-        $files = scandir($drive);
-        $lost = [];
-        $skip = array('.','..');
-
-        foreach ($files as $file) {
-            if (!in_array($file, $skip) && !in_array(strtolower($file), $db_ids)) {
-                $path = $drive . $file;
-                $lost[$file] = mime_content_type($path);
-            }
-        }
-        return $lost;
-    }    
-    
-    /**
-     * @return int
-     */
-    public function rename() {
-        $name = $this->name;
-        $title = $this->title;
-        $db = $this->clipboard()->data();
-        $count = $db->update(array(
-            'name' => $name,
-            'title' => $title,
-        ), array('parent_id' => $this->id));
-        return $count ?? 0;
-    }
-
-    /**
-     * @return int
-     */
-    public function setlayouts(){
-        
-        $db = $this->clipboard()->data();
-        
-        $count = $db->update(array(
-            'layout' => $this->layout
-        ), array( 'parent_id'=>$this->parent_id));
-        
-        return $count ?? 0;
-    }
-    /**
-     * @return int
-     */
-    public function setroles( ){
-        $db = $this->clipboard()->data();
-        
-        $count = $db->update(array(
-            'acl' => $this->acl
-        ), array( 'parent_id'=>$this->parent_id));
-        
-        return $count ?? 0;
-    }    
-    
-    /**
-     * @param string $id
+     * @param array $args
      * @return url|string
      */
-    public static function contextlink($id = '') {
+    public static function contextlink( array $args = array() ) {
         $query = array(
             'page' => 'coders_clipboard',
         );
-        if(strlen($id)){
-            $query['context_id'] = $id;
+        foreach($args as $key => $val ){
+            $query[$key] = $val;
         }
         return add_query_arg($query, admin_url('admin.php'));
     }
@@ -688,18 +492,17 @@ class Content extends \CODERS\Clipboard\Clip{
     public static function clipmeta( $clips = array() ){
         return array_map(function( $clip ){
                 $meta = $clip->meta();
-                $meta['post'] = Content::contextlink($clip->id);
+                $meta['post'] = Content::contextlink(array('id'=>$clip->id));
                 return $meta;
             
         }, $clips);
-    }    
+    } 
     /**
-     * @param string $id
      * @return \CODERS\Clipboard\Clipboard
      */
     public static function clipboard(){
         return \CODERS\Clipboard\Clipboard::instance();
-    }    
+    }
 }
 /**
  * 
@@ -747,26 +550,15 @@ class Settings{
      * @return bool
      */
     public function cleardata(){
-        return self::clipboard()->data()->cleanup();
+        return Content::clipboard()->db()->cleanup();
     }
     
     
     /**
-     * 
-     * @return bool
+     * @return int
      */
     public function cleardrive(){
-            $drive = self::clipboard()->drive();
-            if (file_exists($drive)) {
-                $files = glob($drive . '/*');
-                foreach ($files as $file) {
-                    if (is_file($file)) {
-                        unlink($file);
-                    }
-                }
-                return true;
-            }
-        return false;
+        return Content::clipboard()->storage()->clear();
     }
 }
 
@@ -827,7 +619,10 @@ class View{
         switch(true){
             case preg_match('/^get_/', $name):
                 $get = sprintf('get%s', ucfirst(substr($name, 4)));
-                return method_exists($this, $get) ? $this->$get() : '';
+                return method_exists($this, $get) ? $this->$get(...$args) : '';
+            case preg_match('/^count_/', $name):
+                $count = sprintf('count%s', ucfirst(substr($name, 6)));
+                return method_exists($this, $count) ? $this->$count(...$args) : 0;
             case preg_match('/^list_/', $name):
                 return $this->__list(substr($name, 5));
             case preg_match('/^is_/', $name):
@@ -844,14 +639,22 @@ class View{
                 return $this->url( explode( '_', substr($name, 4)), ...$args );
         }
         
-        return !is_null($this->content()) ? $this->content()->$name : '';
+        return '';
+        //return !is_null($this->content()) ? $this->content()->$name : '';
     }
     /**
      * @param string $name
      * @return mixed
      */
     public function __get(string $name) {
-        return $this->$name();
+        $get = sprintf('get%s', ucfirst($name));
+        if( $this->hasContent() && method_exists($this->content(), $get)){
+            return $this->content()->$get();
+        }
+        if( method_exists($this, $get)){
+            return $this->$get();
+        }
+        return !is_null($this->content()) ? $this->content()->$name : '';
     }
     /**
      * @param string $show
@@ -866,7 +669,7 @@ class View{
      */
     protected function __list($list = ''){
         $call = sprintf('list%s', ucfirst($list));
-        if( $this->hasContent()  && method_exists($this->content(), $call) ){
+        if( $this->hasContent() && method_exists($this->content(), $call) ){
             return $this->content()->$call();
         }
         return method_exists($this, $call) ? $this->$call() : array();
@@ -930,6 +733,8 @@ class View{
      */
     protected function adminurl( array $args = array()){
         //$admin_url = menu_page_url('coder-sandbox');
+        return Content::contextlink($args);
+        
         $admin_url = admin_url('admin.php?page=coders-clipboard');
         $get = array();
         foreach ($args as $var => $val ){
@@ -950,7 +755,7 @@ class View{
         if(strlen($action)){
             $args['action'] = $action;
         }
-        return $this->adminurl($args);
+        return Content::contextlink($args);
     }
     /**
      * @param string $name
@@ -994,17 +799,6 @@ class View{
     protected function hasContent(){
         return !is_null( $this->content());
     }
-    /**
-     * @return string
-     */
-    protected function getPost() {
-        $args = array();
-        if($this->id){
-            $args['id'] = $this->id;
-        }
-        return $this->adminurl($args);
-    }
-
 
     /**
      * 
@@ -1039,7 +833,61 @@ class MainView extends View{
      * @return \CODERS\Clipboard\Clip[]
      */
     public function listItems(){
-        return Content::listItems($this->id);
+        return Content::list();
+    }
+    /**
+     * @return bool
+     */
+    public function isEmpty(){
+        return !$this->hasContent() && count(Content::list()) === 0;
+    }
+    /**
+     * @return bool
+     */
+    public function hasItems(){
+        return $this->countItems() > 0;
+    }
+    /**
+     * @return int
+     */
+    public function countItems(){
+        return $this->hasContent() ? count(Content::list($this->id)) : 0;
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function getBase(){
+        return Content::contextlink();
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function getPost( $id = '' ){
+        if(strlen($id) === 0){
+            $id = $this->id;
+        }
+        return Content::contextlink(array('id'=>$id));
+    }
+    /**
+     * @return string
+     */
+    protected function getForm( $id = '' ){
+        if(strlen($id) === 0){
+            $id = $this->id;
+        }
+        return Content::contextlink(array('id'=>$id));
+    }    
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function getUrl( $id = '' ){
+        if(strlen($id) === 0){
+            $id = $this->id;
+        }
+        return Content::clipboard()->clipdata($id);
     }
 }
 
@@ -1211,5 +1059,4 @@ class Uploader {
         return $uploaded;
     }
 }
-
 

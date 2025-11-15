@@ -1,7 +1,7 @@
 <?php defined('ABSPATH') or die; ?>
 <?php if( $this->is_media() ):  ?>
 <img class="media" src="<?php
-    print $this->get_url() ?>" alt="<?php
+    print $this->url ?>" alt="<?php
     print $this->name ?>" title="<?php
     print $this->title ?>">
 <?php else: ?>

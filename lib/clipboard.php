@@ -26,8 +26,6 @@ class Clipboard{
         return self::$_instance;
     }
     
-    
-    
     /**
      * @param string $drive
      * @return \CODERS\Clipboard\Storage
@@ -36,10 +34,10 @@ class Clipboard{
         return new Storage( strlen($drive) ? $drive : 'content' );
     }
     /**
-     * @return \CODERS\Clipboard\ClipData
+     * @return \CODERS\Clipboard\Data
      */
-    public function data() {
-        return new ClipData();
+    public function db() {
+        return new Data();
     }
     /**
      * @param string $id
@@ -54,7 +52,7 @@ class Clipboard{
      * @return \CODERS\Clipboard\Clip[]
      */
     public function list( $id = '' ){
-        $list = $this->data()->list($id);
+        $list = $this->db()->list($id);
         return array_map( function( $data ){
             return new Clip($data);
         },$list);
@@ -66,6 +64,13 @@ class Clipboard{
      */
     public function create(array $data = array()) {
         return Clip::create($data);
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function data($id = ''){
+        return self::clipdata($id);
     }
     
     /**
@@ -83,6 +88,33 @@ class Clipboard{
         wp_die(__('Access denied', 'coders_clipboard'));
     }
     
+    /**
+     * @return int
+     */
+    public function restoreLost(){
+        return $this->db()->recover();
+    }
+    /**
+     * @global wpdb $wpdb
+     * @return int
+     */
+    public function findLost() {
+        $db_ids = array_map('strtolower', $this->db()->allids());
+        $drive = $this->storage();
+        $lost = [];
+        $files = $drive->list();
+
+        foreach ($files as $file) {
+            if ( !in_array(strtolower($file), $db_ids)) {
+                $path = $drive->route($file);
+                $lost[$file] = mime_content_type($path);
+            }
+        }
+        return $lost;
+    }    
+        
+    
+    
     
     /**
      * @param string $id
@@ -93,15 +125,15 @@ class Clipboard{
         switch(true){
             case is_null($clip):
                 return $clipboard->error404();
-            case !$clip->ready():
+            case !$clip->isReady():
                 return $clipboard->error404();
-            case $clip->denied():
+            case $clip->isDenied():
                 return $clipboard->errorDenied();
         }
         foreach( $clip->headers() as $header ){
             header($header);
         }
-        readfile($clip->path());
+        readfile($clip->getPath());
         exit;
     }
     /**
@@ -144,15 +176,6 @@ class Clipboard{
     public static function clipdata( $id = ''){
         return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_CONTENT,$id));
     }
-    
-    /**
-     * @param string $id
-     * @return {String}
-     */
-    public static function drive( $id = '' ){
-        $path = sprintf('%s/clipboard/content/',wp_upload_dir()['basedir']);
-        return strlen($id) ? $path . $id : $path;
-    }    
     /**
      * @param bool $flush
      */
@@ -178,7 +201,7 @@ class Clipboard{
         //flush_rewrite_rules();
         self::rewrite(true);
         $cb = self::instance();
-        $cb->data()->install();
+        $cb->db()->install();
         $cb->storage()->create();
     }
 }
@@ -202,7 +225,7 @@ class Clip{
         'parent_id' => '',        
         'slot' => 0,
         'tags' => '',
-        //'drive' => '',
+        'drive' => 'content',
         'created_at' => '',
     );
     /**
@@ -223,19 +246,27 @@ class Clip{
      * @param bool $preload
      */
     public function __construct( $input = array() , $preload = false ) {
+        $this->_content['created_at'] = date('Y-m-d H:i:s');
         $this->populate( $input );
-        if( !array_key_exists('created_at', $input)){
-            $this->_content['created_at'] = date('Y-m-d H:i:s');
-        }
         if($preload){
             $this->_items = $this->loaditems();
         }
     }
     /**
+     * @return array
+     */
+    protected function content(){
+        return $this->_content;
+    }
+    /**
      * @return String
      */
     public function __get( $name ){
-        return $this->has($name) ? $this->_content[$name] : '';
+        $get = sprintf('get%s', ucfirst($name));
+        if(method_exists($this, $get)){
+            return $this->$get();
+        }
+        return $this->has($name) ? $this->content()[$name] : '';
     }
     /**
      * @param string $name
@@ -270,6 +301,7 @@ class Clip{
     public function __set($name, $value) {
         if( $this->has($name) && $name !== 'id' ){
             $this->_content[$name] = $value;
+            $this->_updated = true;
         }
     }
     /**
@@ -277,17 +309,12 @@ class Clip{
      * @return bool
      */
     public function has($name = ''){
-        return strlen($name) && array_key_exists($name, $this->_content);
-    }
-    /**
-     * @return array
-     */
-    protected function content(){
-        return $this->_content;
+        return strlen($name) && array_key_exists($name, $this->content());
     }
     
     /**
      * @param array $input
+     * @return \CODERS\Clipboard\Clip
      */
     protected function populate( $input = [] ){
         foreach( $input as $field => $value ){
@@ -295,12 +322,13 @@ class Clip{
                 $this->_content[$field] = !is_null($value) ? $value : '';
             }
         }
+        return $this;
     }
     /**
-     * @return \CODERS\Clipboard\ClipData
+     * @return \CODERS\Clipboard\Data
      */
     protected static function db() {
-        return new ClipData();
+        return new Data();
     }
     /**
      * @return \CODERS\Clipboard\Clip[]
@@ -310,59 +338,57 @@ class Clip{
         return Clipboard::instance()->list( $this->id );
     }
     /**
-     * @return \CODERS\Clipboard\Clip[]
-     */
-    public function items(){
-        return $this->_items;
-    }
-    /**
      * @return String[]
      */
     public function headers(){
         return array(
             'Content-Description: File Transfer',
             sprintf('Content-Type: %s',$this->type),
-            sprintf('Content-Disposition: %s; filename=%s',$this->disposition(),$this->filename()),
+            sprintf('Content-Disposition: %s; filename=%s',$this->getDisposition(),$this->getFilename()),
             sprintf('Content-Length: %s',$this->size()),
         );
     }
-    /**
-     * @param bool $clipboard full clipboard view
-     * @return string
-     */
-    public function url( $clipboard = false ) {
-        return $clipboard ?
-                Clipboard::clipboard($this->id) :
-                Clipboard::clipdata($this->id);
-    }
+    
     /**
      * @return array
      */
-    public function tags(){
+    public function listTags(){
         return explode(' ', $this->tags);
+    }
+    /**
+     * @return \CODERS\Clipboard\Clip[]
+     */
+    public function listItems(){
+        return $this->_items;
+    }
+    /**
+     * @return bool
+     */
+    public function hasItems(){
+        return count($this->listItems()) > 0;
     }
     /**
      * @return Boolean
      */
-    public function valid(){
+    public function isValid(){
         return strlen($this->id) > 0;
     }
     /**
      * @return Boolean
      */
-    public function ready(){
-        return $this->valid() && file_exists($this->path());
+    public function isReady(){
+        return $this->isValid() && file_exists($this->getPath());
     }
     /**
      * @return Boolean
      */
-    public function denied(){
+    public function isDenied(){
         return !Clipboard::acl($this->acl);
     }
     /**
      * @return boolean
      */
-    public function updated(){
+    public function isUpdated(){
         return $this->_updated;
     }    
     /**
@@ -380,7 +406,7 @@ class Clip{
     /**
      * @return Boolean
      */
-    public function embed(){
+    public function canEmbed(){
         $inline_types = ['image/', 'text/', 'application/pdf'];
         foreach ($inline_types as $type) {
             if (stripos($this->type, $type) === 0) {
@@ -392,7 +418,7 @@ class Clip{
     /**
      * @return String
      */
-    public function filename(){
+    public function getFilename(){
         $extension = explode('/', $this->type)[1] ?? 'txt';
         $filename = sprintf('%s.%s',basename($this->name),$extension);
         return preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename );
@@ -400,26 +426,56 @@ class Clip{
     /**
      * @return String
      */
-    public function path(){
+    public function getPath(){
         return Clipboard::instance()->storage()->route($this->id);
     }
     /**
      * @return Int
      */
     public function size(){
-        return $this->ready() ? filesize($this->path()) : 0;
+        return $this->isReady() ? filesize($this->getPath()) : 0;
     }
     /**
      * @return String
      */
-    public function disposition(){
-        return $this->embed() ? 'inline' : 'attachment';
+    public function getDisposition(){
+        return $this->canEmbed() ? 'inline' : 'attachment';
     }
+    
+    /**
+     * @return string
+     */
+    public function getCss(){
+        $meta = explode('/',$this->type);
+        $meta[] = $this->getDisposition();
+        return implode(' ',$meta);
+    }
+    /**
+     * @return string
+     */
+    public function getClipboard() {
+        return Clipboard::clipboard($this->id);
+    }
+    /**
+     * @return string
+     */
+    public function getUrl() {
+        return Clipboard::clipdata($this->id);
+    }
+    /**
+     * @return Int
+     */
+    public function countItems(){
+        return count($this->listItems());
+    }        
+    
+    
+    
     /**
      * @return array
      */
     public function outline( $toplevel = '' ){
-        if( $this->valid()){
+        if( $this->isValid()){
             if(strlen($this->parent_id) && $this->parent_id !== $this->id && $this->id !== $toplevel){
                 $parent = self::load($this->parent_id);
                 $path = $parent->outline();
@@ -437,7 +493,7 @@ class Clip{
      */
     protected function tagmedia(){
         if($this->image()){
-            $size = getimagesize($this->path());
+            $size = getimagesize($this->getPath());
             $aspect = count($size) > 1 ? $size[0] / $size[1] : 1;
             if( $aspect > 1.5 ){
                 $this->tag('landscape');
@@ -464,50 +520,133 @@ class Clip{
             'parent_id' => $this->parent_id,
             'tags' => $this->listTags(),
             'link' => $this->getUrl(),
-            'attach' => $this->disposition(),
+            'attach' => $this->getDisposition(),
         );        
     }
-    
-    /**
-     * @return type
-     */
-    protected function getCss(){
-        return implode(' ',array($this->type,$this->disposition()));
-    }
-    /**
-     * @return string
-     */
-    protected function getClipboard() {
-        return $this->url(true);
-    }
-    /**
-     * @return string
-     */
-    protected function getUrl() {
-        return $this->url();
-    }
-    /**
-     * @return Int
-     */
-    public function countItems(){
-        return count($this->items());
-    }    
 
     
     
+    /**
+     * @param array $data
+     * @return boolean
+     */
+    public function update( array $data = array()){
+        
+        $db = $this->db();
+        
+        if( $db->update($data, array('id'=>$this->id))){
+            
+            return true;
+        }
+        //fetch db error if any?
+        return false;
+    }
+    /**
+     * Remove and update depending childs to parent's id
+     * @return boolean
+     */
+    public function remove( ){
+        $id = $this->id;
+        if(strlen($id)){
+            $db = $this->db();
+            if( $db->delete(array($id)) ){
+                $parent_id = $this->parent_id;
+                $db->update(array('parent_id'=>$parent_id),array('id'=>$id));
+                return true;                
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * @return boolean
+     */
+    public function moveto( $parent_id = '') {
+        if ($this->isValid() && $this->parent_id !== $parent_id) {
+            $parent = self::load($parent_id);
+            if( $parent ){
+                $count = $parent->count();
+                $data = array(
+                    'parent_id' => strlen($parent_id) ? $parent_id : null,
+                    'slot' => $count,
+                );
+                $db = $this->db();
+                if( $db->update($data,array('id'=>$this->id)) ){
+                    $parent->arrange();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    /**
+     * @return boolean
+     */
+    public function moveup(){
+        if( $this->parent_id ){
+            $parent = self::load($this->parent_id);
+            return $this->moveto($parent->parent_id);
+        }
+        return false;
+    }    
+    /**
+     * @param string $parent_id
+     * @param int $slot
+     * @param int $range
+     * @return int
+     */
+    public function arrange($slot = -1 , $range = 0 ){
+        return $this->db()->arrange($this->id, $slot, $range);
+    }    
+
+    /**
+     * @return int
+     */
+    public function copynames() {
+        $name = $this->name;
+        $title = $this->title;
+        $db = $this->db();
+        $count = $db->update(array(
+            'name' => $name,
+            'title' => $title,
+        ), array('parent_id' => $this->id));
+        //fetch all error messsages from $db?
+        return $count ?? 0;
+    }
+
+    /**
+     * @return int
+     */
+    public function copylayouts(){
+        
+        $count = $this->db()->update(array(
+            'layout' => $this->layout
+        ), array( 'parent_id'=>$this->id));
+        
+        return $count ?? 0;
+    }
+    /**
+     * @return int
+     */
+    public function copyroles( ){
+        
+        $count = $this->db()->update(array(
+            'acl' => $this->acl
+        ), array( 'parent_id'=>$this->id));
+        
+        return $count ?? 0;
+    }    
+
     /**
      * @global wpdb $wpdb
      * @param string $id
      * @return array
      */
     public static function list( $id = '' ){
-        $db = new ClipData();
-        $data = $db->list($id);
-        $collection = array();
-        foreach($data as $clip ){
-            $collection[ $clip['id'] ] = new Clip($clip);
-        }
-        return $collection;
+        $db = new Data();
+        return array_map( function($data){
+            return new Clip($data);
+        },$db->list($id));
     }        
     /**
      * @param array $clipdata
@@ -524,7 +663,7 @@ class Clip{
      * @return \CODERS\Clipboard\Clip
      */
     public static function load( $id = '' , $preload = false ){
-        $db = new ClipData();
+        $db = new Data();
         $clipdata = $db->load($id);
         return count($clipdata) ? new Clip( $clipdata , $preload ) : null;
     }
@@ -533,7 +672,7 @@ class Clip{
 /**
  * 
  */
-class ClipData{
+class Data{
     /**
      * @var array
      */
@@ -581,7 +720,7 @@ class ClipData{
     /**
      * @return array
      */
-    public function listids(){
+    public function allids(){
         return $this->wpdb()->get_col(sprintf("SELECT `id` FROM `%s`", self::table()));
     }
 
@@ -653,12 +792,33 @@ class ClipData{
         $this->notify($wpdb->error, 'error');
         return 0;
     }
-
+    /**
+     * @param string $id
+     * @param array $items //leave empty to get them all
+     * @return array
+     */
+    public function list( $id = '' , array $items = array()){
+        $wpdb = $this->wpdb();
+        $table = self::table();
+        
+        $scope = count($items) ? sprintf('`%s`',implode('`,`', $items)) : '*';
+        
+        $sql = "SELECT $scope FROM `$table`";
+        $sql .= strlen($id) ? " WHERE `parent_id`='$id'" : " WHERE `parent_id` IS NULL";
+        $sql .= "  ORDER BY `slot`;";
+        $list = $wpdb->get_results( $sql , ARRAY_A );
+        
+        if(!is_null($list)){
+            return $list;
+        }
+        $this->notify($wpdb->error, 'error');
+        return  array();        
+    }
     /**
      * @param array $id Parent Id
      * @return array
      */
-    public function list( $id = '' ){
+    public function listold( $id = '' ){
         $wpdb = $this->wpdb();
         $table = self::table();
         
@@ -757,6 +917,7 @@ class ClipData{
             acl VARCHAR(16) DEFAULT 'private',
             slot INT DEFAULT '0',
             tags VARCHAR(24) DEFAULT '',
+            drive VARCHAR(16) DEFAULT 'content',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP) $charset_collate;";
         dbDelta($sql);            
     }
@@ -790,6 +951,14 @@ class Storage{
         return preg_replace('/\\\\/','/',self::root() . implode('/', $route));
     }
     /**
+     * @return array
+     */
+    public function list(){
+        return array_filter( scandir($this->route()), function($file){
+            return $file !== '.' && $file !== '..';
+        });
+    }
+    /**
      * @param string $id
      * @return bool
      */
@@ -806,6 +975,26 @@ class Storage{
         }
         return false;
     }
+    /**
+     * Whipe out all files in the selected storage
+     * @return int
+     */
+    public function clear() {
+        $storage = $this->route();
+        $count = 0;
+        if (file_exists($storage)) {
+            $files = glob($storage . '/*');
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    if (unlink($file)) {
+                        $count++;
+                    }
+                }
+            }
+            return true;
+        }
+        return $count;
+    }
 
     /**
      * @return {String}
@@ -814,5 +1003,3 @@ class Storage{
         return sprintf('%s/clipboard/',wp_upload_dir()['basedir']);
     }    
 }
-
-

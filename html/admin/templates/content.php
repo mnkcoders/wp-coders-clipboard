@@ -1,8 +1,8 @@
 <?php defined('ABSPATH') or die; ?>
-<form name="content" action="<?php print $this->get_form() ?>" method="post">
+<form name="content" action="<?php print $this->form ?>" method="post">
     <div class="tab <?php print $this->has_items() ? 'collapsed' : '' ?>">
         <a target="_blank" class="button" href="<?php
-            print $this->get_clipboard() ?>">
+            print $this->clipboard ?>">
             <span class="dashicons dashicons-images-alt2"></span>
             <?php print __('View','coders_clipboard') ?>
         </a>

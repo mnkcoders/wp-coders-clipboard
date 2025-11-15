@@ -3,7 +3,7 @@
     <li class="node">
         <span class="dashicons dashicons-art"></span>
         <?php if( $this->has_content()) : ?>
-        <a href="<?php print $this->get_post() ?>" target="_self">
+        <a href="<?php print $this->get_base ?>" target="_self">
             <?php print get_admin_page_title() ?>
         </a>
         <?php else : ?>

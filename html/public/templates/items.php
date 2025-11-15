@@ -4,11 +4,11 @@
         <?php foreach ($this->list_items() as $item) : ?>
             <li class="item">
                 <a target="_self" class="content <?php
-                    print $item->get_css() ?>" href="<?php
-                    print $item->get_clipboard() ?>" >
+                    print $item->css ?>" href="<?php
+                    print $item->clipboard ?>" >
                     <?php if ($item->is_image()) : ?>
                         <img class="media" src="<?php
-                            print $item->get_url() ?>" alt="<?php
+                            print $item->url ?>" alt="<?php
                             print $item->name ?>" title="<?php
                             print $item->title ?>" />
                     <?php else : ?>
