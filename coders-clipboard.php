@@ -23,6 +23,7 @@ register_activation_hook(__FILE__, function() {
 });
 
 register_deactivation_hook(__FILE__, function() {
+    
     flush_rewrite_rules();
 });
 
@@ -51,14 +52,7 @@ add_action('init', function() {
     }
     else{
         // Rewrite Rules
-        add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
-        add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
-        add_rewrite_rule(
-                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_DATA) ,
-                'index.php?clip_id=$matches[1]' , 'top');
-        add_rewrite_rule(
-                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_VIEW),
-                'index.php?clipboard_id=$matches[1]', 'top');        
+        \CODERS\Clipboard\Clipboard::rewrite();
     }
 
     add_filter('query_vars', function($vars) {

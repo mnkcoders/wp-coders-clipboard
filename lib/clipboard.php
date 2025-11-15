@@ -185,7 +185,7 @@ class Clipboard{
     /**
      * @param bool $flush
      */
-    /*public static function rewrite( $flush = false ){
+    public static function rewrite( $flush = false ){
 
         add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
         add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
@@ -199,13 +199,13 @@ class Clipboard{
         if( $flush ){
             flush_rewrite_rules();
         }
-    }*/
+    }
     /**
      * Install plugin
      */
     public static function setup(){
-        flush_rewrite_rules();
-        //self::rewrite(true);
+        //flush_rewrite_rules();
+        self::rewrite(true);
         $cb = self::instance();
         $cb->db()->install();
         $cb->storage()->create();
