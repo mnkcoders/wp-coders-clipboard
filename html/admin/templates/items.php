@@ -23,9 +23,9 @@
                         print $item->title ?></a>                        
                 </div>
                 <!-- commands -->
-                    <?php if($this->is_valid()):  ?>
+                    <?php if($this->has_content()):  ?>
                     <a class="task top-right dashicons dashicons-arrow-up-alt" href="<?php
-                        print $this->action_move($item->id,$this->parent_id) ?>"></a>
+                        print $this->action_moveup($item->id) ?>"></a>
                     <?php endif; ?>
                     <label class="task top-left select" for="<?php
                             print sprintf('select_%s',$item->id)?>">

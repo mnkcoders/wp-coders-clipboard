@@ -471,20 +471,7 @@ class AjaxController extends Controller{
  * 
  */
 class Content extends \CODERS\Clipboard\Clip{
-    
-    /**
-     * @param array $args
-     * @return url|string
-     */
-    public static function contextlink( array $args = array() ) {
-        $query = array(
-            'page' => 'coders_clipboard',
-        );
-        foreach($args as $key => $val ){
-            $query[$key] = $val;
-        }
-        return add_query_arg($query, admin_url('admin.php'));
-    }
+
     /**
      * @param \CODERS\Clipboard\Clip[] $clips
      * @return array
@@ -492,7 +479,7 @@ class Content extends \CODERS\Clipboard\Clip{
     public static function clipmeta( $clips = array() ){
         return array_map(function( $clip ){
                 $meta = $clip->meta();
-                $meta['post'] = Content::contextlink(array('id'=>$clip->id));
+                $meta['post'] = View::adminurl(array('id'=>$clip->id));
                 return $meta;
             
         }, $clips);
@@ -629,10 +616,12 @@ class View{
                 return $this->__is(substr($name, 3));
             case preg_match('/^has_/', $name):
                 return $this->__has(substr($name, 4));
+            case preg_match('/^action_/', $name):
+                return $this->__action(substr($name, 7),$args);
             case preg_match('/^show_/', $name):
                 return $this->template(substr($name, 5));
-            case preg_match('/^action_/', $name):
-                return $this->action(substr($name, 7) , $args );
+            case preg_match('/^editor_/', $name):
+                return $this->__editor( explode( '_', substr($name, 7)), ...$args );
             case preg_match('/^link_/', $name):
                 return $this->link( substr($name, 5) );
             case preg_match('/^url_/', $name):
@@ -655,6 +644,33 @@ class View{
             return $this->$get();
         }
         return !is_null($this->content()) ? $this->content()->$name : '';
+    }
+    /**
+     * @param string $name
+     */
+    protected function __editor($name) {
+        $content = $this->$name;
+        $id = 'id_' . $name;
+        $settings = [
+            'textarea_name' => $name, // The name attribute
+            'editor_height' => 250,
+            'media_buttons' => true,
+            'tinymce' => true,
+            'quicktags' => true
+        ];
+
+        wp_editor($content, $id, $settings);
+    }    
+    /**
+     * @param string $action
+     * @param array $args
+     * @return string
+     */
+    protected function __action($action , array $args = array() ){
+        $call = sprintf('action%s', ucfirst($action));
+        return method_exists($this, $call) ?
+            $this->$call(...$args) :
+            self::adminurl(array('action'=>$action));
     }
     /**
      * @param string $show
@@ -731,9 +747,9 @@ class View{
      * @param array $args
      * @return string|url
      */
-    protected function adminurl( array $args = array()){
+    /*protected function adminurl( array $args = array()){
         //$admin_url = menu_page_url('coder-sandbox');
-        return Content::contextlink($args);
+        return View::adminurl($args);
         
         $admin_url = admin_url('admin.php?page=coders-clipboard');
         $get = array();
@@ -741,7 +757,7 @@ class View{
             $get[] = $var . '=' . $val;
         }
         return count($args) ? $admin_url . '&' . implode('&', $get) : $admin_url;
-    }
+    }*/
     /**
      * @param string $action
      * @param array $args
@@ -750,12 +766,12 @@ class View{
     protected function action( $action = '' , array $args = array()){
         $call = sprintf('action%s', ucfirst($action));
         if(method_exists($this, $call)){
-            return $this->$call($args);
+            return $this->$call(...$args);
         }
         if(strlen($action)){
             $args['action'] = $action;
         }
-        return Content::contextlink($args);
+        return View::adminurl($args);
     }
     /**
      * @param string $name
@@ -799,7 +815,18 @@ class View{
     protected function hasContent(){
         return !is_null( $this->content());
     }
-
+    
+    /**
+     * @param array $args
+     * @return url|string
+     */
+    public static function adminurl( array $args = array() ) {
+        $query = array( 'page' => 'coders_clipboard');
+        foreach($args as $key => $val ){
+            $query[$key] = $val;
+        }
+        return add_query_arg($query, admin_url('admin.php'));
+    }
     /**
      * 
      */
@@ -836,6 +863,42 @@ class MainView extends View{
         return Content::list();
     }
     /**
+     * @return array
+     */
+    public function listTiers(){
+        $tiers = apply_filters('coder_tiers', array());
+        return is_array($tiers) ? $tiers : array();
+    }
+    /**
+     * @return array
+     */
+    public function listRoles(){
+        $roles = array(
+            'private' => __('Private (admin only)', 'coders_clipboard'),
+            'public' => __('Public (everyone)', 'coders_clipboard'),
+        );
+        
+        foreach( $this->listTiers() as $tier => $title ){
+            $roles[$tier] = sprintf('%s Tier',$title);
+        }
+        return $roles;
+    }
+    /**
+     * @return array
+     */
+    public function listLayouts(){
+        return array(
+            'default' => __('Default', 'coders_clipboard'),
+            'ecomic' => __('e-Comic', 'coders_clipboard'),
+            'collection' => __('Collection', 'coders_clipboard'),
+            'gallery' => __('Gallery', 'coders_clipboard'),
+            'slideshow' => __('Slideshow', 'coders_clipboard'),
+            'portfolio' => __('Portfolio', 'coders_clipboard'),
+            'mosaic' => __('Mosaic', 'coders_clipboard'),
+            'showcase' => __('Showcase', 'coders_clipboard'),
+        );
+    }
+    /**
      * @return bool
      */
     public function isEmpty(){
@@ -858,7 +921,7 @@ class MainView extends View{
      * @return string
      */
     public function getBase(){
-        return Content::contextlink();
+        return View::adminurl();
     }
     /**
      * @param string $id
@@ -868,7 +931,7 @@ class MainView extends View{
         if(strlen($id) === 0){
             $id = $this->id;
         }
-        return Content::contextlink(array('id'=>$id));
+        return View::adminurl(array('id'=>$id));
     }
     /**
      * @return string
@@ -877,7 +940,7 @@ class MainView extends View{
         if(strlen($id) === 0){
             $id = $this->id;
         }
-        return Content::contextlink(array('id'=>$id));
+        return View::adminurl(array('id'=>$id));
     }    
     /**
      * @param string $id
@@ -888,6 +951,26 @@ class MainView extends View{
             $id = $this->id;
         }
         return Content::clipboard()->clipdata($id);
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function actionMoveup( $id = ''){
+        if(strlen($id) === 0){
+            $id = $this->id;
+        }
+        return View::adminurl(array('id'=>$id,'action'=>'moveup'));
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function actionMove( $id = '' , $parent_id = ''){
+        if(strlen($id) === 0){
+            $id = $this->id;
+        }
+        return View::adminurl(array('action'=>'move','id'=>$id,'parent_id'=>$parent_id));
     }
 }
 
@@ -1048,7 +1131,7 @@ class Uploader {
             $clip = $clipboard->create($file);
             if(!is_null($clip)){
                 $uploaded[] = $clip->meta();
-                $uploaded['post'] = Content::contextlink($clip->id);
+                $uploaded['post'] = View::adminurl($clip->id);
             }
             //then set the next to the first file ID
             if (strlen($id) === 0) {

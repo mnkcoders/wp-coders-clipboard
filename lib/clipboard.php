@@ -121,19 +121,25 @@ class Clipboard{
      */
     public static function attach( $id = ''){
         $clipboard = self::instance();
-        $clip = $clipboard->load($id);
+        $content = Clip::load($id);
         switch(true){
-            case is_null($clip):
+            case is_null($content):
                 return $clipboard->error404();
-            case !$clip->isReady():
+            case !$content->isReady():
                 return $clipboard->error404();
-            case $clip->isDenied():
+            case $content->isDenied():
                 return $clipboard->errorDenied();
         }
-        foreach( $clip->headers() as $header ){
+        //header('Content-Description: File Transfer');
+        //header(sprintf('Content-Type: %s',$content->type));
+        //header(sprintf('Content-Disposition: %s; filename=%s',
+       //         $content->getDisposition(),
+        //        $content->getFilename()));
+        //header(sprintf('Content-Length: %s',$content->size()));
+        foreach( $content->headers() as $header ){
             header($header);
         }
-        readfile($clip->getPath());
+        readfile($content->getPath());
         exit;
     }
     /**
@@ -167,25 +173,25 @@ class Clipboard{
      * @return String
      */
     public static function clipboard( $id = ''){
-        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_UI,$id));
+        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_VIEW,$id));
     }
     /**
      * @param String $id
      * @return String
      */
     public static function clipdata( $id = ''){
-        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_CONTENT,$id));
+        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_DATA,$id));
     }
     /**
      * @param bool $flush
      */
-    public static function rewrite( $flush = false ){
+    /*public static function rewrite( $flush = false ){
 
         add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
         add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
 
-        $content = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_CONTENT);
-        $clipboard = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_UI);
+        $content = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_DATA);
+        $clipboard = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_VIEW);
        
         add_rewrite_rule( $content , 'index.php?clip_id=$matches[1]' , 'top');
         add_rewrite_rule( $clipboard, 'index.php?clipboard_id=$matches[1]', 'top');
@@ -193,13 +199,13 @@ class Clipboard{
         if( $flush ){
             flush_rewrite_rules();
         }
-    }
+    }*/
     /**
      * Install plugin
      */
     public static function setup(){
-        //flush_rewrite_rules();
-        self::rewrite(true);
+        flush_rewrite_rules();
+        //self::rewrite(true);
         $cb = self::instance();
         $cb->db()->install();
         $cb->storage()->create();
@@ -239,6 +245,10 @@ class Clip{
     private $_items = array(
         //clip contents
     );
+    /**
+     * @var int
+     */
+    private $_count = 0;
 
     
     /**
@@ -250,6 +260,10 @@ class Clip{
         $this->populate( $input );
         if($preload){
             $this->_items = $this->loaditems();
+            $this->_count = count($this->_items);
+        }
+        else{
+            $this->_count = $this->db()->count($this->id);
         }
     }
     /**
@@ -365,7 +379,7 @@ class Clip{
      * @return bool
      */
     public function hasItems(){
-        return count($this->listItems()) > 0;
+        return $this->countItems() > 0;
     }
     /**
      * @return Boolean
@@ -466,7 +480,7 @@ class Clip{
      * @return Int
      */
     public function countItems(){
-        return count($this->listItems());
+        return $this->_count;
     }        
     
     
@@ -1003,3 +1017,4 @@ class Storage{
         return sprintf('%s/clipboard/',wp_upload_dir()['basedir']);
     }    
 }
+

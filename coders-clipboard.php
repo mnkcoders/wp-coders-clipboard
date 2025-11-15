@@ -12,8 +12,8 @@
 
 define('CODER_CLIPBOARD_DIR', plugin_dir_path(__FILE__));
 define('CODER_CLIPBOARD_URL', plugin_dir_url(__FILE__));
-define('CODER_CLIPBOARD_CONTENT','clipboard');
-define('CODER_CLIPBOARD_UI','clipboards');
+define('CODER_CLIPBOARD_DATA','clipdata');
+define('CODER_CLIPBOARD_VIEW','clipboard');
 
 require_once sprintf('%s/lib/clipboard.php', CODER_CLIPBOARD_DIR);
 
@@ -26,24 +26,18 @@ register_deactivation_hook(__FILE__, function() {
     flush_rewrite_rules();
 });
 
-/*add_filter('query_vars', function($vars) {
-    $vars[] = 'clipboard_id';
-    $vars[] = 'clipboard';
-    return $vars;
-});*/
-
 //To define a hook to fill the bottom bar
 //add_action('coders_sidebar',function($provider = 'clipboard',$context = ''){},10,2);
+
 
 // Redirect Handler
 add_action('template_redirect', function(){
     $clip_id = get_query_var('clip_id');
-    $clipboard_id = get_query_var('clipboard_id');
-    
     if( $clip_id ){
         \CODERS\Clipboard\Clipboard::attach( $clip_id );
         exit;
     }
+    $clipboard_id = get_query_var('clipboard_id');
     if( $clipboard_id ){
         \CODERS\Clipboard\Clipboard::board( $clipboard_id );
         exit;
@@ -57,8 +51,21 @@ add_action('init', function() {
     }
     else{
         // Rewrite Rules
-        \CODERS\Clipboard\Clipboard::rewrite( );
+        add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
+        add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
+        add_rewrite_rule(
+                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_DATA) ,
+                'index.php?clip_id=$matches[1]' , 'top');
+        add_rewrite_rule(
+                sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_VIEW),
+                'index.php?clipboard_id=$matches[1]', 'top');        
     }
+
+    add_filter('query_vars', function($vars) {
+        $vars[] = 'clip_id';
+        $vars[] = 'clipboard_id';
+        return $vars;
+    });
 
     //use to test the coder_acl access tier
     add_filter('coder_role', function($role ) {
@@ -72,8 +79,6 @@ add_action('init', function() {
         return ob_get_clean();
     });*/
 });
-
-
 
 
 
