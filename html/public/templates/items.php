@@ -1,8 +1,7 @@
 <?php defined('ABSPATH') or die; ?>
-<!-- ITEMS BLOCK -->
-<ul class="collections container">
-    <?php if ($this->count_items()) : ?>
-        <?php foreach ($this->list_collection() as $item) : ?>
+<?php if ($this->count_items()) : ?>
+    <ul class="collections container">
+        <?php foreach ($this->list_items() as $item) : ?>
             <li class="item">
                 <a target="_self" class="content <?php
                     print $item->get_css() ?>" href="<?php
@@ -21,6 +20,6 @@
                 </a>
             </li>
         <?php endforeach; ?>
-    <?php endif; ?>
-</ul>
+    </ul>
+<?php endif; ?>
 

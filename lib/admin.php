@@ -204,10 +204,13 @@ class MainController extends Controller{
         
         $content = Content::load($input['id'] ?? '');
         
-        View::create('main')
+        $view = View::create('main')
                 ->setContent( $content )
                 ->view('default');
         
+        var_dump($view->has_content());
+        var_dump($view->get_post());
+        var_dump($view->listItems());
         return true;
     }
     /**
@@ -478,6 +481,47 @@ class Content extends \CODERS\Clipboard\Clip{
     private $_updated = false;
     
     /**
+     * @param array $input
+     * @param bool $preload
+     */
+    public function __construct( array $input = array() , $preload = false ) {
+        parent::__construct($input, $preload);
+    }
+    
+    /**
+     * @param string $id
+     * @param  bool $preload
+     * @return \CODERS\Clipboard\Admin\Content
+     */
+    public static function load($id = '' , $preload = false ){
+        $data = self::clipboard()->data()->load($id);
+        return count($data) ? new Content($data,$preload) : null;
+    }
+    /**
+     * @param \CODERS\Clipboard\Clip $clip
+     * @return \CODERS\Clipboard\Admin\Content
+     */
+    public static function copyfrom( \CODERS\Clipboard\Clip $clip = null ){
+        return !is_null($clip) ? new Content( $clip->content() ) : null;
+    }
+    /**
+     * @param type $id
+     * @return \CODERS\Clipboard\Admin\Content[]
+     */
+    public static function listItems($id = ''){
+        $items = self::db()->list($id);
+        return array_map(function($data){
+            return new \CODERS\Clipboard\Admin\Content($data);
+        }, $items);
+    }
+    /**
+     * @return \CODERS\Clipboard\Admin\Content[]
+     */
+    public function loaditems() {
+        return strlen($this->id) ? self::listItems($this->id) : array();
+    }
+ 
+    /**
      * @param string $name
      * @param string $value
      */
@@ -626,13 +670,6 @@ class Content extends \CODERS\Clipboard\Clip{
     
     /**
      * @param string $id
-     * @return \CODERS\Clipboard\Admin\Content
-     */
-    public static function load($id = '' ){
-        return parent::load($id);
-    }
-    /**
-     * @param string $id
      * @return url|string
      */
     public static function contextlink($id = '') {
@@ -757,10 +794,11 @@ class View{
     }
     /**
      * @param string $context
-     * @return \View
+     * @return \CODERS\Clipboard\Admin\View
      */
     static public function create($context = 'default') {
-        return new View($context);
+        $view = sprintf('\CODERS\Clipboard\Admin\%sView', ucfirst($context));
+        return is_subclass_of($view, self::class) ? new $view($context) : new View($context);
     }
     /**
      * @param object $content
@@ -787,6 +825,9 @@ class View{
     public function __call(string $name, array $arguments) {
         $args = $arguments ?? array();
         switch(true){
+            case preg_match('/^get_/', $name):
+                $get = sprintf('get%s', ucfirst(substr($name, 4)));
+                return method_exists($this, $get) ? $this->$get() : '';
             case preg_match('/^list_/', $name):
                 return $this->__list(substr($name, 5));
             case preg_match('/^is_/', $name):
@@ -853,9 +894,6 @@ class View{
         return method_exists($this, $call) ? $this->$call() : false;
     }
     
-    
-    
-    
     /**
      * 
      * @param string $link
@@ -871,7 +909,7 @@ class View{
      * @param array $args
      * @return string
      */
-    private function url( $path = array() , array $args = array() ){
+    protected function url( $path = array() , array $args = array() ){
         $base_url = site_url( count($path) ? implode('/', $path) : '' );
 
         $get = array();
@@ -890,7 +928,7 @@ class View{
      * @param array $args
      * @return string|url
      */
-    private function adminurl( array $args = array()){
+    protected function adminurl( array $args = array()){
         //$admin_url = menu_page_url('coder-sandbox');
         $admin_url = admin_url('admin.php?page=coders-clipboard');
         $get = array();
@@ -940,8 +978,10 @@ class View{
      * @return bool
      */
     protected function template( $view = '' ){
+        printf('<!-- TEMPLATE [%s] -->',$view);
         return strlen($view) && $this->view(sprintf('templates/%s',$view));
     }    
+    
     /**
      * @return array
      */
@@ -953,6 +993,16 @@ class View{
      */
     protected function hasContent(){
         return !is_null( $this->content());
+    }
+    /**
+     * @return string
+     */
+    protected function getPost() {
+        $args = array();
+        if($this->id){
+            $args['id'] = $this->id;
+        }
+        return $this->adminurl($args);
     }
 
 
@@ -980,6 +1030,18 @@ class View{
     }
 }
 
+/**
+ * 
+ */
+class MainView extends View{
+    
+    /**
+     * @return \CODERS\Clipboard\Clip[]
+     */
+    public function listItems(){
+        return Content::listItems($this->id);
+    }
+}
 
 
 
@@ -1008,7 +1070,7 @@ class Uploader {
      */
     public function items( $id = '' ) {
         $clipboard = Content::clipboard();
-        $clip = $clipboard->clip($id);
+        $clip = $clipboard->load($id);
         $slot = !is_null($clip) ? $clip->count() : 0;
         $layout = !is_null($clip) ? $clip->layout : '';
         $acl = !is_null($clip) ? $clip->acl : '';
@@ -1123,7 +1185,7 @@ class Uploader {
     public static function upload($from = 'upload', $id = '') {
         $uploaded = array();
         $clipboard = Content::clipboard();
-        $container = $clipboard->clip($id);
+        $container = $clipboard->load($id);
         $slot = !is_null($container) ? $container->count() : 0;
         $layout = !is_null($container) ? $container->layout : '';
         $acl = !is_null($container) ? $container->acl : '';

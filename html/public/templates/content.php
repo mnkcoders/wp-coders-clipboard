@@ -1,11 +1,12 @@
 <?php defined('ABSPATH') or die; ?>
 <?php if ($this->is_valid()) : ?>
-    <!-- CONTENT BLOCK -->
     <div class="container">
         <h1 class="container header">
             <?php print $this->title ?>
             <?php if( $this->slot > 0) :  ?>
-            <span>- Page<?php print $this->slot ?></span>
+            <span><?php printf('- %s %s',
+                    __('Page','coders_clipboard') ,
+                    $this->slot ) ?></span>
             <?php endif; ?>
         </h1>
         <div class="container content <?php print $this->layout ?>">
