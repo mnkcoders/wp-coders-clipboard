@@ -1,4 +1,13 @@
 <?php defined('ABSPATH') or die; ?>
+<select class="input right" name="clipboard-drive" size="1" id="drive-select">
+    <?php foreach( $this->list_drives() as $drive => $selected ): ?>
+    <option <?php
+        print $selected ? 'selected' : '' ?>><?php
+        print $drive;
+    ?></option>
+    <?php endforeach; ?>
+</select>
+
 <ul class="coders-clipboard-title path container">
     <li class="node">
         <span class="dashicons dashicons-art"></span>
@@ -29,3 +38,6 @@
         <?php endforeach; ?>
     <?php endif ;?>
 </ul>
+
+
+

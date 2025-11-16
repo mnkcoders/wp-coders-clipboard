@@ -3,27 +3,24 @@
 defined('ABSPATH') or die;
 
 add_action('admin_post_clipboard_action', function() {
-    if ( ! current_user_can('upload_files') ) {
-        wp_die(__('Unauthorized', 'coders_clipboard'));
-    }
 
-    $redirect = \CODERS\Clipboard\Admin\Controller::redirect('post');
+    $response = array(
+        'response'=>'test1',
+        'message'=>'Testing post respose');
     
-    wp_redirect(add_query_arg($redirect, admin_url('admin.php')));
+    //$response = \CODERS\Clipboard\Admin\Controller::redirect('post');
+    
+    wp_redirect(add_query_arg($response, admin_url('admin.php')));
     exit;        
 });
 
-add_action('wp_ajax_clipboard_action', function() {
-
-    if ( ! current_user_can('upload_files') ) {
-        wp_die(__('Unauthorized', 'coders_clipboard'));
-    }
-
+add_action('wp_ajax_clipboard', function() {
+    //$response = array('response'=>'ajax test response ;)',);
+    
     $response = \CODERS\Clipboard\Admin\Controller::redirect('ajax');
     
     wp_send_json_success($response);
-    
-    //exit;        
+    exit;
 });
 
 add_action('admin_enqueue_scripts', function( $hook ) {
@@ -39,7 +36,8 @@ add_action('admin_menu', function () {
             'upload_files', // or 'manage_options' if more restricted
             'coders_clipboard',
             function () {
-                \CODERS\Clipboard\Admin\Controller::run();
+                $context = filter_input(INPUT_GET, 'controller') ?? 'main';
+                \CODERS\Clipboard\Admin\Controller::run($context);
             }, 'dashicons-art',80);
     add_submenu_page(
             'coders_clipboard',
@@ -68,7 +66,10 @@ abstract class Controller{
     /**
      * @var array
      */
-    private $_response = array();
+    private $_response = array(
+        'response' => '',
+        'message' => ''
+    );
 
     
     /**
@@ -76,6 +77,12 @@ abstract class Controller{
      */
     protected function __construct() {
         
+    }
+    /**
+     * @return bool
+     */
+    protected function canupload(){
+        return  current_user_can('upload_files');
     }
     /**
      * @param string $key
@@ -129,14 +136,13 @@ abstract class Controller{
         return $this->_response;
     }
     /**
-     * @param string $task
+     * @param array $input
      * @return bool
      */
-    protected function action( ){
-        $input = $this->input();
-        $task = array_key_exists('action', $input) ? $input['action'] : 'default';
-        $action = sprintf('%sAction',$task);
-        return method_exists($this, $action) ? $this->$action( $input ) : $this->error($task);
+    protected function action( array $input = array() ){
+        $action = array_key_exists('action', $input) ? $input['action'] : 'default';
+        $call = sprintf('%sAction',$action);
+        return method_exists($this, $call) ? $this->$call( $input ) : $this->error($action);
     }
     /**
      * @param array $input
@@ -176,7 +182,9 @@ abstract class Controller{
      */
     public static function run( $context = 'main' ){
         $controller = self::create($context);
-        return !is_null($controller) ? $controller->action() : null;
+        return !is_null($controller) ?
+            $controller->action($controller->input()) :
+            null;
     }
     /**
      * @param string $context
@@ -184,11 +192,18 @@ abstract class Controller{
      */
     public static function redirect($context = 'main') {
         $controller = self::create($context);
-        
-        return !is_null($controller) && $controller->action() ?
-            $controller->response() :
-            array(
+        if( $controller ){
+            $input = $controller->input(self::INPUT_POST);
+            $input['action'] = $input['task'] ?? 'default';
+            if($controller->action($input)){
+                //??
+            }
+            return $controller->response();
+        }
+        return array(
                 //error response
+                'response' => 'error',
+                'message' => sprintf('Context Error [%s]',$context),
             );
     }
 }
@@ -196,6 +211,7 @@ abstract class Controller{
  * 
  */
 class MainController extends Controller{
+
     /**
      * @param array $input
      * @return bool
@@ -204,7 +220,7 @@ class MainController extends Controller{
         
         $content = Content::load($input['id'] ?? '',true);
         
-        $view = View::create('main')
+        View::create('main')
                 ->setContent( $content )
                 ->view('default');
 
@@ -215,11 +231,14 @@ class MainController extends Controller{
      * @return bool
      */
     protected function uploadAction( array $input = array()) : bool {
-        
-        $id = array_key_exists('id', $input)?  $input['id'] : '';
-        $clips = Uploader::create( 'upload' )->items( $id );
-        $this->notify(sprintf('%s items uploaded!','update'),count($clips));
-        
+        if($this->canupload()){
+            $id = array_key_exists('id', $input)?  $input['id'] : '';
+            $clips = Uploader::create( 'upload' )->items( $id );
+            $this->notify(sprintf('%s items uploaded!','update'),count($clips));
+        }
+        else{
+            $this->notify(__('Not allowed to upload','coders_clipboard'), 'error');
+        }
         return $this->defaultAction( $input );
     }
     /**
@@ -270,7 +289,7 @@ class MainController extends Controller{
     protected function arrangeAction( array $input = array()) : bool {
         $id = $input['id'] ?? '';
         if($id ){
-            $db = Content::clipboard()->db();
+            $db = Content::manager()->db();
             $db->arrange($id);
             $this->notify('Updated!', 'update');
         }
@@ -411,19 +430,10 @@ class PostController extends Controller{
         parent::__construct();
         $this->set('page', 'coders_clipboard');
     }
-    /**
-     * @return bool
-     */
-    protected function action() {
-        $input = $this->input(self::INPUT_POST);
-        $task = array_key_exists('task', 'default');
-        $action = sprintf('%sAction', ucfirst($task));
-        return method_exists($this, $action) ? $this->$action($input) : false;
-    }
-
 
     protected function defaultAction(array $input = []): bool {
         
+        $this->set('response','ok');
         return false; 
     }
 }
@@ -436,20 +446,26 @@ class AjaxController extends Controller{
         parent::__construct();
     }
     /**
+     * @param array $input
      * @return bool
      */
-    protected function action() {
-        $input = $this->input(self::INPUT_POST);
-        $task = array_key_exists('task', 'default');
-        $action = sprintf('%sAction', ucfirst($task));
-        return method_exists($this, $action) ? $this->$action($input) : false;
+    protected function testAction( array $input = array()) {
+        var_dump($input);
+        $task = sprintf('%sAction',$input['task'] ?? 'default');
+        if(method_exists($this, $task)){
+            var_dump( $this->$task($input));
+        }
+        var_dump($this->response());
+        return true;
     }
+
 
     /**
      * @param array $input
      * @return bool
      */
     protected function defaultAction(array $input = []): bool {
+        $this->set('response','empty');
         return true;
     }
     /**
@@ -457,12 +473,21 @@ class AjaxController extends Controller{
      * @return boolean
      */
     protected function uploadAction( array $input = array()){
-        $id = array_key_exists('id', $input)?  $input['id'] : '';
-        $clips = Uploader::create( 'upload' )->items( $id );
-        $meta = Content::clipmeta($clips);
-        $meta['count'] = count($clips);
-        $this->fill($meta);
-        return true;
+        if($this->canupload()){
+            $id = array_key_exists('id', $input)?  $input['id'] : '';
+            $clips = Uploader::create( 'upload' )->items( $id );
+            $response = array(
+                'count' => count($clips),
+                'files' => Content::clipmeta($clips),
+                );
+            $this->fill($response);
+            return true;
+        }
+        else{
+            $this->set('response', 'error')
+                    ->set('message',__('Cannot upload files','coders_clipboard'));
+        }
+        return false;
     }
 }
 
@@ -487,7 +512,7 @@ class Content extends \CODERS\Clipboard\Clip{
     /**
      * @return \CODERS\Clipboard\Clipboard
      */
-    public static function clipboard(){
+    public static function manager(){
         return \CODERS\Clipboard\Clipboard::instance();
     }
 }
@@ -537,7 +562,7 @@ class Settings{
      * @return bool
      */
     public function cleardata(){
-        return Content::clipboard()->db()->cleanup();
+        return Content::manager()->db()->cleanup();
     }
     
     
@@ -545,7 +570,7 @@ class Settings{
      * @return int
      */
     public function cleardrive(){
-        return Content::clipboard()->storage()->clear();
+        return Content::manager()->storage()->clear();
     }
 }
 
@@ -621,7 +646,7 @@ class View{
             case preg_match('/^show_/', $name):
                 return $this->template(substr($name, 5));
             case preg_match('/^editor_/', $name):
-                return $this->__editor( explode( '_', substr($name, 7)), ...$args );
+                return $this->__editor( substr($name, 7), ...$args );
             case preg_match('/^link_/', $name):
                 return $this->link( substr($name, 5) );
             case preg_match('/^url_/', $name):
@@ -855,12 +880,27 @@ class View{
  * 
  */
 class MainView extends View{
+    /**
+     * @var string
+     */
+    private $_mode = 'manual';
     
     /**
      * @return \CODERS\Clipboard\Clip[]
      */
     public function listItems(){
         return Content::list();
+    }
+    /**
+     * @return array
+     */
+    public function listDrives() {
+        $storage = array();
+        $drives = Content::manager()->storage()->drives();
+        foreach($drives as $drive ){
+            $storage[$drive] = $drive === $this->getDrive();
+        }
+        return $storage;
     }
     /**
      * @return array
@@ -907,6 +947,12 @@ class MainView extends View{
     /**
      * @return bool
      */
+    public function isAjaxmode(){
+        return $this->getMode() === 'ajax';
+    }
+    /**
+     * @return bool
+     */
     public function hasItems(){
         return $this->countItems() > 0;
     }
@@ -915,6 +961,18 @@ class MainView extends View{
      */
     public function countItems(){
         return $this->hasContent() ? count(Content::list($this->id)) : 0;
+    }
+    /**
+     * @return string
+     */
+    public function getMode(){
+        return $this->_mode;
+    }
+    /**
+     * @return string
+     */
+    public function getDrive() {
+        return 'content';
     }
     /**
      * @param string $id
@@ -950,7 +1008,7 @@ class MainView extends View{
         if(strlen($id) === 0){
             $id = $this->id;
         }
-        return Content::clipboard()->clipdata($id);
+        return Content::manager()->clipdata($id);
     }
     /**
      * @param string $id
@@ -988,7 +1046,13 @@ class Uploader {
     private function __construct($files = array()) {
         $this->_files = $files;
     }
-
+    /**
+     * @param string $drive
+     * @return \CODERS\Clipboard\Storage
+     */
+    public static function storage($drive = 'content') {
+        return Content::manager()->storage($drive);
+    }
     /**
      * @return array
      */
@@ -1000,27 +1064,28 @@ class Uploader {
      * @return \CODERS\Clipboard\Clip[]
      */
     public function items( $id = '' ) {
-        $clipboard = Content::clipboard();
-        $clip = $clipboard->load($id);
-        $slot = !is_null($clip) ? $clip->count() : 0;
-        $layout = !is_null($clip) ? $clip->layout : '';
-        $acl = !is_null($clip) ? $clip->acl : '';
+        $container = Content::load($id);
+        $slot = !is_null($container) ? $container->count() : 0;
+        $layout = !is_null($container) ? $container->layout : '';
+        $acl = !is_null($container) ? $container->acl : '';
 
-        $clips = array();
+        $list = array();
         foreach($this->files() as $file ){
             //set the first parent id to the parsed ID
             $file['parent_id'] = $id;
             $file['slot'] = ++$slot;
             $file['acl'] = $acl;
             $file['layout'] = $layout;
-
+            //4cf3baa3c78c32df
             //then set the next to the first file ID
             if (strlen($id) === 0) {
                 $id = $file['id'];
             }
-            $clips[$file['id']] = $clipboard->create($file);
+            $clip = Content::create($file);
+            var_dump($clip);
+            $list[$clip->id] = $clip;
         }
-        return $clips;
+        return $list;
     }
 
     /**
@@ -1078,23 +1143,29 @@ class Uploader {
         }
         return false;
     }
-
+    /**
+     * @param string $from
+     * @param string $to
+     * @return bool
+     */
+    private static function save( $from ='' , $to = ''){
+        return move_uploaded_file($from, $to);
+    }
     /**
      * @return \Uploader
      */
     public static final function create($from = 'upload') {
 
+        $drive = self::storage('content');
         $input = self::import($from);
-
         $files = array();
 
         foreach ($input as $upload) {
             if (self::validate($upload['error'])) {
-                $upload['id'] = ClipboardAdmin::createId($upload['name']);
-                $upload['path'] = Clipboard::path($upload['id']);
+                $upload['id'] = $drive->makeid($upload['name']);
+                $upload['path'] = $drive->route($upload['id']);
                 // Move uploaded file
-                if (move_uploaded_file($upload['tmp_name'], $upload['path'])) {
-                    //unlink($upload['tmp_name']);
+                if (self::save($upload['tmp_name'], $upload['path'])) {
                     $upload['size'] = filesize($upload['path']);
                     unset($upload['tmp_name']);
                     $files[] = $upload;
@@ -1115,7 +1186,7 @@ class Uploader {
      */
     public static function upload($from = 'upload', $id = '') {
         $uploaded = array();
-        $clipboard = Content::clipboard();
+        $clipboard = Content::manager();
         $container = $clipboard->load($id);
         $slot = !is_null($container) ? $container->count() : 0;
         $layout = !is_null($container) ? $container->layout : '';

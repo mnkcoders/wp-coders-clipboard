@@ -7,12 +7,18 @@
             <label for="clipboard-files" class="button-primary wide">
                 <span class="dashicons dashicons-upload"></span>
                 <span><?php print __('Drag or select your files here') ?></span>
-                <input id="clipboard-files" type="file" name="upload[]" multiple="multiple" />        
+                <input id="clipboard-files"
+                       type="file"
+                       class="<?php print $this->get_mode() ?>"
+                       name="upload[]"
+                       multiple="multiple" />        
             </label>
-            <!--button class="button button-primary wide right" type="submit" name="task" value="upload">
+            <?php if( !$this->is_ajaxmode() ): ?>
+            <button class="button button-primary wide right" type="submit" name="action" value="upload">
                 <span class="dashicons dashicons-upload"></span>                        
                 <?php print __('Upload!', 'coders_clipboard'); ?>                        
-            </button-->
+            </button>
+            <?php endif; ?>
             <?php if ($this->is_valid()) : ?>
                 <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <?php endif; ?>

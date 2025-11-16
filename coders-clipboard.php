@@ -74,7 +74,33 @@ add_action('init', function() {
     });*/
 });
 
+add_action('admin_bar_menu', function($wp_admin_bar) {
 
+    // Only show to users who have permission to manage your clipboard items
+    if (!current_user_can('manage_options')) {
+        return;
+    }
 
+    $title = sprintf('<span class="ab-icon dashicons dashicons-art"></span>%s',
+            __('Clipboard','coder_clipboard'));
+    // Add the top-level menu item
+    $wp_admin_bar->add_menu([
+        'id'    => 'coders_clipboard',
+        'title' => $title,
+        'href'  => admin_url('admin.php?page=coders_clipboard'),
+        'meta'  => ['class' => 'clipboard-admin-bar']
+    ]);
+
+    // Optional: Add a submenu (example)
+    /*
+    $wp_admin_bar->add_menu([
+        'id'     => 'clipboard_sub_items',
+        'parent' => 'coders_clipboard',
+        'title'  => 'All Items',
+        'href'   => admin_url('admin.php?page=coders_clipboard_settings')
+    ]);
+    */
+
+}, 100);
 
 

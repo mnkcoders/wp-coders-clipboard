@@ -183,6 +183,14 @@ class Clipboard{
         return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_DATA,$id));
     }
     /**
+     * @param string $id
+     * @param string $drive
+     * @return string 
+     */
+    public static function route($id = '',$drive = 'content'){
+        return self::instance()->storage($drive)->route($id);
+    }
+    /**
      * @param bool $flush
      */
     public static function rewrite( $flush = false ){
@@ -220,7 +228,7 @@ class Clip{
     /**
      * @var array
      */
-    private $_content = array(
+    private $_data = array(
         'id' => '',
         'name' => '',
         'type' => '',
@@ -256,7 +264,7 @@ class Clip{
      * @param bool $preload
      */
     public function __construct( $input = array() , $preload = false ) {
-        $this->_content['created_at'] = date('Y-m-d H:i:s');
+        $this->_data['created_at'] = date('Y-m-d H:i:s');
         $this->populate( $input );
         if($preload){
             $this->_items = $this->loaditems();
@@ -269,8 +277,8 @@ class Clip{
     /**
      * @return array
      */
-    protected function content(){
-        return $this->_content;
+    protected function data( ){
+        return $this->_data;
     }
     /**
      * @return String
@@ -280,7 +288,7 @@ class Clip{
         if(method_exists($this, $get)){
             return $this->$get();
         }
-        return $this->has($name) ? $this->content()[$name] : '';
+        return $this->has($name) ? $this->data()[$name] : '';
     }
     /**
      * @param string $name
@@ -314,7 +322,7 @@ class Clip{
      */
     public function __set($name, $value) {
         if( $this->has($name) && $name !== 'id' ){
-            $this->_content[$name] = $value;
+            $this->_data[$name] = $value;
             $this->_updated = true;
         }
     }
@@ -323,7 +331,7 @@ class Clip{
      * @return bool
      */
     public function has($name = ''){
-        return strlen($name) && array_key_exists($name, $this->content());
+        return strlen($name) && array_key_exists($name, $this->data());
     }
     
     /**
@@ -332,8 +340,8 @@ class Clip{
      */
     protected function populate( $input = [] ){
         foreach( $input as $field => $value ){
-            if( isset($this->_content[$field]) && !is_null($value)){
-                $this->_content[$field] = !is_null($value) ? $value : '';
+            if( isset($this->_data[$field]) && !is_null($value)){
+                $this->_data[$field] = !is_null($value) ? $value : '';
             }
         }
         return $this;
@@ -539,20 +547,28 @@ class Clip{
     }
 
     
-    
     /**
      * @param array $data
      * @return boolean
      */
     public function update( array $data = array()){
         
-        $db = $this->db();
-        
-        if( $db->update($data, array('id'=>$this->id))){
-            
-            return true;
+        foreach($data as $key => $val ){
+            $this->$key = $val;
         }
         //fetch db error if any?
+        return $this->save();
+    }
+    /**
+     * @return bool
+     */
+    public function save() {
+        if($this->isUpdated()){
+            $this->_updated = false;
+            return $this->db()->update(
+                $this->data() ,
+                array('id'=>$this->id));
+        }
         return false;
     }
     /**
@@ -663,13 +679,14 @@ class Clip{
         },$db->list($id));
     }        
     /**
-     * @param array $clipdata
+     * @param array $data
      * @return \CODERS\Clipboard\Clip
      */
-    public static function create( array $clipdata = array()) {
-            $clip = new Clip($clipdata);
+    public static function create( array $data = array()) {
+            $clip = new Clip($data);
             $clip->tagmedia();
-            return $clip->create() ? $clip : null;
+            return $clip->db()->create($clip->data()) ? $clip : null;;
+            //return $clip->save() ? $clip : null;
     }
     /**
      * @param string $id
@@ -818,7 +835,9 @@ class Data{
         $scope = count($items) ? sprintf('`%s`',implode('`,`', $items)) : '*';
         
         $sql = "SELECT $scope FROM `$table`";
-        $sql .= strlen($id) ? " WHERE `parent_id`='$id'" : " WHERE `parent_id` IS NULL";
+        $sql .= strlen($id) ?
+                " WHERE `parent_id`='$id'" :
+                " WHERE `parent_id` IS NULL OR `parent_id`=''";
         $sql .= "  ORDER BY `slot`;";
         $list = $wpdb->get_results( $sql , ARRAY_A );
         
@@ -872,7 +891,7 @@ class Data{
         $wpdb = self::wpdb();
         $result = $wpdb->update(self::table(), $data, $where );
         $error = $wpdb->error;
-        if(strlen($error)){
+        if($error && strlen($error)){
             $this->notify($error,'error');
         }
         return $result !== false;
@@ -954,6 +973,14 @@ class Storage{
         $this->_drive = $folder;
     }
     /**
+     * @param string $name
+     * @return string
+     */
+    public function makeid($name = '') {
+        $seed = $this->_drive . $name . microtime(true) . rand();
+        return substr(md5($seed), 0, 16); // Shorten if you want fixed-length IDs
+    }
+    /**
      * @param string $id
      * @return string
      */
@@ -963,6 +990,15 @@ class Storage{
             $route[] =  $id;
         }
         return preg_replace('/\\\\/','/',self::root() . implode('/', $route));
+    }
+    /**
+     * @return array
+     */
+    public function drives(){
+        $items = scandir(self::root());
+        return array_filter( $items , function($item){
+            return $item !== '.' && $item !== '..';
+        });
     }
     /**
      * @return array

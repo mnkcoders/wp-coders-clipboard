@@ -114,6 +114,9 @@ body.toplevel_page_coders_clipboard .container.path > li.node:not(:last-child):a
 #wpbody-content .coders-clipboard .container .right{
     float:right;
 }
+#wpbody-content .coders-clipboard .input.right{
+    float:right;
+}
 
 
 #wpbody-content .coders-clipboard > .container:after{
