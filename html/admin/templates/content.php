@@ -1,19 +1,20 @@
 <?php defined('ABSPATH') or die; ?>
+<div class="content container">
 <form name="content" action="<?php print $this->form ?>" method="post">
     <div class="tab <?php print $this->has_items() ? 'collapsed' : '' ?>">
         <a target="_blank" class="button" href="<?php
             print $this->clipboard ?>">
             <span class="dashicons dashicons-images-alt2"></span>
-            <?php print __('View','coders_clipboard') ?>
+            <?php print __('View','coder_clipboard') ?>
         </a>
         <span class=" button-primary right toggle">
             <span class="dashicons dashicons-edit"></span>
-            <?php print __('Edit','coders_clipboard') ?>
+            <?php print __('Edit','coder_clipboard') ?>
         </span>
         
         <div class="container">
             <!-- content top -->
-            <input id="id_title" class="block form-input header" name="title" value="<?php print $this->title ?>" placeholder="<?php print __('Set a title', 'coders_clipboard') ?>">
+            <input id="id_title" class="block form-input header" name="title" value="<?php print $this->title ?>" placeholder="<?php print __('Set a title', 'coder_clipboard') ?>">
             <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <input type="hidden" name="context_id" value="<?php print $this->id ?>" />
         </div>
@@ -21,12 +22,12 @@
         <div class="container half content">
             <!-- content left -->
             <span class="block solid">
-                <label><?php print __('Created', 'coders_clipboard') ?></label>
+                <label><?php print __('Created', 'coder_clipboard') ?></label>
                 <span class="right"><?php print $this->created_at ?></span>
             </span>
 
             <span class="block solid edit">
-                <input id="id_name" class="form-input" name="name" value="<?php print $this->name ?>" placeholder="<?php print __('File Name', 'coders_clipboard') ?>">
+                <input id="id_name" class="form-input" name="name" value="<?php print $this->name ?>" placeholder="<?php print __('File Name', 'coder_clipboard') ?>">
             </span>
 
             <span class="block solid edit">
@@ -54,12 +55,11 @@
             <?php $this->editor_description() ?>
         </div>
         <div class="container bottom">
-            <a class="button" target="_self" href="<?php print $this->action_delete($this->id) ?>"><?php print __('delete', 'coders_clipboard') ?></a>
+            <a class="button" target="_self" href="<?php print $this->action_delete($this->id) ?>"><?php print __('delete', 'coder_clipboard') ?></a>
             <button class="button-primary right" type="submit" name="action" value="update"><?php
-            print __('Update', 'coders_clipboard');
+            print __('Update', 'coder_clipboard');
             ?></button>
         </div>
     </div>
-
-
 </form>
+</div>

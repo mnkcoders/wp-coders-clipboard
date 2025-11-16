@@ -40,6 +40,12 @@ class Clipboard{
         return new Data();
     }
     /**
+     * @return \CODERS\Clipboard\CoderAcl
+     */
+    public function acl( ){
+        return CoderAcl::role();
+    }
+    /**
      * @param string $id
      * @param  bool $preload
      * @return \CODERS\Clipboard\Clip
@@ -78,14 +84,14 @@ class Clipboard{
      */
     protected function error404(){
         status_header(404);
-        wp_die(__('Clipboard item not found.', 'coders_clipboard'));
+        wp_die(__('Clipboard item not found.', 'coder_clipboard'));
     }
     /**
      * 
      */
     protected function errorDenied(){
         status_header(403);
-        wp_die(__('Access denied', 'coders_clipboard'));
+        wp_die(__('Access denied', 'coder_clipboard'));
     }
     
     /**
@@ -154,19 +160,6 @@ class Clipboard{
         }
         return false;
     }
-
-    /**
-     * @param string $role
-     * @return boolean
-     */
-    public static function acl( $role = '' ){
-        $admin = current_user_can( 'administrator' );
-        $roles = array(
-            'public',
-            apply_filters('coder_acl','')
-        );
-        return $admin || in_array($role, $roles);
-    }    
     
     /**
      * @param String $id
@@ -405,7 +398,8 @@ class Clip{
      * @return Boolean
      */
     public function isDenied(){
-        return !Clipboard::acl($this->acl);
+        return !CoderAcl::role()->can($this->acl);
+        //return !Clipboard::acl($this->acl);
     }
     /**
      * @return boolean
@@ -697,6 +691,72 @@ class Clip{
         $db = new Data();
         $clipdata = $db->load($id);
         return count($clipdata) ? new Clip( $clipdata , $preload ) : null;
+    }
+}
+
+/**
+ * ACL Role interaction with Coder Tiers Plugin
+ */
+class CoderAcl{
+    /**
+     * @var string
+     */
+    private $_role = '';
+    /**
+     * @param string $role
+     */
+    private function __construct( $role = '') {
+        $this->_role = $role;
+    }
+    /**
+     * @return string
+     */
+    public function __toString() {
+        return $this->role();
+    }
+    /**
+     * Match is admin user
+     * @return bool
+     */
+    private function isadmin(){
+        return current_user_can( 'administrator' );
+    }
+    /**
+     * Call for coder_acl filter from Coder Tiers Plugin
+     * @param string $tier
+     * @return bool
+     */
+    private function acl($tier = ''){
+        return apply_filters('coder_acl',$tier) ? true : false;
+    }
+    /**
+     * Match loaded role or public access
+     * @param string $tier
+     * @return bool
+     */
+    private function istier($tier = ''){
+        return in_array($tier, array( 'public', $this->_role, ));
+    }
+    /**
+     * @param string $tier
+     * @return boolean
+     */
+    public function can( $tier = '' ){
+        return $this->isadmin() || $this->istier($tier) || $this->acl($tier);
+    }
+    /**
+     * @return array
+     */
+    public function list(){
+        return apply_filters('coder_tiers',array());
+    }
+    /**
+     * @return \CODERS\Clipboard\CoderAcl
+     */
+    public static function role( )
+    {
+        $role = apply_filters('coder_role', '');
+        return new CoderAcl($role);
     }
 }
 
@@ -1054,3 +1114,7 @@ class Storage{
     }    
 }
 
+
+class Strings{
+    
+}

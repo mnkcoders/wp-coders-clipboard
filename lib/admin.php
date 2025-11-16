@@ -31,18 +31,18 @@ add_action('admin_enqueue_scripts', function( $hook ) {
 add_action('admin_menu', function () {
 
     add_menu_page(
-            __('Clipboard', 'coders_clipboard'),
-            __('Clipboard', 'coders_clipboard'),
+            __('Clipboard', 'coder_clipboard'),
+            __('Clipboard', 'coder_clipboard'),
             'upload_files', // or 'manage_options' if more restricted
-            'coders_clipboard',
+            'coder_clipboard',
             function () {
                 $context = filter_input(INPUT_GET, 'controller') ?? 'main';
                 \CODERS\Clipboard\Admin\Controller::run($context);
             }, 'dashicons-art',80);
     add_submenu_page(
-            'coders_clipboard',
-            __('Settings', 'coders_clipboard'),
-            __('Settings', 'coders_clipboard'),
+            'coder_clipboard',
+            __('Settings', 'coder_clipboard'),
+            __('Settings', 'coder_clipboard'),
             'manage_options',
             'coders_clipboard_settings',
             function () {
@@ -219,7 +219,6 @@ class MainController extends Controller{
     protected function defaultAction(array $input = array()): bool {
         
         $content = Content::load($input['id'] ?? '',true);
-        
         View::create('main')
                 ->setContent( $content )
                 ->view('default');
@@ -237,7 +236,7 @@ class MainController extends Controller{
             $this->notify(sprintf('%s items uploaded!','update'),count($clips));
         }
         else{
-            $this->notify(__('Not allowed to upload','coders_clipboard'), 'error');
+            $this->notify(__('Not allowed to upload','coder_clipboard'), 'error');
         }
         return $this->defaultAction( $input );
     }
@@ -406,16 +405,16 @@ class SettingsController extends Controller{
         $data = $settings->cleardata();
         $files = $settings->cleardrive();
         if( $data){
-            $this->notify(__('Clipboard data clear','coders_clipboard'));
+            $this->notify(__('Clipboard data clear','coder_clipboard'));
         }
         else{
-            $this->notify(__('Unable to clear Clipboard data','coders_clipboard'),'warning');            
+            $this->notify(__('Unable to clear Clipboard data','coder_clipboard'),'warning');            
         }
         if( $files){
-            $this->notify(sprintf('%s %s',$files,__('files removed','coders_clipboard')),'update');
+            $this->notify(sprintf('%s %s',$files,__('files removed','coder_clipboard')),'update');
         }
         else{
-            $this->notify(__('Unable to clear Clipboard drive','coders_clipboard'),'warning');            
+            $this->notify(__('Unable to clear Clipboard drive','coder_clipboard'),'warning');            
         }
         return $this->defaultAction();
     }
@@ -428,7 +427,7 @@ class PostController extends Controller{
     
     function __construct() {
         parent::__construct();
-        $this->set('page', 'coders_clipboard');
+        $this->set('page', 'coder_clipboard');
     }
 
     protected function defaultAction(array $input = []): bool {
@@ -485,7 +484,7 @@ class AjaxController extends Controller{
         }
         else{
             $this->set('response', 'error')
-                    ->set('message',__('Cannot upload files','coders_clipboard'));
+                    ->set('message',__('Cannot upload files','coder_clipboard'));
         }
         return false;
     }
@@ -846,7 +845,7 @@ class View{
      * @return url|string
      */
     public static function adminurl( array $args = array() ) {
-        $query = array( 'page' => 'coders_clipboard');
+        $query = array( 'page' => 'coder_clipboard');
         foreach($args as $key => $val ){
             $query[$key] = $val;
         }
@@ -906,7 +905,8 @@ class MainView extends View{
      * @return array
      */
     public function listTiers(){
-        $tiers = apply_filters('coder_tiers', array());
+        //$tiers = apply_filters('coder_tiers', array());
+        $tiers = Content::manager()->acl()->list();
         return is_array($tiers) ? $tiers : array();
     }
     /**
@@ -914,8 +914,8 @@ class MainView extends View{
      */
     public function listRoles(){
         $roles = array(
-            'private' => __('Private (admin only)', 'coders_clipboard'),
-            'public' => __('Public (everyone)', 'coders_clipboard'),
+            'private' => __('Private (admin only)', 'coder_clipboard'),
+            'public' => __('Public (everyone)', 'coder_clipboard'),
         );
         
         foreach( $this->listTiers() as $tier => $title ){
@@ -928,14 +928,14 @@ class MainView extends View{
      */
     public function listLayouts(){
         return array(
-            'default' => __('Default', 'coders_clipboard'),
-            'ecomic' => __('e-Comic', 'coders_clipboard'),
-            'collection' => __('Collection', 'coders_clipboard'),
-            'gallery' => __('Gallery', 'coders_clipboard'),
-            'slideshow' => __('Slideshow', 'coders_clipboard'),
-            'portfolio' => __('Portfolio', 'coders_clipboard'),
-            'mosaic' => __('Mosaic', 'coders_clipboard'),
-            'showcase' => __('Showcase', 'coders_clipboard'),
+            'default' => __('Default', 'coder_clipboard'),
+            'ecomic' => __('e-Comic', 'coder_clipboard'),
+            'collection' => __('Collection', 'coder_clipboard'),
+            'gallery' => __('Gallery', 'coder_clipboard'),
+            'slideshow' => __('Slideshow', 'coder_clipboard'),
+            'portfolio' => __('Portfolio', 'coder_clipboard'),
+            'mosaic' => __('Mosaic', 'coder_clipboard'),
+            'showcase' => __('Showcase', 'coder_clipboard'),
         );
     }
     /**
@@ -1172,7 +1172,7 @@ class Uploader {
                 }
                 else {
                     Controller::notify(
-                            __('Failed to move uploaded file', 'coders_clipboard') . ' ' . $upload['name'],
+                            __('Failed to move uploaded file', 'coder_clipboard') . ' ' . $upload['name'],
                             'error');
                 }
             }

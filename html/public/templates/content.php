@@ -5,7 +5,7 @@
             <?php print $this->title ?>
             <?php if( $this->slot > 0) :  ?>
             <span><?php printf('- %s %s',
-                    __('Page','coders_clipboard') ,
+                    __('Page','coder_clipboard') ,
                     $this->slot ) ?></span>
             <?php endif; ?>
         </h1>

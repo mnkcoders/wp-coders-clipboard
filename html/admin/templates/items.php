@@ -44,7 +44,7 @@
         <li class="container centered empty">
                     <h3>
                         <span class="dashicons dashicons-info"></span>
-                        <?php print __('Just drag-drop to make your collection! :D', 'coders_clipboard'); ?>
+                        <?php print __('Just drag-drop to make your collection! :D', 'coder_clipboard'); ?>
                     </h3>
         </li>            
     <?php endif; ?>

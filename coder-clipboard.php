@@ -1,6 +1,6 @@
 <?php defined('ABSPATH') or die;
 /* * *****************************************************************************
- * Plugin Name: Coders Clipboard (Refactor 1)
+ * Plugin Name: Coder Clipboard (Refactor 1)
  * Description: Multi-Level Drag-Drop media gallery with access control and collection display
  * Version: 0.81
  * Author: Coder01
@@ -85,7 +85,7 @@ add_action('admin_bar_menu', function($wp_admin_bar) {
             __('Clipboard','coder_clipboard'));
     // Add the top-level menu item
     $wp_admin_bar->add_menu([
-        'id'    => 'coders_clipboard',
+        'id'    => 'coder_clipboard',
         'title' => $title,
         'href'  => admin_url('admin.php?page=coders_clipboard'),
         'meta'  => ['class' => 'clipboard-admin-bar']
@@ -95,7 +95,7 @@ add_action('admin_bar_menu', function($wp_admin_bar) {
     /*
     $wp_admin_bar->add_menu([
         'id'     => 'clipboard_sub_items',
-        'parent' => 'coders_clipboard',
+        'parent' => 'coder_clipboard',
         'title'  => 'All Items',
         'href'   => admin_url('admin.php?page=coders_clipboard_settings')
     ]);

@@ -1,5 +1,4 @@
 <?php defined('ABSPATH') or die; ?>
-
 <div class="fullwitdh container solid">
     <div class="fullwitdh drag-drop container centered upload">
         <form name="upload" action="<?php print $this->get_form() ?>" method="post" enctype="multipart/form-data">
@@ -16,7 +15,7 @@
             <?php if( !$this->is_ajaxmode() ): ?>
             <button class="button button-primary wide right" type="submit" name="action" value="upload">
                 <span class="dashicons dashicons-upload"></span>                        
-                <?php print __('Upload!', 'coders_clipboard'); ?>                        
+                <?php print __('Upload!', 'coder_clipboard'); ?>                        
             </button>
             <?php endif; ?>
             <?php if ($this->is_valid()) : ?>

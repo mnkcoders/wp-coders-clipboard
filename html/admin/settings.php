@@ -8,7 +8,7 @@
     
     <div class="container dev-only">
         <div class="container solid">
-            <a clasS="button right" href="<?php print $this->action_nuke() ?>"><?php print __('Reset Content Data','coders_clipboard') ?></a>
+            <a clasS="button right" href="<?php print $this->action_nuke() ?>"><?php print __('Reset Content Data','coder_clipboard') ?></a>
         </div>        
     </div>
 </div>
