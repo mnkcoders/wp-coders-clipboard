@@ -9,22 +9,20 @@
 </select>
 
 <ul class="coders-clipboard-title path container">
-    <li class="node">
-        <span class="dashicons dashicons-art"></span>
-        <?php if( $this->has_content()) : ?>
-        <a href="<?php print $this->base ?>" target="_self">
+    <li class="path">
+        <a class="base" href="<?php print $this->base ?>" target="_self">
+            <span class="dashicons dashicons-art"></span>
             <?php print get_admin_page_title() ?>
         </a>
-        <?php else : ?>
-        <span><?php print get_admin_page_title() ?></span>
-        <?php endif; ?>
     </li>
     <?php if( $this->has_content() ) : ?>
         <?php foreach ($this->list_path() as $id => $title) : ?>
-            <li class="node">
+            <li class="path">
                 <?php if (strlen($id)) : ?>
                     <?php if ( trim($id) !== $this->id ) : ?>
-                        <a href="<?php print $this->get_post($id) ?>" target="_self"><?php print $title ?></a>
+                        <a class="content" href="<?php
+                            print $this->get_post($id) ?>" target="_self"><?php
+                            print $title ?></a>
                     <?php else: ?>
                         <span >
                             <?php print $title ?>

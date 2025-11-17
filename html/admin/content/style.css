@@ -1,24 +1,5 @@
 
 
-body.toplevel_page_coders_clipboard .container.path > li.node{
-    display: inline-block;
-    cursor: default;
-    letter-spacing: 1px;
-    font-weight: 600;
-    font-size: 19px;
-}
-body.toplevel_page_coders_clipboard .container.path > li.node a{
-    text-decoration: none;    
-}
-body.toplevel_page_coders_clipboard .container.path > li.node:not(:last-child):after{
-    content: '\f345';
-    font-family: dashicons;
-    font-size: 13px;
-    display: inline-block;
-    color: rgba(0,0,0,0.25);
-    margin: 0 4px;
-}
-
 
 #wpbody-content{
     
@@ -214,19 +195,39 @@ body.toplevel_page_coders_clipboard .container.path > li.node:not(:last-child):a
 #wpbody-content .coders-clipboard ul.path{
     margin: 10px 0 20px;
 }
-#wpbody-content .coders-clipboard ul.path > li.node{
+#wpbody-content .coders-clipboard ul.path > li.path{
     display: inline-block;
     cursor: default;
 }
-#wpbody-content .coders-clipboard ul.path > li.node.right{
+#wpbody-content .coders-clipboard ul.path > li.path.right{
     float: right;
 }
-#wpbody-content .coders-clipboard ul.path > li.node:not(:last-child):after{
+#wpbody-content .coders-clipboard ul.path > li.path:not(:last-child):after{
     content: '|';
     display: inline-block;
     color: rgba(0,0,0,0.25);
     margin: 0 4px;
 }
+#wpbody-content .coders-clipboard ul.path > li.path{
+    display: inline-block;
+    cursor: default;
+    letter-spacing: 1px;
+    font-weight: 600;
+    font-size: 19px;
+}
+#wpbody-content .coders-clipboard ul.path > li.path a{
+    text-decoration: none;    
+}
+#wpbody-content .coders-clipboard ul.path > li.path:not(:last-child):after{
+    content: '\f345';
+    font-family: dashicons;
+    font-size: 13px;
+    display: inline-block;
+    color: rgba(0,0,0,0.25);
+    margin: 0 4px;
+}
+
+
 
 #wpbody-content .coders-clipboard > .collections{
     position: relative;

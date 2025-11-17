@@ -38,13 +38,13 @@ add_action('admin_menu', function () {
             function () {
                 $context = filter_input(INPUT_GET, 'controller') ?? 'main';
                 \CODERS\Clipboard\Admin\Controller::run($context);
-            }, 'dashicons-art',80);
+            }, 'dashicons-art',40);
     add_submenu_page(
             'coder_clipboard',
             __('Settings', 'coder_clipboard'),
             __('Settings', 'coder_clipboard'),
             'manage_options',
-            'coders_clipboard_settings',
+            'coder_clipboard_settings',
             function () {
                 \CODERS\Clipboard\Admin\Controller::run('settings'); }
             );

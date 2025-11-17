@@ -5,7 +5,7 @@
  * Version: 0.81
  * Author: Coder01
  * License: GPLv2 or later
- * Text Domain: coders_clipboard
+ * Text Domain: coder_clipboard
  * Domain Path: lang
  * Class: Clipboard
  * **************************************************************************** */
@@ -87,7 +87,7 @@ add_action('admin_bar_menu', function($wp_admin_bar) {
     $wp_admin_bar->add_menu([
         'id'    => 'coder_clipboard',
         'title' => $title,
-        'href'  => admin_url('admin.php?page=coders_clipboard'),
+        'href'  => admin_url('admin.php?page=coder_clipboard'),
         'meta'  => ['class' => 'clipboard-admin-bar']
     ]);
 
@@ -97,7 +97,7 @@ add_action('admin_bar_menu', function($wp_admin_bar) {
         'id'     => 'clipboard_sub_items',
         'parent' => 'coder_clipboard',
         'title'  => 'All Items',
-        'href'   => admin_url('admin.php?page=coders_clipboard_settings')
+        'href'   => admin_url('admin.php?page=coder_clipboard_settings')
     ]);
     */
 
