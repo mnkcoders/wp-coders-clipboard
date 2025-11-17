@@ -24,28 +24,11 @@ class CodersClipboard{
         this.initialize(  );
     }
     /**
-     * @returns {CodersClipboard}
-     */
-    static instance(){
-        return CodersClipboard.__intsance || new CodersClipboard();
-    }
-    /**
-     * @returns {ClipboardContent}
-     */
-    clipboard(){
-        return this._clipboard;
-    }
-    /**
-     * @returns {Element}
-     */
-    collection(){
-        return this.clipboard() && this.clipboard().view().itemBox() || null;
-    }
-    /**
      * @param {ClipboardContent} cb
      * @returns {bool}
      */
     initialize(  ){
+        this._drive = 'content';
         if(this.clipboard().ready()){
             this.setupFileInput();
             this.setupDragDrop();
@@ -58,6 +41,31 @@ class CodersClipboard{
             this.setupPaste();
         }
         this.setupTabs();        
+    }
+    /**
+     * @returns {CodersClipboard}
+     */
+    static instance(){
+        return CodersClipboard.__intsance || new CodersClipboard();
+    }
+    /**
+     * Selected drive
+     * @returns {String}
+     */
+    drive(){
+        return this._drive;
+    }
+    /**
+     * @returns {ClipboardContent}
+     */
+    clipboard(){
+        return this._clipboard;
+    }
+    /**
+     * @returns {Element}
+     */
+    collection(){
+        return this.clipboard() && this.clipboard().view().itemBox() || null;
     }
     /**
      * 

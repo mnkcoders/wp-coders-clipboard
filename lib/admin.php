@@ -4,11 +4,11 @@ defined('ABSPATH') or die;
 
 add_action('admin_post_clipboard_action', function() {
 
-    $response = array(
-        'response'=>'test1',
-        'message'=>'Testing post respose');
+    //$response = array(
+    //    'response'=>'test1',
+    //    'message'=>'Testing post respose');
     
-    //$response = \CODERS\Clipboard\Admin\Controller::redirect('post');
+    $response = \CODERS\Clipboard\Admin\Controller::redirect('post');
     
     wp_redirect(add_query_arg($response, admin_url('admin.php')));
     exit;        
@@ -70,13 +70,30 @@ abstract class Controller{
         'response' => '',
         'message' => ''
     );
-
+    /**
+     * @var array
+     */
+    private $_data = array( );
     
     /**
-     * 
+     * @param array $input
      */
-    protected function __construct() {
-        
+    protected function __construct( array  $input = array()) {
+        $this->_data = $input;
+    }
+    /**
+     * @param string $name
+     * @return string
+     */
+    public function __get($name) {
+        return array_key_exists($name, $this->_data) ? $this->_data[$name] : '';
+    }
+
+    /**
+     * @return array
+     */
+    protected function data(){
+        return $this->_data;
     }
     /**
      * @return bool
@@ -122,12 +139,29 @@ abstract class Controller{
         );
     }
     /**
-     * @param string $action
-     * @return boolean
+     * @return string
      */
-    protected function error( $action = '' ){
-        printf('Error %s',$action);
-        return false;
+    protected function action(){
+        return $this->_data['action'] ?? 'default';
+    }
+    /**
+     * @param array $input
+     * @return bool
+     */
+    private function task( array $input = array() ){
+        //return $this->data()['action'] ?? 'default';
+        $action = $input['action'] ?? 'default';
+        $call = sprintf('%sAction',$action);
+        return method_exists($this, $call) ? $this->$call( $input ) : $this->error($action);
+    }
+    /**
+     * @return bool
+     */
+    public function request(){
+        //$action = $this->action();
+        $action = $this->_data['action'] ?? 'default';
+        $call = sprintf('%sAction',$action);
+        return method_exists($this, $call) ? $this->$call( ) : $this->error($action);
     }
     /**
      * @return array
@@ -136,30 +170,34 @@ abstract class Controller{
         return $this->_response;
     }
     /**
-     * @param array $input
-     * @return bool
+     * @param string $action
+     * @return boolean
      */
-    protected function action( array $input = array() ){
-        $action = array_key_exists('action', $input) ? $input['action'] : 'default';
-        $call = sprintf('%sAction',$action);
-        return method_exists($this, $call) ? $this->$call( $input ) : $this->error($action);
+    protected function error( $action = '' ){
+        printf('Error %s',$action);
+        //return $this;
+        return false;
     }
     /**
      * @param array $input
      * @return bool
      */
-    abstract protected function defaultAction( array $input = array() ) : bool;
+    protected function defaultAction( array $input = array() ) : bool{
+        //
+        return true;
+    }
+    
     
     /**
      * @param int $type
      * @return array
      */
-    protected function input( $type = self::INPUT_REQUEST ) {
+    protected static function input( $type = self::INPUT_REQUEST ) {
         switch($type){
             case self::INPUT_REQUEST:
                 return array_merge(
-                        $this->input(self::INPUT_GET),
-                        $this->input(self::INPUT_POST)
+                        self::input(self::INPUT_GET),
+                        self::input(self::INPUT_POST)
                 );
             case self::INPUT_GET:
             case self::INPUT_POST:
@@ -169,33 +207,45 @@ abstract class Controller{
         }
     }
     /**
-     * @param string $context
-     * @return Controller
+     * @return array
      */
-    protected static final function create( $context = '' ){
+    protected static function fromajax( ){
+        $input = self::input(self::INPUT_POST);
+        $input['action'] = $input['task'] ?? 'default';
+        unset($input['task']);
+        return $input;
+    }
+    /**
+     * @param string $context
+     * @param array $input
+     * @return \CODERS\Clipboard\Admin\Controller
+     */
+    protected static final function create( $context = '' , array $input = array()){
         $class = sprintf('\CODERS\Clipboard\Admin\%sController', ucfirst($context));
-        return class_exists($class) && is_subclass_of($class, self::class ,true ) ? new $class() : null;
+        return class_exists($class) && is_subclass_of($class, self::class ,true ) ? new $class($input) : null;
     } 
     /**
      * @param string $context
-     * @return array | null
+     * @return bool
      */
     public static function run( $context = 'main' ){
+        //$controller = self::create($context,self::input());
         $controller = self::create($context);
         return !is_null($controller) ?
-            $controller->action($controller->input()) :
-            null;
+            //$controller->request() :
+            $controller->task(self::input()) :
+            false;
     }
     /**
      * @param string $context
      * @return array
      */
     public static function redirect($context = 'main') {
+        //$controller = self::create($context,self::fromajax(););
         $controller = self::create($context);
         if( $controller ){
-            $input = $controller->input(self::INPUT_POST);
-            $input['action'] = $input['task'] ?? 'default';
-            if($controller->action($input)){
+            //if($controller->request() ){}
+            if($controller->task(self::fromajax())){
                 //??
             }
             return $controller->response();
@@ -429,11 +479,20 @@ class PostController extends Controller{
         parent::__construct();
         $this->set('page', 'coder_clipboard');
     }
-
+    /**
+     * @param array $input
+     * @return bool
+     */
     protected function defaultAction(array $input = []): bool {
-        
         $this->set('response','ok');
         return false; 
+    }
+    /**
+     * @param array $input
+     * @return boolean
+     */
+    protected function saveAction( array $input = []){
+        return false;
     }
 }
 /**
@@ -464,7 +523,7 @@ class AjaxController extends Controller{
      * @return bool
      */
     protected function defaultAction(array $input = []): bool {
-        $this->set('response','empty');
+        $this->set('response','ok');
         return true;
     }
     /**
@@ -473,19 +532,56 @@ class AjaxController extends Controller{
      */
     protected function uploadAction( array $input = array()){
         if($this->canupload()){
-            $id = array_key_exists('id', $input)?  $input['id'] : '';
+            $id = $input['id'] ?? '';
             $clips = Uploader::create( 'upload' )->items( $id );
             $response = array(
                 'count' => count($clips),
                 'files' => Content::clipmeta($clips),
                 );
             $this->fill($response);
-            return true;
         }
         else{
-            $this->set('response', 'error')
-                    ->set('message',__('Cannot upload files','coder_clipboard'));
+            $this->set('response', 'error')->set('message','Cannot upload files');
         }
+        return true;
+    }
+    /**
+     * 
+     * @param array $input
+     * @return boolean
+     */
+    protected function removeAction( array $input = array()){
+        
+        return false;
+    }
+    /**
+     * @param array $input
+     * @return boolean
+     */
+    protected function moveAction( array $input = array()){
+        
+        return false;
+    }
+    /**
+     * @param array $input
+     * @return boolean
+     */
+    protected function moveupAction( array $input = array()){
+        
+        return false;
+    }
+    /**
+     * @param array $input
+     * @return boolean
+     */
+    protected function setaclAction( array $input = array()){
+        return false;
+    }
+    /**
+     * @param array $input
+     * @return boolean
+     */
+    protected function setlayoutAction( array $input = array()){
         return false;
     }
 }
