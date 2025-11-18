@@ -145,7 +145,17 @@ class Clipboard{
         foreach( $content->headers() as $header ){
             header($header);
         }
-        readfile($content->getPath());
+        
+        if($content->isImage() && $content->isDenied()){
+            //$output = $content->buffer($content->isDenied());
+            $output = $content->buffer(true);
+            if($output){
+                $output->output();
+            }
+        }
+        else{
+            readfile($content->getPath());
+        }
         exit;
     }
     /**
@@ -266,6 +276,18 @@ class Clip{
         else{
             $this->_count = $this->db()->count($this->id);
         }
+    }
+    /**
+     * @return string
+     */
+    public function __toString() {
+        if(strlen($this->title)){
+            return $this->title;
+        }
+        if(strlen($this->name)){
+            return $this->name;
+        }
+        return $this->id;
     }
     /**
      * @return array
@@ -659,7 +681,17 @@ class Clip{
         ), array( 'parent_id'=>$this->id));
         
         return $count ?? 0;
-    }    
+    }
+    
+    /**
+     * @param bool $hidden
+     * @return \CODERS\Clipboard\ImageMapper
+     */
+    public function buffer($hidden = false) {
+        return $this->isImage() ?
+                new ImageMapper($this->getPath(),$this->type,$hidden) : null;
+    }
+    
 
     /**
      * @global wpdb $wpdb
@@ -691,6 +723,133 @@ class Clip{
         $db = new Data();
         $clipdata = $db->load($id);
         return count($clipdata) ? new Clip( $clipdata , $preload ) : null;
+    }
+}
+
+class ContentProvider{
+    
+    private $_content = null;
+    
+    /**
+     * @param \CODERS\Clipboard\Clip $content
+     */
+    private function __construct( Clip $content = null ) {
+        $this->_content = $content;
+        $this->load();
+    }
+    /**
+     * @param \CODERS\Clipboardd\Clip $content
+     * @return \CODERS\Clipboard\ContentProvider
+     */
+    public static function prepare( Clip $content) {
+        return new ContentProvider($content);
+    }
+    
+    private function load() {
+        
+    }
+    
+    private function reduce( $buffer = null ){
+        
+    }
+    
+    public function output(){
+        
+    }
+}
+/**
+ * 
+ */
+class ImageMapper{
+    /**
+     * @var string
+     */
+    private $_path = '';
+    private $_type = '';
+    private $_hidden = false;
+    private $_buffer = null;
+    /**
+     * @param string $path
+     * @param string $type
+     * @param bool $hidden
+     */
+    public function __construct($path , $type = '' , $hidden = false) {
+        $this->_path = $path;
+        $this->_type = $type;
+        $this->_hidden = $hidden;
+        
+        $this->load( $this->_path, $this->_type,$this->_hidden);
+    }
+    /**
+     * 
+     * @param string $path
+     * @param string $type
+     * @param string $hidden
+     * @return \GdImage
+     */
+    private function load( $path ,$type , $hidden = false ) {
+        // Load image based on type
+        $buffer = false;
+        switch ($type) {
+            case 'image/jpeg':
+                $buffer = imagecreatefromjpeg($path);
+                break;
+            case 'image/png':
+                $buffer = imagecreatefrompng($path);
+                break;
+            case 'image/gif':
+                $buffer = imagecreatefromgif($path);
+                break;
+        }
+        $this->_buffer = $buffer && $hidden ? $this->reduce( $buffer , 10 ) : $buffer;
+        return !is_null($this->_buffer);
+    }
+    /**
+     * 
+     * @param \GdImage $buffer
+     * @param int $size
+     * @return bool
+     */
+    private function reduce($buffer , $size = 10) {
+             // Original dimensions
+            $w = imagesx($buffer);
+            $h = imagesy($buffer);
+            // Reduce size
+            $small_w = max($size, intval($w * $size * 0.01));
+            $small_h = max($size, intval($h * $size * 0.01));
+
+            // Downscale → Blur effect
+            $small = imagecreatetruecolor($small_w, $small_h);
+            imagecopyresampled($small, $buffer, 0, 0, 0, 0, $small_w, $small_h, $w, $h);
+
+            // Upscale back to original size
+            $output = imagecreatetruecolor($w, $h);
+            imagecopyresampled($output, $small, 0, 0, 0, 0, $w, $h, $small_w, $small_h);
+
+            imagedestroy($buffer);
+            return $output;
+    }
+    /**
+     * @return bool
+     */
+    public function output() {
+        $mime = $this->_type;
+        $image = $this->_buffer;
+        if($image ){
+            switch($mime){
+                case 'image/png':
+                    imagepng($image);
+                case 'image/gif':
+                    imagegif($image);
+                case 'image/jpeg':
+                    imagejpeg($image, null,90);
+            }
+
+            // Cleanup
+            imagedestroy($image);
+            return true;
+        }
+        return false;
     }
 }
 
@@ -857,9 +1016,9 @@ class Data{
                 $query .= sprintf(' AND `slot` <= %s',$range);
             }
             $query .= " ORDER BY `slot` ASC";
-            $result = $wpdb->query($query);
-            if(is_numeric($result)){
-                return $result;
+            $count = $wpdb->query($query);
+            if(is_numeric($count)){
+                return $count;
             }
             $this->notify( $wpdb->last_error , 'error');
             return 0;

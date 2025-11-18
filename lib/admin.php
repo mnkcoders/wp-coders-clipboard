@@ -61,39 +61,70 @@ abstract class Controller{
     /**
      * @var array
      */
-    static private $_mailbox = array();
-
+    static private $_log = array();
+    /**
+     * @var bool
+     */
+    private $_completed = false;
     /**
      * @var array
      */
     private $_response = array(
-        'response' => '',
-        'message' => ''
+        //fill in all required meta
     );
     /**
      * @var array
      */
-    private $_data = array( );
+    private $_input = array( );
     
     /**
      * @param array $input
      */
     protected function __construct( array  $input = array()) {
-        $this->_data = $input;
+        $this->_input = $input;
     }
     /**
      * @param string $name
      * @return string
      */
     public function __get($name) {
-        return array_key_exists($name, $this->_data) ? $this->_data[$name] : '';
+        return $this->_input[$name] ?? '';
     }
-
+    /**
+     * @param string $name
+     * @return int
+     */
+    protected function getInt($name) {
+        return array_key_exists($name, $this->data()) ? (int)$this->data()[$name] : 0;
+    }
+    /**
+     * @param string $name
+     * @return float
+     */
+    protected function getFloat($name) {
+        return array_key_exists($name, $this->data()) ? (float)$this->data()[$name] : 0.0;
+    }
+    /**
+     * @param string $name
+     * @param string $split
+     * @return array
+     */
+    protected function getList($name,$split = ' ') {
+        return array_key_exists($name, $this->data()) ?
+                explode($split,$this->data()[$name]) :
+                array();
+    }
+    /**
+     * @return bool
+     */
+    private function completed(){
+        return $this->_completed;
+    }
     /**
      * @return array
      */
     protected function data(){
-        return $this->_data;
+        return $this->_input;
     }
     /**
      * @return bool
@@ -125,15 +156,15 @@ abstract class Controller{
     /**
      * @return array
      */
-    static public function  mailbox(){
-        return Controller::$_mailbox;
+    static public function log(){
+        return Controller::$_log;
     }
     /**
      * @param string $message
      * @param string $type
      */
-    static public function notify( $message = '' , $type = ''){
-        Controller::$_mailbox[] = array(
+    static public function notify( $message = '' , $type = 'update'){
+        Controller::$_log[] = array(
             'message' => $message,
             'type' => $type,
         );
@@ -142,7 +173,7 @@ abstract class Controller{
      * @return string
      */
     protected function action(){
-        return $this->_data['action'] ?? 'default';
+        return $this->_input['action'] ?? 'default';
     }
     /**
      * @param array $input
@@ -155,34 +186,41 @@ abstract class Controller{
         return method_exists($this, $call) ? $this->$call( $input ) : $this->error($action);
     }
     /**
-     * @return bool
+     * @return \CODERS\Clipboard\Admin\Controller
      */
     public function request(){
         //$action = $this->action();
-        $action = $this->_data['action'] ?? 'default';
+        $action = $this->_input['action'] ?? 'default';
         $call = sprintf('%sAction',$action);
-        return method_exists($this, $call) ? $this->$call( ) : $this->error($action);
+        
+        $this->_completed = method_exists($this, $call) ?
+                $this->$call( ) :
+                $this->error($action);
+
+        return $this;
     }
     /**
+     * action[] , log[] , ...
      * @return array
      */
     public function response() {
+        $this->_response[$this->action()] = $this->completed();
+        $this->_response['message'] = $this->log();
         return $this->_response;
     }
     /**
      * @param string $action
-     * @return boolean
+     * @return bool
      */
     protected function error( $action = '' ){
-        printf('Error %s',$action);
-        //return $this;
+        $this->notify(sprintf('Invalid action [%s]',$action),'error');
+        $this->set('error', $this->log() );
         return false;
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function defaultAction( array $input = array() ) : bool{
+    protected function defaultAction( ) : bool{
         //
         return true;
     }
@@ -229,28 +267,21 @@ abstract class Controller{
      * @return bool
      */
     public static function run( $context = 'main' ){
-        //$controller = self::create($context,self::input());
-        $controller = self::create($context);
-        return !is_null($controller) ?
-            //$controller->request() :
-            $controller->task(self::input()) :
-            false;
+        $controller = self::create($context,self::input());
+        //$controller = self::create($context);
+        return $controller ? $controller->request()->completed() : false;
+            //$controller->task(self::input()) :
+            //false;
     }
     /**
      * @param string $context
      * @return array
      */
     public static function redirect($context = 'main') {
-        //$controller = self::create($context,self::fromajax(););
-        $controller = self::create($context);
-        if( $controller ){
-            //if($controller->request() ){}
-            if($controller->task(self::fromajax())){
-                //??
-            }
-            return $controller->response();
-        }
-        return array(
+        $controller = self::create($context,self::fromajax());
+        return !is_null($controller) ?
+            $controller->request()->response() :
+            array(
                 //error response
                 'response' => 'error',
                 'message' => sprintf('Context Error [%s]',$context),
@@ -263,12 +294,11 @@ abstract class Controller{
 class MainController extends Controller{
 
     /**
-     * @param array $input
      * @return bool
      */
-    protected function defaultAction(array $input = array()): bool {
+    protected function defaultAction(): bool {
         
-        $content = Content::load($input['id'] ?? '',true);
+        $content = Content::load( $this->id ,true);
         View::create('main')
                 ->setContent( $content )
                 ->view('default');
@@ -276,12 +306,11 @@ class MainController extends Controller{
         return true;
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function uploadAction( array $input = array()) : bool {
+    protected function uploadAction( ) : bool {
         if($this->canupload()){
-            $id = array_key_exists('id', $input)?  $input['id'] : '';
+            $id = $this->id;
             $clips = Uploader::create( 'upload' )->items( $id );
             $this->notify(sprintf('%s items uploaded!','update'),count($clips));
         }
@@ -291,13 +320,12 @@ class MainController extends Controller{
         return $this->defaultAction( $input );
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function updateAction( array $input = array()) : bool {
-        $id = $input['id'] ?? '';
+    protected function updateAction( ) : bool {
+        $id = $this->id;
         $clip = Content::load($id);
-        if ( !is_null($clip) && $clip->update($input)) {
+        if ( !is_null($clip) && $clip->update($this->data())) {
             $this->notify(sprintf('%s updated!',$clip->name), 'update');
         }
         else{
@@ -307,13 +335,15 @@ class MainController extends Controller{
         return $this->defaultAction();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function deleteAction( array $input = array()) : bool {
-        $content = Content::load($input['id'] ?? '');
-        if ( $content->remove()) {
+    protected function deleteAction( ) : bool {
+        $content = Content::load($this->id);
+        if ( $content && $content->remove()) {
             $this->notify(sprintf('%s removed!',$content->name),'update');
+        }
+        else{
+            $this->notify('Unable to remove item','error');
         }
         return $this->defaultAction();
     }
@@ -323,46 +353,40 @@ class MainController extends Controller{
      */
     protected function sortAction( array $input = array()) : bool {
 
-        $index = isset($input['slot']) ? $input['slot'] : 0;
-        $item = Content::load($id);
+        $item = Content::load($this->id);
+        $index = $this->getInt('slot');
         if (!is_null($item)) {
             $count = $item->sort($index);
-            $this->notify('Updated!', 'update');
+            $this->notify(sprintf('%s items udpated',$count), 'update');
         }
         return $this->defaultAction();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function arrangeAction( array $input = array()) : bool {
-        $id = $input['id'] ?? '';
+    protected function arrangeAction() : bool {
+        $id = $this->id;
         if($id ){
-            $db = Content::manager()->db();
-            $db->arrange($id);
-            $this->notify('Updated!', 'update');
+            $count = Content::manager()->db()->arrange($id);
+            $this->notify(sprintf('%s items udpated',$count), 'update');
         }
         return $this->defaultAction();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function moveAction( array $input = array()) : bool {
-        $id = $input['id'] ?? '';
-        $parent_id = $input['parent_id'] ?? '';
-        $clip = Content::load($id);
-        if( $id && $clip && $clip->moveto($parent_id) ){
+    protected function moveAction( ) : bool {
+        $clip = Content::load($this->id);
+        if( $clip && $clip->moveto($this->parent_id) ){
             $this->notify('Moved!','update');
         }
         return $this->defaultAction();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function moveupAction(array $input = array()): bool {
-        $clip = Content::load($input['id'] ?? '');
+    protected function moveupAction( ): bool {
+        $clip = Content::load( $this->id );
         if (!is_null($clip) && $clip->moveup()) {
             $this->notify('Moved!','update');
         }
@@ -370,43 +394,39 @@ class MainController extends Controller{
     }
 
     /**
-     * @param array $input
      * @return bool
      */
-    protected function movetoAction( array $input = array()) : bool {
-        return $this->moveAction($input);
+    protected function movetoAction( ) : bool {
+        return $this->moveAction();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function recoverAction( array $input = array()) : bool {
+    protected function recoverAction() : bool {
         $lostfiles = Content::findLost();
         $orphen = Content::restoreLost();
         $this->notify('Recovered %s lost items and %s unparented items',$lostfiles,$orphen);
         return $this->defaultAction();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function copynamesAction( array $input = array()) : bool {
-        $clip = Content::load($input['id'] ?? '');
+    protected function copynamesAction( ) : bool {
+        $clip = Content::load( $this->id );
         if($clip){
             $count = $clip->copynames();
-            $this->notify(sprintf('%s items updated!',$count),'update');
+            $this->notify(sprintf('%s items updated',$count));
         }
         else{
-            $this->notify('Invalid clip','error');
+            $this->notify('Invalid item','error');
         }
         return $this->defaultAction();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function propagateAction( array $input = array()) : bool {
-        $clip = Content::load($input['id'] ?? '');
+    protected function propagateAction( ) : bool {
+        $clip = Content::load( $this->id );
         if($clip){
             $count = $clip->copyroles();
             $this->notify(sprintf('%s items updated!',$count),'update');
@@ -417,11 +437,10 @@ class MainController extends Controller{
         return $this->defaultAction();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function layoutAction( array $input = array())  : bool{
-        $clip = Content::load($input['id'] ?? '');
+    protected function layoutAction( )  : bool{
+        $clip = Content::load( $this->id );
         if($clip){
             $count = $clip->copylayouts();
             $this->notify(sprintf('%s items updated!',$count),'update');
@@ -437,17 +456,15 @@ class MainController extends Controller{
  */
 class SettingsController extends Controller{
     /**
-     * @param array $input
      * @return bool
      */
-    protected function defaultAction(array $input = array()): bool {
+    protected function defaultAction( ): bool {
        
         View::create('settings')->view();
         
         return true;
     }
     /**
-     * @param array $input
      * @return bool
      */
     protected function nukeAction( ) : bool {
@@ -480,10 +497,9 @@ class PostController extends Controller{
         $this->set('page', 'coder_clipboard');
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function defaultAction(array $input = []): bool {
+    protected function defaultAction(): bool {
         $this->set('response','ok');
         return false; 
     }
@@ -491,7 +507,8 @@ class PostController extends Controller{
      * @param array $input
      * @return boolean
      */
-    protected function saveAction( array $input = []){
+    protected function saveAction( ){
+        $data = $this->data();
         return false;
     }
 }
@@ -504,14 +521,13 @@ class AjaxController extends Controller{
         parent::__construct();
     }
     /**
-     * @param array $input
      * @return bool
      */
-    protected function testAction( array $input = array()) {
-        var_dump($input);
-        $task = sprintf('%sAction',$input['task'] ?? 'default');
+    protected function testAction( ) {
+        var_dump($this->data());
+        $task = sprintf('%sAction',$this->action());
         if(method_exists($this, $task)){
-            var_dump( $this->$task($input));
+            var_dump( $this->$task());
         }
         var_dump($this->response());
         return true;
@@ -519,69 +535,107 @@ class AjaxController extends Controller{
 
 
     /**
-     * @param array $input
      * @return bool
      */
-    protected function defaultAction(array $input = []): bool {
+    protected function defaultAction(): bool {
         $this->set('response','ok');
         return true;
     }
     /**
-     * @param array $input
      * @return boolean
      */
-    protected function uploadAction( array $input = array()){
+    protected function uploadAction( ) : bool{
         if($this->canupload()){
-            $id = $input['id'] ?? '';
+            $id = $this->id;
             $clips = Uploader::create( 'upload' )->items( $id );
+            $this->notify(sprintf('%s items uploaded!',$clips));
             $response = array(
                 'count' => count($clips),
                 'files' => Content::clipmeta($clips),
                 );
             $this->fill($response);
+            return true;
         }
         else{
-            $this->set('response', 'error')->set('message','Cannot upload files');
+            $this->notify('Cannot upload files', 'error');
         }
-        return true;
+        return false;
     }
     /**
-     * 
-     * @param array $input
      * @return boolean
      */
-    protected function removeAction( array $input = array()){
+    protected function removeAction( ) : bool{
+        
+        $clip = Content::load($this->id);
+        
+        if($clip && $clip->remove()){
+                $this->notify(sprintf('%s removed!',$clip->name),'update');
+                return true;
+        }
+        else{
+            $this->notify('Invalid file','warning');
+        }
         
         return false;
     }
     /**
-     * @param array $input
      * @return boolean
      */
-    protected function moveAction( array $input = array()){
+    protected function moveAction( ) : bool{
+        $clip = Content::load($this->id);
+
+        if($clip && $clip->moveto($this->parent_id)){
+                $this->notify(sprintf('%s moved!',$clip),'update');
+                return true;
+        }
+        else{
+            $this->notify('Cannot move','warning');
+        }
         
         return false;
     }
     /**
-     * @param array $input
      * @return boolean
      */
-    protected function moveupAction( array $input = array()){
-        
+    protected function moveupAction( ) : bool{
+        $clip = Content::load($this->id);
+        if($clip && $clip->moveup()){
+            $this->notify('Moved!','update');
+            return true;
+        }
+        else{
+            $this->notify('Invalid item','error');
+        }
         return false;
     }
     /**
-     * @param array $input
      * @return boolean
      */
-    protected function setaclAction( array $input = array()){
+    protected function setaclAction( ) : bool {
+        $clip = Content::load($this->id);
+        if( $clip){
+            $count = $clip->copyroles();
+            $this->notify(sprintf('%s items updated',$count));
+            return true;
+        }
+        else{
+            $this->notify('Invalid item','error');
+        }
         return false;
     }
     /**
-     * @param array $input
      * @return boolean
      */
-    protected function setlayoutAction( array $input = array()){
+    protected function setlayoutAction( ) :bool{
+        $clip = Content::load($this->id);
+        if( $clip){
+            $count = $clip->copylayouts();
+            $this->notify(sprintf('%s items updated',$count));
+            return true;
+        }
+        else{
+            $this->notify('Invalid item','error');
+        }
         return false;
     }
 }
@@ -927,7 +981,7 @@ class View{
      * @return array
      */
     protected function listMessages( ){
-        return Controller::mailbox();
+        return Controller::log();
     }    
     /**
      * @return bool
