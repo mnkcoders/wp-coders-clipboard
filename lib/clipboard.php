@@ -133,25 +133,12 @@ class Clipboard{
                 return $clipboard->error404();
             case !$content->isReady():
                 return $clipboard->error404();
-            case $content->isDenied():
-                return $clipboard->errorDenied();
         }
-        //header('Content-Description: File Transfer');
-        //header(sprintf('Content-Type: %s',$content->type));
-        //header(sprintf('Content-Disposition: %s; filename=%s',
-       //         $content->getDisposition(),
-        //        $content->getFilename()));
-        //header(sprintf('Content-Length: %s',$content->size()));
-        foreach( $content->headers() as $header ){
+        foreach ($content->headers() as $header) {
             header($header);
         }
-        
-        if($content->isImage() && $content->isDenied()){
-            //$output = $content->buffer($content->isDenied());
-            $output = $content->buffer(true);
-            if($output){
-                $output->output();
-            }
+        if( $content->isDenied()){
+            $content->buffer(true)->output();
         }
         else{
             readfile($content->getPath());
@@ -393,10 +380,14 @@ class Clip{
         return explode(' ', $this->tags);
     }
     /**
+     * @param bool $filter
      * @return \CODERS\Clipboard\Clip[]
      */
-    public function listItems(){
-        return $this->_items;
+    public function listItems($filter = false ){
+        return $filter ? array_filter( $this->_items , function($item){
+            !$item->isDenied();
+        }) : $this->_items;
+        //return $this->_items;
     }
     /**
      * @return bool
@@ -505,7 +496,7 @@ class Clip{
      */
     public function countItems(){
         return $this->_count;
-    }        
+    }
     
     
     
@@ -767,7 +758,7 @@ class ImageMapper{
     private $_path = '';
     private $_type = '';
     private $_hidden = false;
-    private $_buffer = null;
+    private $_buffer = array();
     /**
      * @param string $path
      * @param string $type
@@ -781,6 +772,12 @@ class ImageMapper{
         $this->load( $this->_path, $this->_type,$this->_hidden);
     }
     /**
+     * @return \GdImage
+     */
+    private function buffer(){
+        return count($this->_buffer) ? $this->_buffer[count($this->_buffer)-1] : null;
+    }
+    /**
      * 
      * @param string $path
      * @param string $type
@@ -789,20 +786,22 @@ class ImageMapper{
      */
     private function load( $path ,$type , $hidden = false ) {
         // Load image based on type
-        $buffer = false;
         switch ($type) {
             case 'image/jpeg':
-                $buffer = imagecreatefromjpeg($path);
+                $this->_buffer[] = imagecreatefromjpeg($path);
                 break;
             case 'image/png':
-                $buffer = imagecreatefrompng($path);
+                $this->_buffer[] = imagecreatefrompng($path);
                 break;
             case 'image/gif':
-                $buffer = imagecreatefromgif($path);
+                $this->_buffer[] = imagecreatefromgif($path);
                 break;
         }
-        $this->_buffer = $buffer && $hidden ? $this->reduce( $buffer , 10 ) : $buffer;
-        return !is_null($this->_buffer);
+        $buffer = $this->buffer();
+        if( $buffer && $hidden ){
+            $this->_buffer[] = $this->reduce( $buffer );
+        }
+        return !is_null($this->buffer());
     }
     /**
      * 
@@ -815,41 +814,65 @@ class ImageMapper{
             $w = imagesx($buffer);
             $h = imagesy($buffer);
             // Reduce size
-            $small_w = max($size, intval($w * $size * 0.01));
-            $small_h = max($size, intval($h * $size * 0.01));
+            //$small_w = max($size, intval($w * $size * 0.01));
+            //$small_h = max($size, intval($h * $size * 0.01));
+            $small_w = $size;
+            $small_h = $size * $w / $h;
 
             // Downscale → Blur effect
             $small = imagecreatetruecolor($small_w, $small_h);
             imagecopyresampled($small, $buffer, 0, 0, 0, 0, $small_w, $small_h, $w, $h);
 
+            $this->blur($small,$size);
+
             // Upscale back to original size
             $output = imagecreatetruecolor($w, $h);
             imagecopyresampled($output, $small, 0, 0, 0, 0, $w, $h, $small_w, $small_h);
-
-            imagedestroy($buffer);
+            
+            $this->_buffer[] = $buffer;
             return $output;
+    }
+    /**
+     * @param \GdImage $buffer
+     * @param int $loops
+     * @return \GdImage
+     */
+    private function blur($buffer , $loops = 1){
+        for($i = 0 ; $i < $loops ; $i++ ){
+            imagefilter($buffer, IMG_FILTER_GAUSSIAN_BLUR , 999 );
+            //imagefilter($output, IMG_FILTER_SELECTIVE_BLUR, 999 );
+        }
+        return $buffer;
     }
     /**
      * @return bool
      */
     public function output() {
-        $mime = $this->_type;
-        $image = $this->_buffer;
-        if($image ){
-            switch($mime){
+        $buffer = $this->buffer();
+        if( $buffer ){
+            switch($this->_type){
                 case 'image/png':
-                    imagepng($image);
+                    imagepng($buffer);
                 case 'image/gif':
-                    imagegif($image);
+                    imagegif($buffer);
                 case 'image/jpeg':
-                    imagejpeg($image, null,90);
+                    imagejpeg($buffer, null,90);
             }
 
             // Cleanup
-            imagedestroy($image);
+            $this->clear();
             return true;
         }
         return false;
+    }
+    /**
+     * 
+     */
+    private function clear(){
+            foreach($this->_buffer as $b ){
+                imagedestroy($b);
+            }
+            $this->_buffer = array();
     }
 }
 
