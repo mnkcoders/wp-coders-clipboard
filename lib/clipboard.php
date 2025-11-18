@@ -138,7 +138,12 @@ class Clipboard{
             header($header);
         }
         if( $content->isDenied()){
-            $content->buffer(true)->output();
+            if($content->isImage()){
+                $content->buffer(true)->output();
+            }
+            else{
+                print ';)';
+            }
         }
         else{
             readfile($content->getPath());
