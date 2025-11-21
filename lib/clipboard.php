@@ -167,8 +167,11 @@ class Clipboard{
      * @param String $id
      * @return String
      */
-    public static function clipboard( $id = ''){
-        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_VIEW,$id));
+    public static function clipboard( $id = '',$context = ''){
+        return get_site_url(null, strlen($context) ?
+                sprintf('%s/%s/%s', CODER_CLIPBOARD_VIEW,$id,$context) :
+                sprintf('%s/%s', CODER_CLIPBOARD_VIEW,$id)
+            );
     }
     /**
      * @param String $id
@@ -263,13 +266,14 @@ class Clip{
     /**
      * @param array $input
      * @param bool $preload
+     * @param string $toplevel
      */
-    public function __construct( $input = array() , $preload = false ) {
+    public function __construct( $input = array() , $preload = false , $toplevel = '' ) {
         $this->_data['created_at'] = date('Y-m-d H:i:s');
         $this->populate( $input );
         if($preload){
             $this->_items = $this->loaditems();
-            $this->_tree = array_reverse( $this->loadtree() );
+            $this->_tree = array_reverse( $this->loadtree($toplevel) );
             $this->_count = count($this->_items);
         }
         else{
@@ -374,15 +378,16 @@ class Clip{
         return Clipboard::instance()->list( $this->id );
     }
     /**
+     * @param String $toplevel
      * @return array
      */
-    protected function loadtree( ) {
+    protected function loadtree( $toplevel = '' ) {
         $list = array( $this->id => $this->title );
-        $parent = self::load($this->parent_id);
-        if($parent){
-            return array_merge( $list, $parent->loadtree());
+        if($this->id === $toplevel){
+            return $list;
         }
-        return $list;
+        $parent = self::load($this->parent_id);
+        return $parent ? array_merge( $list, $parent->loadtree($toplevel)) : $list;
     }
     /**
      * @return String[]
@@ -527,25 +532,6 @@ class Clip{
         return $this->_count;
     }
     
-    
-    
-    /**
-     * @return array
-     */
-    public function outline( $toplevel = '' ){
-        if( $this->isValid()){
-            if(strlen($this->parent_id) && $this->parent_id !== $this->id && $this->id !== $toplevel){
-                $parent = self::load($this->parent_id);
-                $path = $parent->outline();
-                $path[ $this->id ] = $this->title;
-                return $path;
-            }
-            else{
-                return array( $this->id => $this->title );
-            }
-        }
-        return array();
-    }
     /**
      * @return boolean
      */
@@ -737,12 +723,13 @@ class Clip{
     /**
      * @param string $id
      * @param bool $preload
+     * @param string $top
      * @return \CODERS\Clipboard\Clip
      */
-    public static function load( $id = '' , $preload = false ){
+    public static function load( $id = '' , $preload = false , $top = ''){
         $db = new Data();
         $clipdata = $db->load($id);
-        return count($clipdata) ? new Clip( $clipdata , $preload ) : null;
+        return count($clipdata) ? new Clip( $clipdata , $preload ,$top) : null;
     }
 }
 

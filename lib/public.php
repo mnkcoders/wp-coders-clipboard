@@ -5,7 +5,9 @@ defined('ABSPATH') or die;
 
 add_action( 'coder_clipboard', function( $id = ''){
     
-    \CODERS\Clipboard\View::create( $id );
+    $context = filter_input(INPUT_GET, 'context') ?? '';
+    
+    \CODERS\Clipboard\View::create( $id , $context )->show();
 });
 
 /**
@@ -20,18 +22,13 @@ class View{
      * @var array
      */
     private $_log = array();
-    /** 
-     * @var string
-     */
-    private $_cid = '';
     
     /**
      * @param Clip $clip
      * @param string $context_id
      */
-    protected function __construct( Clip $clip = null , $context_id = '' ) {
+    protected function __construct( Clip $clip = null ) {
         $this->_clip = $clip;
-        $this->_cid = $context_id ?? $this->id;
     }
     
     /**
@@ -53,7 +50,7 @@ class View{
         switch(true){
             case preg_match('/^get_/', $name):
                 $get = sprintf('get%s', ucfirst(substr($name, 4)));
-                return method_exists($this, $get) ? $this->$get() : '';
+                return method_exists($this, $get) ? $this->$get(...$args) : '';
             case preg_match('/^list_/', $name):
                 $list = sprintf('list%s', ucfirst(substr($name, 5)));
                 return method_exists($this, $list) ? $this->$list() : array();
@@ -266,7 +263,8 @@ class View{
      * @return array
      */
     protected function listPath() {
-        return $this->hasContent() ? $this->clip()->outline() : array();
+        return $this->hasContent() ? $this->clip()->listPath() : array();
+        //return $this->hasContent() ? $this->clip()->outline() : array();
     }
     /**
      * @return \CODERS\Clipboard\Clip[]
@@ -286,7 +284,8 @@ class View{
      * @return string
      */
     public function getContext() {
-        return $this->_contextid;
+        $ids = array_keys($this->listPath());
+        return $ids[0] ?? '';
     }
     /**
      * @return string
@@ -295,10 +294,15 @@ class View{
         return $this->hasContent() ? $this->clip()->url() : ''; 
     }
     /**
+     * @param string $id
      * @return string
      */
-    protected function getClipboard() {
-        return $this->hasContent() ? $this->clip()->url(true) : '';
+    protected function getClipboard( $id = '' ) {
+        if(strlen($id) === 0){
+            $id = $this->id;
+        }
+        return \CODERS\Clipboard\Clipboard::clipboard($id,$this->getContext());
+        //return $this->hasContent() ? $this->clip()->url(true) : '';
     }
     
     
@@ -313,11 +317,10 @@ class View{
     
     /**
      * @param string $id
+     * @param string $root
      */
-    public static final function create( $id = '' ){
-        $content = Clip::load($id,true);
-        $view = new View( $content );
-        $view->show();
+    public static final function create( $id = '' ,$root = ''){
+        return new View( Clip::load($id,true,$root) );
     }
 }
 

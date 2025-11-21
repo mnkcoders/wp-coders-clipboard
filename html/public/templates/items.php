@@ -5,7 +5,7 @@
             <li class="item">
                 <a target="_self" class="content <?php
                     print $item->css ?>" href="<?php
-                    print $item->clipboard ?>" >
+                    print $this->get_clipboard($item->id,$this->get_context()) ?>" >
                     <?php if ($item->is_image()) : ?>
                         <img class="media" src="<?php
                             print $item->url ?>" alt="<?php
