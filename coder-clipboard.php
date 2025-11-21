@@ -40,7 +40,8 @@ add_action('template_redirect', function(){
     }
     $clipboard_id = get_query_var('clipboard_id');
     if( $clipboard_id ){
-        \CODERS\Clipboard\Clipboard::board( $clipboard_id );
+        //support path nodes
+        \CODERS\Clipboard\Clipboard::board( explode('/', trim($clipboard_id,'/') ) );
         exit;
     }
 });

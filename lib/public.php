@@ -3,11 +3,16 @@
 defined('ABSPATH') or die;
 
 
-add_action( 'coder_clipboard', function( $id = ''){
+add_action( 'coder_clipboard', function( $clipdata = array()){
     
-    $context = filter_input(INPUT_GET, 'context') ?? '';
-    
-    \CODERS\Clipboard\View::create( $id , $context )->show();
+    $id = $clipdata[0] ?? '';
+    $context = $clipdata[1] ?? $id;
+    $page = $clipdata[2] ?? '';
+    \CODERS\Clipboard\View::create(
+            $id,
+            $context,
+            strlen($page) ? intval($page) : 0
+    )->show();
 });
 
 /**

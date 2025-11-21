@@ -151,13 +151,13 @@ class Clipboard{
         exit;
     }
     /**
-     * @param string $id
+     * @param string $clipboard
      * @return true
      */
-    public static function board( $id = '' ) {
-        if(strlen($id)){
+    public static function board( $clipboard = array() ) {
+        if(count($clipboard)){
                 require_once sprintf('%s/lib/public.php', CODER_CLIPBOARD_DIR);
-                do_action('coder_clipboard',$id);
+                do_action('coder_clipboard',$clipboard);
                 return true;
         }
         return false;
@@ -193,13 +193,15 @@ class Clipboard{
      */
     public static function rewrite( $flush = false ){
 
-        add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
-        add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
-
+        add_rewrite_tag('^clipboard/(.+)/?$', '(.+)');
         $content = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_DATA);
-        $clipboard = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_VIEW);
-       
         add_rewrite_rule( $content , 'index.php?clip_id=$matches[1]' , 'top');
+
+        
+        //add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
+        add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
+        //$clipboard = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_VIEW);
+        $clipboard = sprintf('^%s/(.+)/?$', CODER_CLIPBOARD_VIEW);
         add_rewrite_rule( $clipboard, 'index.php?clipboard_id=$matches[1]', 'top');
 
         if( $flush ){
