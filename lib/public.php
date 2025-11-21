@@ -250,6 +250,13 @@ class View{
         return $this->hasContent() ? $this->clip()->countItems() : 0;
     }
     /**
+     * @return int
+     */
+    protected function countAvailable() {
+        return count($this->listAvailable());
+        //return $this->hasContent() ? $this->clip()->countItems() : 0;
+    }
+    /**
      * @return array
      */
     protected function listMessages() {
@@ -266,6 +273,14 @@ class View{
      */
     protected function listItems() {
         return $this->hasContent() ? $this->clip()->listItems() : array();
+    }
+    /**
+     * @return \CODERS\Clipboard\Clip[]
+     */
+    protected function listAvailable(){
+        return array_filter( $this->listItems(),function($item){
+            return !$item->isDenied();
+        });
     }
     /**
      * @return string
