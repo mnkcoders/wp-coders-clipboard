@@ -299,6 +299,7 @@ class MainController extends Controller{
     protected function defaultAction(): bool {
         
         $content = Content::load( $this->id ,true);
+        
         View::create('main')
                 ->setContent( $content )
                 ->view('default');
