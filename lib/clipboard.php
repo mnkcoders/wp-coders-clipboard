@@ -241,6 +241,12 @@ class Clip{
      * @var bool
      */
     private $_updated = false;
+    /**
+     * @var array
+     */
+    private $_tree = array(
+        //parent tree
+    );
     
     /**
      * @var \CODERS\Clipboard\Clip[]
@@ -263,6 +269,7 @@ class Clip{
         $this->populate( $input );
         if($preload){
             $this->_items = $this->loaditems();
+            $this->_tree = array_reverse( $this->loadtree() );
             $this->_count = count($this->_items);
         }
         else{
@@ -367,6 +374,17 @@ class Clip{
         return Clipboard::instance()->list( $this->id );
     }
     /**
+     * @return array
+     */
+    protected function loadtree( ) {
+        $list = array( $this->id => $this->title );
+        $parent = self::load($this->parent_id);
+        if($parent){
+            return array_merge( $list, $parent->loadtree());
+        }
+        return $list;
+    }
+    /**
      * @return String[]
      */
     public function headers(){
@@ -393,6 +411,12 @@ class Clip{
             !$item->isDenied();
         }) : $this->_items;
         //return $this->_items;
+    }
+    /**
+     * @return array
+     */
+    public function listPath() {
+        return $this->_tree;
     }
     /**
      * @return bool

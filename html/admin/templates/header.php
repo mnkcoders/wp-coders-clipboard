@@ -24,7 +24,7 @@
                             print $this->get_post($id) ?>" target="_self"><?php
                             print $title ?></a>
                     <?php else: ?>
-                        <span >
+                        <span data-id="<?php print $this->id ?>">
                             <?php print $title ?>
                         </span>
                         <span class="copy-link" data-link="<?php print $this->get_clipboard() ?>">
