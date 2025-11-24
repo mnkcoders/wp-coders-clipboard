@@ -1,32 +1,302 @@
+
+//Loader
+document.addEventListener('DOMContentLoaded', function () {
+
+    CodersClipboard.instance();
+
+    //console.log(CodersClipboard.instance());
+});
+
+
 /**
- * @class {CodersClipboard}
+ * 
+ * @type CodersClipboard
  */
-class CodersClipboard {
+class CodersClipboard{
     /**
-     * @param {String} list 
-     * @param {String} collection 
+     * @returns {CodersClipboard}
      */
-    constructor(list = 'clipboard-box', collection = 'collections ') {
-        this._ts = CodersClipboard.createTimeStamp();
-        this._view = new ClipboardView(list, collection);
-        this._list = document.getElementById(list);
-        this._collection = document.getElementsByClassName(collection);
+    constructor(){
+        if( CodersClipboard.__instance ){
+            return CodersClipboard.__instance;
+        }
+        this._clipboard = ClipboardContent.create();
+        this.initialize(  );
+    }
+    /**
+     * @param {ClipboardContent} cb
+     * @returns {bool}
+     */
+    initialize(  ){
+        this._drive = 'content';
+        if(this.clipboard().ready()){
+            this.setupFileInput();
+            this.setupDragDrop();
+            this.setupDragStart();
+            this.setupDragEnd();
+            this.setupDragOver();
+            this.setupDrop();
+            
+            this.setupCopy();
+            this.setupPaste();
+        }
+        this.setupTabs();        
+    }
+    /**
+     * @returns {CodersClipboard}
+     */
+    static instance(){
+        return CodersClipboard.__intsance || new CodersClipboard();
+    }
+    /**
+     * Selected drive
+     * @returns {String}
+     */
+    drive(){
+        return this._drive;
+    }
+    /**
+     * @returns {ClipboardContent}
+     */
+    clipboard(){
+        return this._clipboard;
+    }
+    /**
+     * @returns {Element}
+     */
+    collection(){
+        return this.clipboard() && this.clipboard().view().itemBox() || null;
+    }
+    /**
+     * 
+     */
+    setupTabs(){
+        const tabs = document.querySelector('.coders-clipboard .container .tab > .toggle');
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const id = urlParams.get('id');
-        this._contextId = id || '';
+        //tabs.prepend( document.createElement('span') );
+        if (tabs) {
+            tabs.addEventListener('click', function (e) {
+                e.preventDefault();
+                (this).parentNode.classList.toggle('collapsed');
+                return true;
+            });
+        }
+    }
+    
+    setupFileInput(){
+        const cb = this.clipboard();
+        //file upload
+        document.querySelectorAll('input[type=file]').forEach(input => {
+            if(input.classList.contains('ajax')){
+                //only allow on ajax mode, otherwise just use uploads button
+                input.addEventListener('change', (e) => {
+                    cb.upload(e.target.files);
+                });
+            }
+        });        
+    }
+    setupDragDrop(){
+        // Drag-drop
+        const cb = this.clipboard();
+        document.addEventListener('dragover', e => e.preventDefault());
+        document.addEventListener('drop', e => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length) {
+                cb.upload(e.dataTransfer.files);
+            }
+        });
+    }
+    setupPaste(){
+        const cb = this.clipboard();
+        // Paste
+        document.addEventListener('paste', (e) => {
+            if (e.clipboardData.files.length) {
+                cb.upload(e.clipboardData.files);
+            }
+            else {
+                cb.upload((e.clipboardData.items || [])
+                    .filter(item => item.kind === 'file')
+                    .map(item => item.getAsFile() || null)
+                    .filter(item => item !== null));
+            }
+        });        
+    }
+    /**
+     * 
+     */
+    setupDragEnd(){
+        const collection = this.collection();
+        document.addEventListener('dragend', (e) => {
+            e.preventDefault();
+            collection.classList.remove('move');
+            const source = collection.querySelector('li.item.moving');
+            source.classList.remove('moving');
+        });
+    }
+    /**
+     * 
+     */
+    setupDragStart(){
 
-        this._files = [];
+        const cb = this.clipboard();
+        const collection = this.collection();
 
+        document.addEventListener('dragstart', (e) => {
+            /*e.preventDefault();*/
+            const item = e.target.closest('li.item');
+            if (!item || !collection.contains(item)) return;
+
+            collection.classList.add('move');
+            item.classList.add('moving');
+
+            //console.log(item.dataset.id,item.dataset.slot);
+            const item_id = item.dataset.id;
+            const slot = item.dataset.slot;
+
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('application/json', JSON.stringify({ 'id': item_id, 'slot': slot })); // store item ID
+            //console.log('DRAG!!', item_id, slot);
+
+            // Create a custom drag image
+            //const ghost = e.target.cloneNode(true);
+            //const image = e.target.closest('img.media');
+            const image = item.querySelector('img.media');
+            const ghost = image.cloneNode(true);
+            if( ghost ){
+                console.log(ghost);
+                ghost.style.borderRadius = '50%';
+                ghost.style.position = 'absolute';
+                ghost.style.top = '-1000px';
+                ghost.style.left = '-1000px';
+                ghost.style.zIndex = '-1'; // avoid blocking other elements
+                ghost.style.pointerEvents = 'none';
+                document.body.appendChild(ghost);
+
+                // Wait for the browser to render the ghost before setting it as the drag image
+                requestAnimationFrame(() => {
+                    e.dataTransfer.setDragImage(ghost, 0, 0);
+                    // Optional cleanup
+                    setTimeout(() => ghost.remove(), 1000);
+                });            
+            }
+        });
+    }
+    /**
+     * 
+     */
+    setupDragOver(){
+        const collection = this.collection();
+        collection.addEventListener('dragover', (e) => {
+            e.preventDefault(); // allow drop
+        });
+    }
+    setupDrop(){
+        this.collection().addEventListener('drop', (e) => {
+            e.preventDefault();
+            const target = e.target;
+            console.log(target.closest('li.item'));
+            const targetItem = target.closest('li.item');
+            const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
+            const source_id = data.id;
+            const source_slot = parseInt(data.slot);
+
+            const action = target.classList.contains('placeholder') && 'sort' || target.classList.contains('caption') && 'move' || '';
+
+            switch (action) {
+                case 'move':
+                    const target_id = targetItem && targetItem.dataset.id || '';
+                    //const target_id = target.dataset.id;
+                    if (source_id !== target_id) {
+                        //console.log(`Moving ${source_id} to ${target_id}`);
+                        cb.move(source_id, target_id);
+                    }
+                    break;
+                case 'sort':
+                    const slot = targetItem && parseInt(targetItem.dataset.slot) || false;
+                    //const slot = target.dataset.slot;
+                    if ( slot !== false && source_slot !== slot) {
+                        //console.log(`Moving ${source_id} to slot ${slot}`);
+                        cb.sort(source_id, slot);
+                    }
+                    break;
+                default:
+                    //console.log(`No target selected`);
+                    break;
+            }
+        });
+    }
+    /**
+     * 
+     */
+    setupCopy(){
+        const copylink = document.querySelector('.copy-link');
+        if( copylink ){
+            copylink.addEventListener('click', function(e){
+                e.preventDefault();
+                const link = this.dataset.link || '';
+                if( link ){
+                    navigator.clipboard.writeText(link)
+                    .then(() => {
+                        ClipboardView.notify('URL copied to clipboard!','updated');
+                    })
+                    .catch(err => {
+                        ClipboardView.notify('Failed to copy: ', err);
+                    });
+                }
+                return true;
+            });
+        }        
+    }
+}
+
+
+/**
+ * @class {ClipboardContent}
+ */
+class ClipboardContent {
+    /**
+     * @param {String} uploadBox 
+     * @param {String} itemBox 
+     */
+    constructor(uploadBox = '', itemBox = '') {
+        this._ts = this.timestamp();
+        this._view = new ClipboardView(uploadBox, itemBox);
         this._tasks = [];
-
-        console.log(this);
+        this._timeout = 200;
+        //console.log(this);
+        this._headerDone = false;
+    }
+    /**
+     * @param {String} uploads 
+     * @param {String} items 
+     * @returns {ClipboardContent}
+     */
+    static create( uploads = 'clipboard-box', items = 'collections' ){
+        return new ClipboardContent(uploads , items);
     }
     /**
      * @returns {ClipboardView}
      */
     view() {
         return this._view;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    ready(){
+        return !!(this.view().uploadBox() && this.view().itemBox());
+    }
+    /**
+     * @returns {Boolean}
+     */
+    isClipboard(){
+        return this.view().hasClipboard();
+    }
+    /**
+     * @returns {Boolean}
+     */
+    isMain(){
+        return !this.hasContext();
     }
     /**
      * @param {Boolean} listReady
@@ -36,9 +306,9 @@ class CodersClipboard {
         return listReady ? this._tasks.filter(task => task.ready() ) : this._tasks;
     }
     /**
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
-    clear(){
+    reset(){
         this._tasks = [];
         return this;
     }
@@ -46,261 +316,116 @@ class CodersClipboard {
      * @returns {String}
      */
     contextId() {
-        return this._contextId;
+        return this.view().contextId();
     }
     /**
      * @returns {Boolean}
      */
-    hasContextId() {
-        return this.contextId().length > 0;
+    hasContext(){
+        return !!this.view().contextId();
     }
     /**
      * @returns {Boolean}
      */
-    isMain() {
-        return this.hasContextId();
+    isHeader(){
+        return !this._headerDone;
     }
     /**
-     * @returns {String}
-     */
-    static createTimeStamp() {
-        return new Date().toISOString();
-    }
-    /**
-     * 
      * @returns {String}
      */
     timestamp() {
-        return this._ts;
+        return new Date().toISOString();
     }
     /**
-     * @returns {Element}
+     * @returns {Object}
      */
-    list() {
-        return this._list;
-    }
-    /**
-     * @returns {Element}
-     */
-    collection() {
-        return [...this._collection][0] || null;
+    contextData(){
+        const data = { action: 'clipboard' };
+        if( this.hasContext()){
+            data.id = this.contextId();
+        }
+        return data;
     }
     /**
      * @param {File[]} files 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     queue(files) {
-        for (const file of files) {
-            this.add(file);
-        }
-        /*files.map( file => new ClipTask('upload',file,this.uploaded)).forEach( task => {
-            task.content().context_id = this.contextId();
+        this._headerDone = false;
+        Array.from(files).forEach(file => {
+            const task = new UploadTask(
+                file,
+                this.contextData(),
+                this.uploaded.bind(this)
+            );
             this.view().attach( task );
-            this.tasks().push( task )
-        });*/
-        this.view().clear();
+            this.tasks().push( task );
+        });
+        this.view().clearEmptyBlock().busy();
         return this.wait2Next()
     }
     /**
-     * @param {File} file 
-     * @returns {CodersClipboard}
-     */
-    add(file) {
-        const item = document.createElement('li');
-        item.className = 'item';
-        //item.textContent = `Uploading: ${file.name}`;
-        const reader = new FileReader();
-        reader.onload = e => {
-            const preview = CodersClipboard.preview(file, e.target.result);
-            item.appendChild(preview);
-        };
-        this.list().appendChild(item);
-        file._uploadElement = item; // Store reference
-        reader.readAsDataURL(file)
-
-        this._files.push(file);
-        return this;
-    }
-    /**
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     next() {
-        return this._files.length ? this.onUpload(this._files.shift()) : this;
-
-        const ready = this.tasks(true);
-        if( ready.length ){
-            ready.shift().send();
-        }
+        const task = this.tasks(true)[0] || null;
+        console.log('Next Task',task);
+        task && task.send() || this.view().idle();
         return this;
     }
     /**
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     wait2Next(){
-        window.setTimeout(() => { this.next() }, 300);
+        window.setTimeout(() => { this.next() }, this._timeout);
         return this;
     }
     /**
      * 
-     * @param {Object} response 
+     * @param {Object[]} response 
      * @param {ClipTask} task 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
-    uploaded(response, task = null) {
-        console.log('UPLOADED!!',response);
-        if (response) {
-            const container = task && task.reference() || null;
-            (response.content || []).forEach(item => this.createItem(item));
-            if( container ){
-                container.remove();
+    uploaded(response = {}, task = null) {
+        console.log('UPLOADED!!',response,task);
+        if (response && response.content ) {
+            const view = this.view();
+            //console.log( this.isHeader(),this.isMain());
+            if( this.isHeader() || !this.isMain()){
+                response.content.forEach(item => {
+                    view.createItem(item)
+                    if( this.isMain()){
+                        this.setHeader(item.id);
+                    }
+                });
+            }
+            //console.log( typeof task );
+            const preview = task && task.ref() || null;
+            if( preview ){
+                preview.remove();
             }
             this.wait2Next();
         }
         return this;
     }
     /**
-     * @returns {Element}
+     * @param {String} id 
+     * @returns {ClipboardContent}
      */
-    static preview(file, buffer) {
-        if (file instanceof File) {
-            switch (file.type) {
-                case 'image/png':
-                case 'image/gif':
-                case 'image/jpeg':
-                    const image = document.createElement('img');
-                    image.className = 'content media';
-                    image.src = buffer;
-                    image.alt = file.name;
-                    return image;
-                default:
-                    const attachment = document.createElement('span');
-                    attachment.className = 'content attachment';
-                    attachment.textContent = file.name;
-                    return attachment;
-            }
-        }
-        const empty = document.createElement('span');
-        empty.className = 'content empty';
-        return empty;
-    }
-    /**
-     * @param {File} file 
-     * @returns {CodersClipboard}
-     */
-    onUpload(file) {
-        const formData = new FormData();
-        formData.append('action', 'clipboard_action');
-        formData.append('task', 'upload');
-        formData.append('upload', file);
-        if (this.hasContextId()) {
-            formData.append('id', this.contextId());
-        }
-
-        fetch(ajaxurl, { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(json => this.afterUpload(file, json.data || null))
-            .catch(err => this.failed(file, err));
-
-        return this;
-    }
-    /**
-     * 
-     * @param {File} file 
-     * @param {Object} response 
-     */
-    afterUpload(file, response) {
-        if (response) {
-            //console.log('UPLOADED!!',response);
-            const container = file._uploadElement;
-            (response.content || []).forEach(item => this.createItem(item));
-            container.remove();
-            this.wait2Next();
-        }
-    }
-    /**
-     * @param {File} file 
-     * @param {String} error 
-     */
-    failed(file, error) {
-        const container = file._uploadElement;
-        container.textContent = `Failed: ${file.name}`;
-        container.classList.add('error');
-        console.error('ERROR', file, error);
-        this.wait2Next();
-    }
-    /**
-     * @param {Object} itemData 
-     * @returns {CodersClipboard}
-     */
-    createItem(itemData) {
-        if (!this.isMain() || !this.hasContextId()) {
-            this.collection() && this.collection().appendChild(CodersClipboard.showItem(itemData));
-        }
-        if (!this.hasContextId() && itemData.id) {
-            //console.log(this.contextId(),itemData.id,itemData.parent_id);
-            this._contextId = itemData.id;
+    setHeader( id = ''){
+        if(id ){
+            this.tasks(true).filter(task => task.hasAttachment()).forEach( task => task.data().id = id );
+            //console.log(this.tasks(true));
+            this._headerDone = true;
         }
         return this;
     }
-    /**
-     * @param {Object} itemData 
-     * @returns {Element}
-     */
-    static showItem(itemData) {
-        //console.log(itemData,CodersClipboard.isMedia(itemData.type || ''));
-        const item = document.createElement('li');
-        item.className = 'item';
-        const placeholder = document.createElement('span');
-        placeholder.className = 'placeholder';
-        const content = document.createElement('span');
-        content.className = 'content';
-
-        if (CodersClipboard.isMedia(itemData.type || '')) {
-            const image = document.createElement('img');
-            image.src = itemData.link;
-            image.alt = itemData.name;
-            image.title = itemData.title;
-            image.className = 'media';
-            content.appendChild(image);
-        }
-
-        const link = document.createElement('a');
-        link.href = itemData.post || '#';
-        link.target = '_self';
-        link.className = 'cover';
-        link.textContent = itemData.title;
-
-        content.appendChild(link);
-        item.appendChild(placeholder);
-        item.appendChild(content);
-
-        return item;
-    }
-    /**
-     * @param {String} type 
-     * @returns {Boolean}
-     */
-    static isMedia(type = '') {
-        switch (type) {
-            case 'image/jpeg':
-            case 'image/jpg':
-            case 'image/gif':
-            case 'image/png':
-                return true;
-        }
-        return false;
-    }
-
-
-
-
     /**
      * 
      * @param {DataTransferItem[]} items 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     upload(items = []) {
-        //console.log('UPLOADING... ', items);
         if (items.length) {
             this.queue(items);
         }
@@ -309,29 +434,30 @@ class CodersClipboard {
     /**
      * @param {Blob} blob 
      * @param {String} filename 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
-    paste(blob, filename = '') {
+    /*paste(blob, filename = '') {
         if (filename.length === 0) {
-            filename = CodersClipboard.createTimeStamp();
+            filename = this.timestamp();
         }
         const file = new File([blob], filename, { type: blob.type });
         return this.queue([file]);
-    }
+    }*/
 
     /**
      * 
      * @param {String} id 
      * @param {String} parent_id 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     move(id = '', parent_id = '') {
         if (id) {
-            console.log(`Moving [${id}] to [${parent_id || 'ROOT'}]`);
-            this.onUpdate('move', { 'id': id, 'parent_id': parent_id }, this.removeItem);
-            
-            //const task = new ClipTask('move',{'id':id,'parent_id':parent_id'context_id':this.contextId()},this.view().remove);
-            //task.send(this.view().remove);
+            //console.log(`Moving [${id}] to [${parent_id || 'ROOT'}]`);
+            const _view = this.view();
+            const task = new ClipTask('move',
+                {'id':id,'parent_id':parent_id,'context_id':this.contextId()},
+                _view.remove.bind(_view));
+            task.send();
         }
 
         return this;
@@ -339,109 +465,19 @@ class CodersClipboard {
     /**
      * @param {String} id 
      * @param {Number} slot 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     sort(id = '', slot = 0) {
         if (id) {
-            console.log(`Moving [${id}] to slot [${slot}]`);
-            this.onUpdate('sort', { 'id': id, 'slot': slot }, this.moveToSlot);
-            
-            //const task = new ClipTask('sort',{'id':id,'slot':slot,'context_id':this.contextId()},this.view().sort);
-            //task.send(this.view().sort);
+            //console.log(`Moving [${id}] to slot [${slot}]`);
+            const _view = this.view();
+            const task = new ClipTask(
+                    'sort',
+                    {'id':id,'slot':slot,'context_id':this.contextId()},
+                    _view.sort.bind(_view));
+            task.send();
         }
         return this;
-    }
-
-    /**
-     * @param {String} task
-     * @param {Object} data
-     * @returns {CodersClipboard}
-     */
-    onUpdate(task = '', data, callback = null) {
-        const formData = new FormData();
-
-        Object.keys(data).forEach(key => formData.append(key, data[key]));
-
-        if (this.hasContextId()) {
-            formData.append('context_id', this.contextId());
-        }
-        formData.append('action', 'clipboard_action');
-        formData.append('task', task || '');
-
-        fetch(ajaxurl, { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(json => this.afterUpdate(json.data || null, callback))
-            .catch(err => this.updateFailed(task, data, err));
-
-        return this;
-    }
-    /**
-     * 
-     * @param {String} task 
-     * @param {Object} data 
-     * @param {Object} error 
-     * @returns {CodersClipboard}
-     */
-    updateFailed(task, data, error) {
-        console.log('Error', task, data, error);
-        return this;
-    }
-    /**
-     * @param {String} task 
-     * @param {Object} response 
-     * @param {Function} callback 
-     * @returns {CodersClipboard}
-     */
-    afterUpdate(response, callback = null) {
-        console.log(response);
-        if (typeof callback === 'function') {
-            const data = Object.values(response);
-            callback.call(this, ...data);
-        }
-        return this;
-    }
-    /**
-     * 
-     * @param {String} id 
-     * @returns {Element}
-     */
-    getItem(id) {
-        return this.collection().querySelector(`li.item[data-item="${id}"]`);
-    }
-    /**
-     * 
-     * @param {String} id 
-     * @returns {CodersClipboard}
-     */
-    removeItem(id = '') {
-        if (id) {
-            const item = this.getItem(id);
-            console.log(item);
-            if (item) item.remove();
-        }
-        return this;
-    }
-    moveToSlot(id = '', slot = 0) {
-
-        const item = this.getItem(id);
-
-        const placeholders = this.collection().querySelectorAll('.placeholder');
-
-        // Find the placeholder by slot index
-        const target = [...placeholders].find(p => p.dataset.slot == slot);
-        if (!target) return;
-
-        // Detach the item
-        item.remove();
-
-        // Insert before the target placeholder's parent (which is the target li.item)
-        const selected = target.closest('li.item');
-        if (selected) {
-            this.collection().insertBefore(item, selected);
-        } else {
-            // If no item found (e.g., last placeholder), just append
-            this.collection().appendChild(item);
-        }
     }
 }
 
@@ -454,13 +490,20 @@ class ClipTask {
      * @param {Object} data
      * @param {Function} callback
      */
-    constructor(task = '', data = null , callback = null) {
+    constructor(task = 'default', data = {} , callback = null) {
         this._status = ClipTask.Status.Ready;
         this._task = task || '';
         this._data = data || {};
         //this._contextId = context_id;
         this._ref = null;
         this._callback = callback || null;
+        console.log('New Task',this);
+    }
+    /**
+     * @returns {String}
+     */
+    url(){
+        return ajaxurl;
     }
     /**
      * @returns {String}
@@ -489,31 +532,31 @@ class ClipTask {
     /**
      * @returns {Object|File}
      */
-    content(){
+    data(){
         return this._data;
     }
     /**
      * @returns {Boolean}
      */
     hasData(){
-        return Object.keys(this.content()).length > 0;
+        return Object.keys(this.data()).length > 0;
     }
     /**
      * @returns {Boolean}
      */
-    hasFile(){
-        return this.content() instanceof File;
+    hasAttachment(){
+        return false;
     }
     /**
      * @returns {Boolean}
      */
     valid(){
-        return this.task().length && this.hasData();
+        return !!this.task();
     }
     /**
      * @returns {Element}
      */
-    reference(){
+    ref(){
         return this._ref;
     }
     /**
@@ -528,20 +571,20 @@ class ClipTask {
      * @returns {Boolean}
      */
     hasRef(){
-        return this.reference() !== null;
+        return this.ref() !== null;
     }
     /**
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
     send() {
         if ( this.valid() ) {
             this._status = ClipTask.Status.Running;
-            const formData = this.createForm(this.content());
-
-            fetch(ajaxurl, { method: 'POST', body: formData })
+            const formData = this.createForm(this.data());
+            console.log( `Sending ${this.url()}`, formData );
+            fetch(this.url(), { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(response => this.success(response.data))
-                .catch(error => this.failure(data, error));
+                .catch(error => this.failure(error));
         }
         return this;
     }
@@ -549,30 +592,27 @@ class ClipTask {
      * @param {Object} response 
      */
     success( response = null ) {
+        console.log( 'RESPONSE',response );
         if (response) {
             const callback = this._callback;
-            if( callback ){
-                callback.call(this, response , this._data );
+            if( typeof callback === 'function' ){
+                callback(response , this );
+                //callback(...Object.values(response) , this );
             }
             else{
-                console.log(response , this._data);
+                console.log(response , this);
             }
         }
-        return this.complete();
+        console.log('Task Completed', this );
+        this._status = ClipTask.Status.Complete;
+        return this;
     }
     /**
-     * @param {Object} content 
      * @param {Object} error 
      */
-    failure(content, error) {
-        console.log('ERROR', error, this.task(), content);
-        return this.complete();
-    }
-    /**
-     * @returns {ClipTask}
-     */
-    complete(){
-        this._status = ClipTask.Status.Complete;
+    failure(error) {
+        console.log('Task Error', error, this );
+        this._status = ClipTask.Status.Failed;
         return this;
     }
     /**
@@ -581,20 +621,12 @@ class ClipTask {
      */
     createForm(input = {}) {
         const content = new FormData();
-        content.action = 'clipboard_action';
-        content.task = this.task();
-        if (input instanceof File) {
-            //create upload package
-            //content.task = 'upload';
-            content.upload = input;
-            if( input.hasOwnProperty('context_id')){
-                content.context_id = input.context_id;
-            }
+        content.append('action', 'clipboard_action');
+        content.append('task',this.task());
+        if( this.hasAttachment()){
+            content.append('upload',this.attachment());
         }
-        else {
-            //just prepare all input fields
-            Object.keys(input).forEach(key => content.append(key, input[key]));
-        }
+        Object.keys(input).forEach(key => content.append(key, input[key]));
         return content;
     }
 }
@@ -602,16 +634,50 @@ class ClipTask {
  * @type {ClipTask.Status}
  */
 ClipTask.Status = {
-    'Ready': 'ready',
-    'Running': 'running',
-    'Complete': 'complete',
+    Ready: 'ready',
+    Running: 'running',
+    Complete: 'complete',
+    Failed: 'failed',
 };
+/**
+ * 
+ */
+class UploadTask extends ClipTask{
+
+    constructor( file = null ,  data = {} , callback ){
+        super('upload',data, callback );
+        this._attachment = file instanceof File && file || null;
+    }
+    /**
+     * @returns {File}
+     */
+    attachment(){
+        return this._attachment || null;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    hasAttachment(){
+        return !!this.attachment();
+    }
+}
+
+
+
 /**
  * @type {ClipItem}
  */
 class ClipItem {
-    constructor() {
-
+    /**
+     * @param {String} id
+     * @param {Number} slot
+     * @param {String} context
+     * @returns {ClipItem}
+     */
+    constructor( id = '', slot = 0 , context = '') {
+        this.id = id || '';
+        this.slot = slot || 0;
+        this.context_id = context || '';
     }
     /**
      * @param {String} data
@@ -632,17 +698,13 @@ class ClipItem {
         var byteArrays = [];
 
         for (var offset = 0; offset < byteCharacters.length; offset += 512) {
-            var slice = byteCharacters.slice(offset, offset + 512);
-
-            var byteNumbers = new Array(slice.length);
-            for (var i = 0; i < slice.length; i++) {
+            const slice = byteCharacters.slice(offset, offset + 512);
+            let byteNumbers = new Array(slice.length);
+            for (let i = 0; i < slice.length; i++) {
                 byteNumbers[i] = slice.charCodeAt(i);
             }
-
-            var byteArray = new Uint8Array(byteNumbers);
-            byteArrays.push(byteArray);
+            byteArrays.push(new Uint8Array(byteNumbers));
         }
-
         return new Blob(byteArrays, { type: contentType });
     }    
 }
@@ -651,51 +713,45 @@ class ClipItem {
  */
 class ClipboardView {
     /**
-     * @param {String} list 
-     * @param {String} collection 
+     * @param {String} uploadBox 
+     * @param {String} itemBox 
      */
-    constructor(list, collection) {
-        this._queue = document.getElementById(list);
-        this._collection = document.getElementsByClassName(collection);
-
-        this._contextId = this.importContext();
+    constructor(uploadBox, itemBox) {
+        //this._queue = document.getElementById(list);
+        this._uploader = [...document.getElementsByClassName(uploadBox)][0] || null;
+        this._collection = [...document.getElementsByClassName(itemBox)][0] || null;
+        this._container = this.importContext() || '';
+    }
+    /**
+     * @returns {Boolean}
+     */
+    hasClipboard(){
+        return this.itemBox() !== null && this.uploadBox() !== null;
     }
     /**
      * @returns {String}
      */
     importContext(){
         const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('id') || '';
+        return urlParams.get('context_id') || '';
     }
     /**
      * @returns {String}
      */
     contextId() {
-        return this._contextId;
-    }
-    /**
-     * @returns {Boolean}
-     */
-    hasContext() {
-        return this.contextId().length > 0;
-    }
-    /**
-     * @returns {Boolean}
-     */
-    isMain() {
-        return !this.hasContext();
+        return this._container;
     }
     /**
      * @returns {Element}
      */
-    queue() {
-        return this._queue;
+    uploadBox() {
+        return this._uploader;
     }
     /**
      * @returns {Element}
      */
-    collection() {
-        return [...this._collection][0] || null;
+    itemBox() {
+        return this._collection;
     }
     /**
      * @param {String} name 
@@ -703,7 +759,7 @@ class ClipboardView {
      * @param {String} content
      * @returns {Element}
      */
-    element(name = 'span', attributes = {}, content = '') {
+    static element(name = 'span', attributes = {}, content = '') {
         const element = document.createElement(name);
         Object.keys(attributes).forEach(att => {
             element[att] = attributes[att];
@@ -718,31 +774,17 @@ class ClipboardView {
      * @returns {ClipboardView}
      */
     attach(task) {
-        if (task && task.hasFile()) {
-            const file = task.content();
-            const item = this.element('li', { 'className': 'item' });
+        if (task && task.hasAttachment()) {
+            const file = task.attachment();
+            const item = ClipboardView.element('li', { 'className': 'item' });
             const reader = new FileReader();
             reader.onload = (e) => {
                 const preview = this.preview(file, e.target.result);
                 item.appendChild(preview);
             };
-            this.queue().appendChild(item);
+            this.uploadBox().appendChild(item);
             task.setRef(item); // Store reference
             reader.readAsDataURL(file)
-        }
-        return this;
-    }
-    /**
-     * @param {Object} itemData 
-     * @returns {ClipboardView}
-     */
-    addItem(itemData = {}) {
-        if (!this.isMain() || !this.hasContext()) {
-            this.collection() && this.collection().appendChild(this.createItem(itemData));
-        }
-        if (!this.hasContext() && itemData.id) {
-            //console.log(this.contextId(),itemData.id,itemData.parent_id);
-            this._contextId = itemData.id;
         }
         return this;
     }
@@ -751,29 +793,33 @@ class ClipboardView {
      * @returns {Element}
      */
     createItem(itemData = {}) {
-        //console.log(itemData,CodersClipboard.isMedia(itemData.type || ''));
-        const item = this.element('li', { 'className': 'item' });
-        const content = this.element('span', { 'className': 'content' });
+        //console.log(itemData,this.isMedia(itemData.type || ''));
+        const item = ClipboardView.element('li', { 'className': 'item' });
+        const content = ClipboardView.element('span', { 'className': 'content' });
 
         if (this.isMedia(itemData.type || '')) {
-            content.appendChild(this.element('img', {
+            content.appendChild(ClipboardView.element('img', {
                 'src': itemData.link,
                 'alt': itemData.name,
                 'title': itemData.title || itemData.name,
                 'className': 'media',
             }));
         }
+        else{
+            content.appendChild(ClipboardView.element('span',{'className':'dashicons dashicons-media-document'}));
+        }
 
-        content.appendChild(this.element('a', {
+        content.appendChild(ClipboardView.element('a', {
             'href': itemData.post || '#',
             'target': '_self',
-            'className': 'cover'
+            'className': 'caption'
         }, itemData.title));
 
-        item.appendChild(this.element('span', { 'className': 'placeholder' }));
+        item.appendChild(ClipboardView.element('span', { 'className': 'placeholder' }));
         item.appendChild(content);
+        this.itemBox().appendChild(item);
 
-        return item;
+        return this;
     }
     /**
  * @param {String} type 
@@ -785,6 +831,7 @@ class ClipboardView {
             case 'image/jpg':
             case 'image/gif':
             case 'image/png':
+            case 'image/webp':
                 return true;
         }
         return false;
@@ -799,26 +846,40 @@ class ClipboardView {
                 case 'image/png':
                 case 'image/gif':
                 case 'image/jpeg':
-                    return this.element('img', {
+                    return ClipboardView.element('img', {
                         'className': 'content media',
                         'src': buffer,
                         'alt': file.name
                     });
                 default:
-                    return this.element('span', {
+                    return ClipboardView.element('span', {
                         'className': 'content attachment'
                     },
                         file.name);
             }
         }
-        return this.element('span', { 'className': 'content empty' });
+        return ClipboardView.element('span', { 'className': 'content empty' });
+    }
+    /**
+     * @returns {ClipboardView}
+     */
+    idle(){
+        this.uploadBox().classList.remove('running');
+        return this;
+    }
+    /**
+     * @returns {ClipboardView}
+     */
+    busy(){
+        this.uploadBox().classList.add('running');
+        return this;
     }
     /**
      * 
      * @returns {ClipboardView}
      */
-    clear() {
-        const empty = this.collection().querySelector('li.empty');
+    clearEmptyBlock() {
+        const empty = this.itemBox().querySelector('li.empty');
         if (empty) {
             empty.remove();
         }
@@ -830,151 +891,63 @@ class ClipboardView {
      * @returns {Element}
      */
     getItem(id) {
-        return this.collection().querySelector(`li.item[data-item="${id}"]`);
+        console.log(this.itemBox(),`li.item[data-id="${id}"]`,this.itemBox().querySelector(`li.item[data-id="${id}"]`))
+        return this.itemBox().querySelector(`li.item[data-id="${id}"]`);
     }
     /**
      * 
      * @param {String} id 
-     * @returns {CodersClipboard}
+     * @returns {ClipboardContent}
      */
-    remove(id = '') {
-        if (id) {
-            const item = this.getItem(id);
+    remove( response = {}) {
+        if ( response && response.id) {
+            const item = this.getItem(response.id);
+            console.log(response.id,item);
             if (item) item.remove();
         }
         return this;
     }
-    sort(id = '', slot = 0) {
-
-        const item = this.getItem(id);
-        const placeholders = this.collection().querySelectorAll('.placeholder');
-
-        // Find the placeholder by slot index
-        const target = [...placeholders].find(p => p.dataset.slot == slot);
-        if (!target) return;
-
-        // Detach the item
-        item.remove();
-
-        // Insert before the target placeholder's parent (which is the target li.item)
-        const selected = target.closest('li.item');
-        if (selected) {
-            this.collection().insertBefore(item, selected);
-        } else {
-            // If no item found (e.g., last placeholder), just append
-            this.collection().appendChild(item);
+    sort( response = {} ) {
+        if( response.id ){
+            const id = response.id;
+            const slot = parseInt(response.slot);
+            const item = this.getItem(id);
+            const placeholders = this.itemBox().querySelectorAll('.placeholder');
+    
+            // Find the placeholder by slot index
+            const target = [...placeholders].find(p => p.dataset.slot == slot);
+            if (!target) return;
+    
+            // Detach the item
+            item.remove();
+    
+            // Insert before the target placeholder's parent (which is the target li.item)
+            const selected = target.closest('li.item');
+            if (selected) {
+                this.itemBox().insertBefore(item, selected);
+            } else {
+                // If no item found (e.g., last placeholder), just append
+                this.itemBox().appendChild(item);
+            }    
+        }
+    }
+    /**
+     * @param {String} content 
+     * @param {String} type 
+     */
+    static notify( content , type = 'info'){
+        const notifier = document.querySelector('.coders-clipboard .notifier') || null;
+        if( notifier ){
+            const message = ClipboardView.element('div',{
+                'className':'is-dismissible notice type-' + type
+            },content);
+            notifier.appendChild(message);
+            window.setTimeout( () => {
+                message.remove();
+            }, 2000 );
         }
     }
 }
-
-
-//Loader
-document.addEventListener('DOMContentLoaded', function () {
-
-    const cb = new CodersClipboard();
-    const collection = cb.collection();
-
-
-    // File input
-    document.querySelectorAll('input[type=file]').forEach(input => {
-        input.addEventListener('change', (e) => {
-            const items = e.target.files;
-            cb.upload(e.target.files);
-        });
-    });
-
-    // Drag-drop
-    document.addEventListener('dragover', e => e.preventDefault());
-    document.addEventListener('drop', e => {
-        e.preventDefault();
-        if (e.dataTransfer.files.length) {
-            const items = e.dataTransfer.files;
-            cb.upload(items);
-        }
-    });
-
-    // Paste
-    document.addEventListener('paste', (e) => {
-        const files = e.clipboardData.files;
-        if (files.length) {
-            cb.upload(files);
-        }
-        else {
-            cb.upload((e.clipboardData.items || [])
-                .filter(item => item.kind === 'file')
-                .map(item => item.getAsFile() || null)
-                .filter(item => item !== null));
-        }
-    });
-
-    document.addEventListener('dragstart', (e) => {
-
-        const item = e.target.closest('li.item');
-        if (!item || !collection.contains(item)) return;
-
-        collection.classList.add('move');
-        item.classList.add('moving');
-
-        const item_id = item.querySelector('.caption').dataset.id;
-        const slot = item.querySelector('.placeholder').dataset.slot;
-
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('application/json', JSON.stringify({ 'id': item_id, 'slot': slot })); // store item ID
-        console.log('DRAG!!', item_id, slot);
-
-        // Create a custom drag image
-        //const ghost = e.target.cloneNode(true);
-        const image = e.target.closest('img.media');
-        const ghost = image && image.cloneNode(true) || e.target.cloneNode(true);
-        console.log('ghost', e.target);
-        ghost.style.position = 'absolute';
-        ghost.style.top = '-1000px';
-        ghost.style.left = '-1000px';
-        document.body.appendChild(ghost);
-        e.dataTransfer.setDragImage(ghost, 0, 0);
-
-        // Clean up later
-        setTimeout(() => ghost.remove(), 0);
-    });
-
-    document.addEventListener('dragend', (e) => {
-        collection.classList.remove('move');
-        const source = collection.querySelector('li.item.moving');
-        source.classList.remove('moving');
-    });
-
-    collection.addEventListener('dragover', (e) => {
-        e.preventDefault(); // allow drop
-    });
-    collection.addEventListener('drop', (e) => {
-        const target = e.target;
-        const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
-        const source_id = data.id;
-        const source_slot = parseInt(data.slot);
-
-        const action = target.classList.contains('placeholder') && 'sort' || target.classList.contains('cover') && 'move' || '';
-
-        switch (action) {
-            case 'move':
-                const target_id = target.dataset.id;
-                if (source_id !== target_id) {
-                    //console.log(`Moving ${source_id} to ${target_id}`);
-                    cb.move(source_id, target_id);
-                }
-                break;
-            case 'sort':
-                const slot = target.dataset.slot;
-                if (source_slot !== parseInt(slot)) {
-                    //console.log(`Moving ${source_id} to slot ${slot}`);
-                    cb.sort(source_id, slot);
-                }
-                break;
-            default:
-                console.log(`No target selected`);
-                break;
-        }
-    });
-});
 
 
 

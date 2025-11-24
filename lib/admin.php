@@ -110,9 +110,11 @@ abstract class Controller{
      * @return array
      */
     protected function getList($name,$split = ' ') {
-        return array_key_exists($name, $this->data()) ?
-                explode($split,$this->data()[$name]) :
-                array();
+        $list = $this->data()[$name] ?? array();
+        return is_array($list) ? $list :
+                array_filter(explode($split, $list),function($item){
+                    return strlen($item);
+                }); 
     }
     /**
      * @return bool

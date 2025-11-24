@@ -24,7 +24,6 @@ class CodersClipboard{
         this.initialize(  );
     }
     /**
-     * @param {ClipboardContent} cb
      * @returns {bool}
      */
     initialize(  ){
@@ -248,8 +247,6 @@ class CodersClipboard{
         }        
     }
 }
-
-
 /**
  * @class {ClipboardContent}
  */
@@ -261,6 +258,10 @@ class ClipboardContent {
     constructor(uploadBox = '', itemBox = '') {
         this._ts = this.timestamp();
         this._view = new ClipboardView(uploadBox, itemBox);
+        
+        this._collection = new ClipCollection([...document.getElementsByClassName(itemBox)][0] || null);
+        this._uploader = new ClipTray([...document.getElementsByClassName(uploadBox)][0] || null);
+
         this._tasks = [];
         this._timeout = 200;
         //console.log(this);
@@ -304,6 +305,12 @@ class ClipboardContent {
      */
     tasks( listReady = false ){
         return listReady ? this._tasks.filter(task => task.ready() ) : this._tasks;
+    }
+    pending(){
+        return [];
+    }
+    progress(){
+        
     }
     /**
      * @returns {ClipboardContent}
@@ -506,7 +513,7 @@ class ClipTask {
         return ajaxurl;
     }
     /**
-     * @returns {String}
+     * @returns {Number}
      */
     status() {
         return this._status;
@@ -522,6 +529,24 @@ class ClipTask {
      */
     running(){
         return this.status() === ClipTask.Status.Running;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    active(){
+        return this.status() < ClipTask.Status.Completed;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    Completed(){
+        return this.status() === ClipTask.Status.Completed;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    failed(){
+        return this.status() === ClipTask.Status.Failed;
     }
     /**
      * @returns {String}
@@ -604,7 +629,7 @@ class ClipTask {
             }
         }
         console.log('Task Completed', this );
-        this._status = ClipTask.Status.Complete;
+        this._status = ClipTask.Status.Completed;
         return this;
     }
     /**
@@ -631,13 +656,13 @@ class ClipTask {
     }
 }
 /**
- * @type {ClipTask.Status}
+ * @type {ClipTask.Status|Number}
  */
 ClipTask.Status = {
-    Ready: 'ready',
-    Running: 'running',
-    Complete: 'complete',
-    Failed: 'failed',
+    Ready: 0,
+    Running: 1,
+    Completed: 2,
+    Failed: 3,
 };
 /**
  * 
@@ -662,6 +687,135 @@ class UploadTask extends ClipTask{
     }
 }
 
+class MoveTask extends ClipTask{
+    
+}
+
+class RemoveTask extends ClipTask{
+    
+}
+
+/**
+ * @type {ClipCollection}
+ */
+class ClipCollection{
+    /**
+     * @param {Element} container 
+     */
+    constructor( container = null ){
+        this._container = container instanceof Element && container || null;
+        this._items = [];
+    }
+    /**
+     * @returns {Element}
+     */
+    container(){
+        return this._container;
+    }
+    /**
+     * @returns {ClipItem[]}
+     */
+    items(){
+        return this._items;
+    }
+    add( item = null ){
+        if(item instanceof ClipItem){
+            this._items.push(item);
+        }
+        return this;
+    }
+    /**
+     * @returns {ClipCollection}
+     */
+    clear(){
+        this._items = [];
+        return this;
+    }
+}
+/**
+ * @type {ClipTray}
+ */
+class ClipTray{
+    /**
+     * @param {Element} container 
+     */
+    constructor( container = null ){
+        this._container = container instanceof Element && container || null;
+        this._tasks = [];
+    }
+    /**
+     * @returns {Element}
+     */
+    container(){
+        return this._container;
+    }
+    /**
+     * @returns {Element}
+     */
+    progressbar(){
+        return this.container() && this.container().querySelector('.progressbar') || null;
+    }
+    /**
+     * @param {ClipTask} task 
+     * @returns {ClipTray}
+     */
+    add(task = null ){
+        if(task instanceof ClipTask){
+            this._tasks.push(task);
+        }
+        return this;
+    }
+    /**
+     * @param {Boolean} active 
+     * @returns {ClipTask[]}
+     */
+    tasks( active = false ){
+        return active ? this._tasks.filter( task => task.active() ) : this._tasks;
+    }
+    /**
+     * @returns {ClipTray}
+     */
+    clear(){
+        this._tasks = [];
+        return this.update();
+    }
+    /**
+     * @returns {Number}
+     */
+    count(){ return this.tasks().length; }
+    /**
+     * @returns {Boolean}
+     */
+    completed(){
+        return !this.tasks(true).length;
+    }
+    /**
+     * @returns {Number}
+     */
+    progress(){
+        const progress = this.count() ? this.tasks(true) / parseFloat(this.tasks()) : 0;
+        return Math.min(100 , Math.floor(progress * 100 ) );
+    }
+    /**
+     * @returns {ClipTray}
+     */
+    update(){
+        const bar = this.progressbar();
+        if( bar){
+            if( !this.completed()){
+                if( bar.classList.contains('active')){
+                    bar.classList.add('active');
+                }
+                const progress = this.progress();
+                bar.style = `width: ${progress}%`;
+            }
+            else{
+                bar.classList.remove('active');
+            }
+        }
+        return this;
+    }
+}
 
 
 /**
@@ -948,6 +1102,8 @@ class ClipboardView {
         }
     }
 }
+
+
 
 
 
