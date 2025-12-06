@@ -7,43 +7,12 @@ document.addEventListener('DOMContentLoaded', function () {
     //console.log(CodersClipboard.instance());
 });
 
-/**
- * @type {CoderEventHandler}
- */
-class CoderEventHandler {
-    constructor() {
-        this._events = {};
-    }
-    /**
-     * @param {String} e 
-     * @param {Function} call 
-     * @returns {CoderEventHandler}
-     */
-    on(e = '', call = null ) {
-        if( e && typeof call === 'function' ){
-            this._events.push( e , call );
-        }
-        return this;
-    }
-    /**
-     * 
-     * @param {String} e 
-     * @param {*} data 
-     * @returns 
-     */
-    call(e, data = false ) {
-        if (this._events[e]) {
-            this._events[e].forEach(fn => fn(data));
-        }
-        return this;
-    }
-}
 
 /**
  * 
  * @type CodersClipboard
  */
-class CodersClipboard extends CoderEventHandler {
+class CodersClipboard{
     /**
      * @returns {CodersClipboard}
      */
@@ -51,8 +20,6 @@ class CodersClipboard extends CoderEventHandler {
         if( CodersClipboard.__instance ){
             return CodersClipboard.__instance;
         }
-        CodersClipboard.__instance = this;
-        
         this._clipboard = ClipboardContent.create();
         this.initialize(  );
     }
@@ -61,9 +28,6 @@ class CodersClipboard extends CoderEventHandler {
      * @returns {bool}
      */
     initialize(  ){
-
-        //this._view = 
-
         this._drive = 'content';
         if(this.clipboard().ready()){
             this.setupFileInput();
@@ -273,10 +237,10 @@ class CodersClipboard extends CoderEventHandler {
                 if( link ){
                     navigator.clipboard.writeText(link)
                     .then(() => {
-                        ContentView.notify('URL copied to clipboard!','updated');
+                        ClipboardView.notify('URL copied to clipboard!','updated');
                     })
                     .catch(err => {
-                        ContentView.notify('Failed to copy: ', err);
+                        ClipboardView.notify('Failed to copy: ', err);
                     });
                 }
                 return true;
@@ -296,7 +260,7 @@ class ClipboardContent {
      */
     constructor(uploadBox = '', itemBox = '') {
         this._ts = this.timestamp();
-        this._view = new ContentView(uploadBox, itemBox);
+        this._view = new ClipboardView(uploadBox, itemBox);
         this._tasks = [];
         this._timeout = 200;
         //console.log(this);
@@ -311,7 +275,7 @@ class ClipboardContent {
         return new ClipboardContent(uploads , items);
     }
     /**
-     * @returns {ContentView}
+     * @returns {ClipboardView}
      */
     view() {
         return this._view;
@@ -703,7 +667,7 @@ class UploadTask extends ClipTask{
 /**
  * @type {ClipItem}
  */
-class ClipItem extends CoderEventHandler {
+class ClipItem {
     /**
      * @param {String} id
      * @param {Number} slot
@@ -744,12 +708,10 @@ class ClipItem extends CoderEventHandler {
         return new Blob(byteArrays, { type: contentType });
     }    
 }
-
-
 /**
- * @type {ContentView}
+ * @type {ClipboardView}
  */
-class ContentView {
+class ClipboardView {
     /**
      * @param {String} uploadBox 
      * @param {String} itemBox 
@@ -809,12 +771,12 @@ class ContentView {
     }
     /**
      * @param {ClipTask} task 
-     * @returns {ContentView}
+     * @returns {ClipboardView}
      */
     attach(task) {
         if (task && task.hasAttachment()) {
             const file = task.attachment();
-            const item = ContentView.element('li', { 'className': 'item' });
+            const item = ClipboardView.element('li', { 'className': 'item' });
             const reader = new FileReader();
             reader.onload = (e) => {
                 const preview = this.preview(file, e.target.result);
@@ -832,11 +794,11 @@ class ContentView {
      */
     createItem(itemData = {}) {
         //console.log(itemData,this.isMedia(itemData.type || ''));
-        const item = ContentView.element('li', { 'className': 'item' });
-        const content = ContentView.element('span', { 'className': 'content' });
+        const item = ClipboardView.element('li', { 'className': 'item' });
+        const content = ClipboardView.element('span', { 'className': 'content' });
 
         if (this.isMedia(itemData.type || '')) {
-            content.appendChild(ContentView.element('img', {
+            content.appendChild(ClipboardView.element('img', {
                 'src': itemData.link,
                 'alt': itemData.name,
                 'title': itemData.title || itemData.name,
@@ -844,16 +806,16 @@ class ContentView {
             }));
         }
         else{
-            content.appendChild(ContentView.element('span',{'className':'dashicons dashicons-media-document'}));
+            content.appendChild(ClipboardView.element('span',{'className':'dashicons dashicons-media-document'}));
         }
 
-        content.appendChild(ContentView.element('a', {
+        content.appendChild(ClipboardView.element('a', {
             'href': itemData.post || '#',
             'target': '_self',
             'className': 'caption'
         }, itemData.title));
 
-        item.appendChild(ContentView.element('span', { 'className': 'placeholder' }));
+        item.appendChild(ClipboardView.element('span', { 'className': 'placeholder' }));
         item.appendChild(content);
         this.itemBox().appendChild(item);
 
@@ -884,29 +846,29 @@ class ContentView {
                 case 'image/png':
                 case 'image/gif':
                 case 'image/jpeg':
-                    return ContentView.element('img', {
+                    return ClipboardView.element('img', {
                         'className': 'content media',
                         'src': buffer,
                         'alt': file.name
                     });
                 default:
-                    return ContentView.element('span', {
+                    return ClipboardView.element('span', {
                         'className': 'content attachment'
                     },
                         file.name);
             }
         }
-        return ContentView.element('span', { 'className': 'content empty' });
+        return ClipboardView.element('span', { 'className': 'content empty' });
     }
     /**
-     * @returns {ContentView}
+     * @returns {ClipboardView}
      */
     idle(){
         this.uploadBox().classList.remove('running');
         return this;
     }
     /**
-     * @returns {ContentView}
+     * @returns {ClipboardView}
      */
     busy(){
         this.uploadBox().classList.add('running');
@@ -914,7 +876,7 @@ class ContentView {
     }
     /**
      * 
-     * @returns {ContentView}
+     * @returns {ClipboardView}
      */
     clearEmptyBlock() {
         const empty = this.itemBox().querySelector('li.empty');
@@ -976,7 +938,7 @@ class ContentView {
     static notify( content , type = 'info'){
         const notifier = document.querySelector('.coders-clipboard .notifier') || null;
         if( notifier ){
-            const message = ContentView.element('div',{
+            const message = ClipboardView.element('div',{
                 'className':'is-dismissible notice type-' + type
             },content);
             notifier.appendChild(message);
@@ -988,158 +950,5 @@ class ContentView {
 }
 
 
-
-
-/**
- * Base View class
- */
-class CoderView extends CoderEventHandler {
-    /**
-     * 
-     */
-    constructor() {
-        this.initialize();
-    }
-    /**
-     * 
-     */
-    initialize() {
-        //override
-    }
-    /**
-     * @returns {Element}
-     */
-    render() {
-        //override
-        return this.html('div', { 'class': 'empty' }, '');
-    }
-    /**
-     * @returns {String}
-     */
-    url(){ return ajaxurl; }
-
-
-    /**
-     * @param {String} type
-     * @param {Object} attributes 
-     * @param {*} content 
-     * @returns {Element}
-     */
-    html(type = '', attributes = null, content = null) {
-        const element = document.createElement(type);
-        attributes instanceof Object && Object.keys(attributes).forEach(att => element.setAttribute(att, attributes[att]));
-        if (content instanceof Element) {
-            element.appendChild(content);
-        }
-        else {
-            element.innerHTML = content || '';
-        }
-        return element;
-    }
-    /**
-     * @param {Object} request
-     * @param {String|Element} content 
-     * @param {String} className 
-     * @param {String} target _self|_blank
-     * @returns {Element}
-     */
-    link(request = {}, content, className = '', target = '_self') {
-        const base = `${this.url()}?page=coder_clipboard`;
-        const data = Object.keys(request)
-            .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(request[key])}`);
-        const url = data.length ? `${base}&${data.join('&')}` : base;
-        return this.html('a', { 'class': className, 'href': url, 'target': target }, content || '');
-    }
-    /**
-     * @param {String} action 
-     * @param {Element|String} content 
-     * @param {String} className 
-     * @returns {Element}
-     */
-    action(action = '', content, className = '') {
-        return this.link({ action: action }, content, className, '_self');
-    }
-}
-/**
- * 
- */
-class ClipboardView extends CoderView {
-    /**
-     * 
-     */
-    constructor(){
-        super();
-        this._collection = [...document.getElementsByClassName('clipboard-collection')][0] || null;
-        this._uploader = [...document.getElementsByClassName('uploader')][0] || null;
-        this._toolbar = [...document.getElementsByClassName('clipboard-toolbar')][0] || null;
-        this._navigator = [...document.getElementsByClassName('clipboard-navigator')][0] || null;
-    }
-}
-/**
- * 
- */
-class CollectionView extends CoderView {
-    /**
-     * @param {String} classname 
-     */
-    constructor( classname = '' ){
-        super();
-        this._collection = [...document.getElementsByClassName(classname)][0] || null;
-    }
-}
-/**
- * 
- */
-class ClipView extends CoderView {
-    /**
-     * @param {ClipItem} clip 
-     */
-    constructor( clip = '' ){
-        super();
-        this._clip = clip instanceof ClipItem ? clip : null;
-    }
-}
-/**
- * 
- */
-class ClipFormView extends CoderView {
-    /**
-     * @param {String} classname 
-     */
-    constructor( classname = ''){
-        super();
-        this._form = [...document.getElementsByClassName(classname)][0] || null;
-    }
-}
-
-class UploaderView extends CoderView {
-    /**
-     * @param {String} classname 
-     */
-    constructor( classname = ''){
-        super();
-        this._uploader = [...document.getElementsByClassName(classname)][0] || null;
-    }
-}
-
-class NavigatorView extends CoderView {
-    /**
-     * @param {String} classname 
-     */
-    constructor( classname = ''){
-        super();
-        this._nav = [...document.getElementsByClassName(classname)][0] || null;
-    }
-}
-
-class ToolbarView extends CoderView {
-    /**
-     * @param {String} classname 
-     */
-    constructor( classname = ''){
-        super();
-        this._toolbar = [...document.getElementsByClassName(classname)][0] || null;
-    }
-}
 
 

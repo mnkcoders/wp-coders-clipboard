@@ -8,24 +8,23 @@ add_action('admin_post_clipboard_action', function() {
     //    'response'=>'test1',
     //    'message'=>'Testing post respose');
     
-    $response = \CODERS\Clipboard\Admin\Controller::redirect('post');
+    $server = \CODERS\Clipboard\Admin\Controller::redirect('post',INPUT_POST);
     
-    wp_redirect(add_query_arg($response, admin_url('admin.php')));
+    wp_redirect(add_query_arg($server->response(), admin_url('admin.php')));
     exit;        
 });
 
 add_action('wp_ajax_clipboard', function() {
     //$response = array('response'=>'ajax test response ;)',);
     
-    $response = \CODERS\Clipboard\Admin\Controller::redirect('ajax');
+    $server = \CODERS\Clipboard\Admin\Controller::redirect('ajax',INPUT_POST);
     
-    wp_send_json_success($response);
+    wp_send_json_success($server->response());
     exit;
 });
 
-add_action('admin_enqueue_scripts', function( $hook ) {
-
-    \CODERS\Clipboard\Admin\View::attachheaders();
+add_action('admin_enqueue_scripts', function( ) {
+    \CODERS\Clipboard\Admin\View::load(filter_input(INPUT_GET, 'page') ?? '');
 });
 
 add_action('admin_menu', function () {
@@ -37,7 +36,7 @@ add_action('admin_menu', function () {
             'coder_clipboard',
             function () {
                 $context = filter_input(INPUT_GET, 'controller') ?? 'main';
-                \CODERS\Clipboard\Admin\Controller::run($context);
+                \CODERS\Clipboard\Admin\Controller::redirect($context);
             }, 'dashicons-art',40);
     add_submenu_page(
             'coder_clipboard',
@@ -46,14 +45,14 @@ add_action('admin_menu', function () {
             'manage_options',
             'coder_clipboard_settings',
             function () {
-                \CODERS\Clipboard\Admin\Controller::run('settings'); }
+                \CODERS\Clipboard\Admin\Controller::redirect('settings'); }
             );
 });
 
 /**
  * 
  */
-abstract class Controller{
+class Controller{
 
     const INPUT_REQUEST = 3;
     const INPUT_GET = INPUT_GET;
@@ -188,24 +187,23 @@ abstract class Controller{
     /**
      * @return \CODERS\Clipboard\Admin\Controller
      */
-    public function request(){
-        //$action = $this->action();
-        $action = $this->_input['action'] ?? 'default';
+    public function run(){
+        $action = $this->action();
         $call = sprintf('%sAction',$action);
         
         $this->_completed = method_exists($this, $call) ?
                 $this->$call( ) :
                 $this->error($action);
 
-        return $this;
+        return $this->set('log',$this->log())
+                ->set('_response', $this->completed())
+                ->set('_action',$action);
     }
     /**
      * action[] , log[] , ...
      * @return array
      */
     public function response() {
-        $this->_response[$this->action()] = $this->completed();
-        $this->_response['message'] = $this->log();
         return $this->_response;
     }
     /**
@@ -230,7 +228,7 @@ abstract class Controller{
      * @param int $type
      * @return array
      */
-    protected static function input( $type = self::INPUT_REQUEST ) {
+    protected static function input( $type = self::INPUT_REQUEST , $maskaction = false ) {
         switch($type){
             case self::INPUT_REQUEST:
                 return array_merge(
@@ -239,19 +237,15 @@ abstract class Controller{
                 );
             case self::INPUT_GET:
             case self::INPUT_POST:
-                return filter_input_array($type) ?? array();
+                $input = filter_input_array($type) ?? array();
+                if($maskaction){
+                    $input['action'] = $input['task'] ?? 'main';
+                    unset($input['task']);
+                }
+                return $input;
             default:
                 return array();
         }
-    }
-    /**
-     * @return array
-     */
-    protected static function fromajax( ){
-        $input = self::input(self::INPUT_POST);
-        $input['action'] = $input['task'] ?? 'default';
-        unset($input['task']);
-        return $input;
     }
     /**
      * @param string $context
@@ -260,32 +254,17 @@ abstract class Controller{
      */
     protected static final function create( $context = '' , array $input = array()){
         $class = sprintf('\CODERS\Clipboard\Admin\%sController', ucfirst($context));
-        return class_exists($class) && is_subclass_of($class, self::class ,true ) ? new $class($input) : null;
+        return class_exists($class) && is_subclass_of($class, self::class ,true ) ?
+            new $class($input) :
+            new Controller($input);
     } 
     /**
      * @param string $context
-     * @return bool
+     * @return \CODERS\Clipboard\Admin\Controller
      */
-    public static function run( $context = 'main' ){
-        $controller = self::create($context,self::input());
-        //$controller = self::create($context);
-        return $controller ? $controller->request()->completed() : false;
-            //$controller->task(self::input()) :
-            //false;
-    }
-    /**
-     * @param string $context
-     * @return array
-     */
-    public static function redirect($context = 'main') {
-        $controller = self::create($context,self::fromajax());
-        return !is_null($controller) ?
-            $controller->request()->response() :
-            array(
-                //error response
-                'response' => 'error',
-                'message' => sprintf('Context Error [%s]',$context),
-            );
+    public static function redirect($context = 'main' , $type = INPUT_GET) {
+        $controller = self::create($context,self::input($type, $type === INPUT_POST));
+        return $controller ? $controller->run() : null;
     }
 }
 /**
@@ -501,7 +480,6 @@ class PostController extends Controller{
      * @return bool
      */
     protected function defaultAction(): bool {
-        $this->set('response','ok');
         return false; 
     }
     /**
@@ -526,9 +504,9 @@ class AjaxController extends Controller{
      */
     protected function testAction( ) {
         var_dump($this->data());
-        $task = sprintf('%sAction',$this->action());
-        if(method_exists($this, $task)){
-            var_dump( $this->$task());
+        $action = sprintf('%sAction',$this->action());
+        if(method_exists($this, $action)){
+            var_dump( $this->$action());
         }
         var_dump($this->response());
         return true;
@@ -539,7 +517,6 @@ class AjaxController extends Controller{
      * @return bool
      */
     protected function defaultAction(): bool {
-        $this->set('response','ok');
         return true;
     }
     /**
@@ -1003,26 +980,26 @@ class View{
         return add_query_arg($query, admin_url('admin.php'));
     }
     /**
-     * 
+     * @param string $page
      */
-    public static function attachheaders(){
-        
-        $style = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_URL);
-        $style_path = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_DIR);
-        $script = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_URL);
-        $script_path = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_DIR);
-        // Register and enqueue CSS
-        wp_enqueue_style('clipboard-admin-style',$style,[],filemtime($style_path));
+    public static function load( $page = ''){
+        if ($page === 'coder_clipboard') {
+            $style = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_URL);
+            $style_path = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_DIR);
+            $script = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_URL);
+            $script_path = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_DIR);
+            // Register and enqueue CSS
+            wp_enqueue_style('clipboard-admin-style', $style, [], filemtime($style_path));
 
-        // Register and enqueue JS
-        wp_enqueue_script('clipboard-admin-script', $script,['jquery'],filemtime($script_path),true);
+            // Register and enqueue JS
+            wp_enqueue_script('clipboard-admin-script', $script, ['jquery'], filemtime($script_path), true);
 
-        // Optional: Pass variables to JS
-        wp_localize_script('clipboard-admin-script', 'ClipboardData', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('clipboard_nonce')
-        ]);
-        
+            // Optional: Pass variables to JS
+            wp_localize_script('clipboard-admin-script', 'ClipboardData', [
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('clipboard_nonce')
+            ]);
+        }
     }
 }
 
