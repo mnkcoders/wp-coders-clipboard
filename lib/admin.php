@@ -172,17 +172,7 @@ class Controller{
      * @return string
      */
     protected function action(){
-        return $this->_input['action'] ?? 'default';
-    }
-    /**
-     * @param array $input
-     * @return bool
-     */
-    private function task( array $input = array() ){
-        //return $this->data()['action'] ?? 'default';
-        $action = $input['action'] ?? 'default';
-        $call = sprintf('%sAction',$action);
-        return method_exists($this, $call) ? $this->$call( $input ) : $this->error($action);
+        return $this->_input['action'] ?? 'main';
     }
     /**
      * @return \CODERS\Clipboard\Admin\Controller
@@ -207,6 +197,13 @@ class Controller{
         return $this->_response;
     }
     /**
+     * @return \CODERS\Clipboard\Admin\View
+     */
+    protected function view( ){
+        return View::create($this->action());
+    }
+
+    /**
      * @param string $action
      * @return bool
      */
@@ -218,8 +215,7 @@ class Controller{
     /**
      * @return bool
      */
-    protected function defaultAction( ) : bool{
-        //
+    protected function mainAction( ) : bool{
         return true;
     }
     
@@ -275,13 +271,11 @@ class MainController extends Controller{
     /**
      * @return bool
      */
-    protected function defaultAction(): bool {
+    protected function mainAction(): bool {
         
         $content = Content::load( $this->id ,true);
         
-        View::create('main')
-                ->setContent( $content )
-                ->view('default');
+        $this->view()->setContent( $content )->show('default');
 
         return true;
     }
@@ -297,7 +291,7 @@ class MainController extends Controller{
         else{
             $this->notify(__('Not allowed to upload','coder_clipboard'), 'error');
         }
-        return $this->defaultAction( $input );
+        return $this->mainAction( $input );
     }
     /**
      * @return bool
@@ -312,7 +306,7 @@ class MainController extends Controller{
             $this->notify("Can't update", 'error');
         }
 
-        return $this->defaultAction();
+        return $this->mainAction();
     }
     /**
      * @return bool
@@ -325,7 +319,7 @@ class MainController extends Controller{
         else{
             $this->notify('Unable to remove item','error');
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
     /**
      * @param array $input
@@ -339,7 +333,7 @@ class MainController extends Controller{
             $count = $item->sort($index);
             $this->notify(sprintf('%s items udpated',$count), 'update');
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
     /**
      * @return bool
@@ -350,7 +344,7 @@ class MainController extends Controller{
             $count = Content::manager()->db()->arrange($id);
             $this->notify(sprintf('%s items udpated',$count), 'update');
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
     /**
      * @return bool
@@ -360,7 +354,7 @@ class MainController extends Controller{
         if( $clip && $clip->moveto($this->parent_id) ){
             $this->notify('Moved!','update');
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
     /**
      * @return bool
@@ -370,7 +364,7 @@ class MainController extends Controller{
         if (!is_null($clip) && $clip->moveup()) {
             $this->notify('Moved!','update');
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
 
     /**
@@ -386,7 +380,7 @@ class MainController extends Controller{
         $lostfiles = Content::findLost();
         $orphen = Content::restoreLost();
         $this->notify('Recovered %s lost items and %s unparented items',$lostfiles,$orphen);
-        return $this->defaultAction();
+        return $this->mainAction();
     }
     /**
      * @return bool
@@ -400,7 +394,7 @@ class MainController extends Controller{
         else{
             $this->notify('Invalid item','error');
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
     /**
      * @return bool
@@ -414,7 +408,7 @@ class MainController extends Controller{
         else{
             $this->notify('Invalid clip','error');
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
     /**
      * @return bool
@@ -428,7 +422,7 @@ class MainController extends Controller{
         else{
             $this->notify('Invalid clip','error');
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
 }
 /**
@@ -438,10 +432,8 @@ class SettingsController extends Controller{
     /**
      * @return bool
      */
-    protected function defaultAction( ): bool {
-       
-        View::create('settings')->view();
-        
+    protected function mainAction( ): bool {
+        $this->view()->show('settings');
         return true;
     }
     /**
@@ -463,7 +455,7 @@ class SettingsController extends Controller{
         else{
             $this->notify(__('Unable to clear Clipboard drive','coder_clipboard'),'warning');            
         }
-        return $this->defaultAction();
+        return $this->mainAction();
     }
 }
 
@@ -479,7 +471,7 @@ class PostController extends Controller{
     /**
      * @return bool
      */
-    protected function defaultAction(): bool {
+    protected function mainAction(): bool {
         return false; 
     }
     /**
@@ -516,7 +508,7 @@ class AjaxController extends Controller{
     /**
      * @return bool
      */
-    protected function defaultAction(): bool {
+    protected function mainAction(): bool {
         return true;
     }
     /**
@@ -769,7 +761,11 @@ class View{
             case preg_match('/^has_/', $name):
                 return $this->__has(substr($name, 4));
             case preg_match('/^action_/', $name):
-                return $this->__action(substr($name, 7),$args);
+                $action = substr($name, 7);
+                $call = sprintf('action%s', ucfirst($action));
+                return method_exists($this, $call) ?
+                        $this->$call(...$args) :
+                        self::adminurl(array('action'=>$action));
             case preg_match('/^show_/', $name):
                 return $this->template(substr($name, 5));
             case preg_match('/^editor_/', $name):
@@ -813,24 +809,6 @@ class View{
 
         wp_editor($content, $id, $settings);
     }    
-    /**
-     * @param string $action
-     * @param array $args
-     * @return string
-     */
-    protected function __action($action , array $args = array() ){
-        $call = sprintf('action%s', ucfirst($action));
-        return method_exists($this, $call) ?
-            $this->$call(...$args) :
-            self::adminurl(array('action'=>$action));
-    }
-    /**
-     * @param string $show
-     * @return bool
-     */
-    protected function __show($show = ''){
-        return strlen($show) ? $this->view(sprintf('parts/%s.php',$show)) : false;
-    }
     /**
      * @param string $list
      * @return array
@@ -936,7 +914,7 @@ class View{
      * @param string $view
      * @return bool
      */
-    public function view($view = ''){
+    public function show($view = ''){
         $path = $this->path(sprintf('%s.php', strlen($view) ? $view : $this->_context));
         if(file_exists($path)){
             require $path;
@@ -947,12 +925,12 @@ class View{
         return $this;
     }
     /**
-     * @param string $view
+     * @param string $template
      * @return bool
      */
-    protected function template( $view = '' ){
-        printf('<!-- TEMPLATE [%s] -->',$view);
-        return strlen($view) && $this->view(sprintf('templates/%s',$view));
+    protected function template( $template = '' ){
+        printf('<!-- TEMPLATE [%s] -->',$template);
+        return strlen($template) && $this->show(sprintf('templates/%s',$template));
     }    
     
     /**

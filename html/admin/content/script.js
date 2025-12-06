@@ -8,20 +8,26 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 /**
- * @type {CoderEventHandler}
+ * @type {CoderEvents}
  */
-class CoderEventHandler {
-    constructor() {
-        this._events = {};
-    }
+class CoderEvents {
+    /**
+     * 
+     */
+    constructor() { this._e = {}; }
+    /**
+     * @returns {String[]}
+     */
+    __(){ return Object.keys(this._e); }
     /**
      * @param {String} e 
      * @param {Function} call 
-     * @returns {CoderEventHandler}
+     * @returns {CoderEvents}
      */
-    on(e = '', call = null ) {
+    _(e = '', call = null ) {
         if( e && typeof call === 'function' ){
-            this._events.push( e , call );
+            if( !this._e[e] ) this._e[e] = [];
+            this._e[e].push( typeof call === 'function' && call || (data => console.log(data) ) );
         }
         return this;
     }
@@ -31,10 +37,8 @@ class CoderEventHandler {
      * @param {*} data 
      * @returns 
      */
-    call(e, data = false ) {
-        if (this._events[e]) {
-            this._events[e].forEach(fn => fn(data));
-        }
+    $(e = '', data = false ) {
+        e && this._e[e] && this._e[e].forEach(call => call(data));
         return this;
     }
 }
@@ -43,7 +47,7 @@ class CoderEventHandler {
  * 
  * @type CodersClipboard
  */
-class CodersClipboard extends CoderEventHandler {
+class CodersClipboard extends CoderEvents {
     /**
      * @returns {CodersClipboard}
      */
@@ -703,7 +707,7 @@ class UploadTask extends ClipTask{
 /**
  * @type {ClipItem}
  */
-class ClipItem extends CoderEventHandler {
+class ClipItem extends CoderEvents {
     /**
      * @param {String} id
      * @param {Number} slot
@@ -993,7 +997,7 @@ class ContentView {
 /**
  * Base View class
  */
-class CoderView extends CoderEventHandler {
+class CoderView extends CoderEvents {
     /**
      * 
      */
