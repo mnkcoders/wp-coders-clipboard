@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
 /**
  * @type {CoderEvents}
  */
+<<<<<<< HEAD
 class CoderEvents {
     /**
      * 
@@ -19,6 +20,12 @@ class CoderEvents {
      * @returns {String[]}
      */
     __(){ return Object.keys(this._e); }
+=======
+class CoderEventHandler {
+    constructor() {
+        this._e = {};
+    }
+>>>>>>> 0ab99431254ed7665d1987f6fae15ac12acbba31
     /**
      * @param {String} e 
      * @param {Function} call 
@@ -26,8 +33,12 @@ class CoderEvents {
      */
     _(e = '', call = null ) {
         if( e && typeof call === 'function' ){
+<<<<<<< HEAD
             if( !this._e[e] ) this._e[e] = [];
             this._e[e].push( typeof call === 'function' && call || (data => console.log(data) ) );
+=======
+            this._e.push( e , call );
+>>>>>>> 0ab99431254ed7665d1987f6fae15ac12acbba31
         }
         return this;
     }
@@ -37,8 +48,15 @@ class CoderEvents {
      * @param {*} data 
      * @returns 
      */
+<<<<<<< HEAD
     $(e = '', data = false ) {
         e && this._e[e] && this._e[e].forEach(call => call(data));
+=======
+    $(e, data = false ) {
+        if (this._e[e]) {
+            this._e[e].forEach(call => call(data));
+        }
+>>>>>>> 0ab99431254ed7665d1987f6fae15ac12acbba31
         return this;
     }
 }
@@ -52,6 +70,7 @@ class CodersClipboard extends CoderEvents {
      * @returns {CodersClipboard}
      */
     constructor(){
+        super();
         if( CodersClipboard.__instance ){
             return CodersClipboard.__instance;
         }
@@ -66,6 +85,7 @@ class CodersClipboard extends CoderEvents {
      */
     initialize(  ){
 
+        this._strings = new CoderStrings();
         //this._view = 
 
         this._drive = 'content';
@@ -88,6 +108,15 @@ class CodersClipboard extends CoderEvents {
     static instance(){
         return CodersClipboard.__intsance || new CodersClipboard();
     }
+    /**
+     * @param {String} text 
+     * @returns {String}
+     */
+    static text(text = ''){ return this.instance().strings().get(text); }
+    /**
+     * @returns {CoderStrings}
+     */
+    strings(){ return this._strings; }
     /**
      * Selected drive
      * @returns {String}
@@ -705,20 +734,77 @@ class UploadTask extends ClipTask{
 
 
 /**
- * @type {ClipItem}
+ * @type {ClipData}
  */
+<<<<<<< HEAD
 class ClipItem extends CoderEvents {
+=======
+class ClipData extends CoderEventHandler {
+>>>>>>> 0ab99431254ed7665d1987f6fae15ac12acbba31
     /**
      * @param {String} id
      * @param {Number} slot
-     * @param {String} context
-     * @returns {ClipItem}
+     * @param {String} parent
+     * @returns {ClipData}
      */
-    constructor( id = '', slot = 0 , context = '') {
-        this.id = id || '';
-        this.slot = slot || 0;
-        this.context_id = context || '';
+    constructor( id = '', slot = 0 , parent = '') {
+        super();
+        this._id = id || '';
+        this._slot = slot || 0;
+        this._parent = parent || '';
+        this._name = '';
+        this._type = '';
+        this._title = '';
+        this._tags = [];
     }
+    /**
+     * @returns {String}
+     */
+    type(){ return this._type;}
+    /**
+     * @returns {String}
+     */
+    name(){ return this._name;}
+    /**
+     * @returns {String}
+     */
+    title(){ return this._title;}
+    /**
+     * @returns {String}
+     */
+    id(){ return this._id;}
+    /**
+     * @returns {String}
+     */
+    parent(){ return this._parent;}
+    /**
+     * @returns {String[]}
+     */
+    tags(){ return this._tags;}
+    /**
+     * @returns {Number}
+     */
+    slot(){ return this._slot;}
+    /**
+     * @returns {Boolean}
+     */
+    isimage(){
+        return false;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    isvideo(){
+        return false;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    isattachment(){
+        return false;
+    }
+
+
     /**
      * @param {String} data
      * @returns {String}
@@ -1002,6 +1088,7 @@ class CoderView extends CoderEvents {
      * 
      */
     constructor() {
+        super();
         this.initialize();
     }
     /**
@@ -1010,6 +1097,11 @@ class CoderView extends CoderEvents {
     initialize() {
         //override
     }
+    /**
+     * @param {String} text 
+     * @returns {String}
+     */
+    text( text = ''){ return CodersClipboard.instance().strings().get(text); }
     /**
      * @returns {Element}
      */
@@ -1096,13 +1188,150 @@ class CollectionView extends CoderView {
  */
 class ClipView extends CoderView {
     /**
-     * @param {ClipItem} clip 
+     * @param {ClipData} clip 
      */
-    constructor( clip = '' ){
+    constructor( clip = null ){
         super();
-        this._clip = clip instanceof ClipItem ? clip : null;
+        this._clip = clip instanceof ClipData ? clip : null;
+    }
+    /**
+     * @returns {ClipData}
+     */
+    data(){ return this._clip; }
+    /**
+     * @returns {Element}
+     */
+    overlay(){
+        return this.html('a',{
+            'data-id':this.data().id(),
+            'href' : this.data().post(),
+        }, this.data().title());
+    }
+    /**
+     * @returns {Element}
+     */
+    content(){
+        const element = this.html('div',{class:'content'});
+        //append item dusplay type (image, video, attachment ...)
+        const content = ClipContentView.create(this.data());
+        element.appendChild(content.render());
+        //append title overlay (caption)
+        element.appendChild(this.overlay());
+        return element;
+    }
+    /**
+     * @returns {Element[]}
+     */
+    buttons( ){
+        return [
+            //add all action butttons here (use builtin methods to setup events)
+            this.remove(),
+            this.move(),
+            this.count(),
+        ];
+    }
+    /**
+     * @returns {Element}
+     */
+    count(){
+        const element = this.html('span',{'class':'btn remove'},this.text('count'));
+        //add dashicons contents
+        return element;
+    }
+    /**
+    /**
+     * @returns {Element}
+     */
+    move(){
+        const element = this.html('span',{'class':'btn remove'},this.text('move'));
+        //add dashicons contents
+        //add actions
+        return element;
+    }
+    /**
+     * @returns {Element}
+     */
+    remove(){
+        const element = this.html('span',{'class':'btn remove'},this.text('remove'));
+        //add dashicons contents
+        //add actions
+        return element;
+    }
+    /**
+     * @returns {Element}
+     */
+    render(){
+        const element = this.html('li',{
+            class: 'item clip',
+        },ClipContentView.create(this.data()));
+        this.buttons().forEach( button => element.appendChild(button));
+        return element;
     }
 }
+
+class ClipContentView extends CoderView{
+    /**
+     * 
+     * @param {ClipData} clip 
+     */
+    constructor( clip = null ){
+        super();
+        this._clip = clip instanceof ClipData ? clip : null;
+    }
+    /**
+     * @returns {ClipData}
+     */
+    data(){ return this._clip; }
+    /**
+     * @returns {String}
+     */
+    attributes(){ return {
+        'class':`clipdata ${this.data().type()} ${this.data().tags().join(' ')}`,
+        'data-id': this.data().id(),
+    }; }
+    /**
+     * @returns {Element}
+     */
+    render(){ return this.html('span', this.attributes()); }
+    /**
+     * @param {ClipData} content 
+     */
+    static create(content = null){
+        if( content instanceof ClipData){
+            switch(true){
+                case content.isimage():
+                    return new ClipImageView(content);
+                case content.isvideo():
+                    return new ClipMediaView(content);
+                default:
+                    return new ClipContentView(content);
+            }
+        }
+    }
+}
+/**
+ * 
+ */
+class ClipImageView extends ClipContentView{
+    /**
+     * @param {ClipData} clip 
+     */
+    constructor( clip = null){
+        this._clip = clip;
+    }
+}
+/**
+ * 
+ */
+class ClipMediaView extends ClipContentView{
+    /**
+     * @param {ClipData} clip 
+     */
+    constructor( clip = null){
+        this._clip = clip;
+    }
+}
+
 /**
  * 
  */
@@ -1147,3 +1376,27 @@ class ToolbarView extends CoderView {
 }
 
 
+/**
+ * 
+ */
+class CoderStrings{
+    /**
+     * 
+     */
+    constructor(){
+        this._strings = {};
+    }
+    /**
+     * @param {*} content 
+     */
+    fill( content = null ){
+        Object.keys(content instanceof Object && content || {})
+            //.filter()
+            .forEach( key => this._strings[key] = content[key]);
+    }
+    /**
+     * @param {String} text 
+     * @returns {String}
+     */
+    get(text){ return text && this._strings[text] || text; } 
+}
