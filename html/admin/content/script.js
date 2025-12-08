@@ -48,6 +48,7 @@ class CodersClipboard extends CoderEventHandler {
      * @returns {CodersClipboard}
      */
     constructor(){
+        super();
         if( CodersClipboard.__instance ){
             return CodersClipboard.__instance;
         }
@@ -721,6 +722,7 @@ class ClipData extends CoderEventHandler {
      * @returns {ClipData}
      */
     constructor( id = '', slot = 0 , parent = '') {
+        super();
         this._id = id || '';
         this._slot = slot || 0;
         this._parent = parent || '';
@@ -1060,6 +1062,7 @@ class CoderView extends CoderEventHandler {
      * 
      */
     constructor() {
+        super();
         this.initialize();
     }
     /**
