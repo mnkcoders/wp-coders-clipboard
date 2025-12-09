@@ -57,10 +57,10 @@ class Clipboard{
      * @param string $id
      * @return \CODERS\Clipboard\Clip[]
      */
-    public function list( $id = '' ){
+    public function list( $id = ''  ){
         $list = $this->db()->list($id);
         return array_map( function( $data ){
-            return new Clip($data);
+            return new Clip($data  );
         },$list);
     }
 
@@ -282,6 +282,7 @@ class Clip{
             $this->_count = $this->db()->count($this->id);
         }
     }
+
     /**
      * @return string
      */

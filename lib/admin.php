@@ -3,25 +3,22 @@
 defined('ABSPATH') or die;
 
 add_action('admin_post_clipboard_action', function() {
-
-    //$response = array(
-    //    'response'=>'test1',
-    //    'message'=>'Testing post respose');
-    
     $server = \CODERS\Clipboard\Admin\Controller::redirect('post',INPUT_POST);
-    
     wp_redirect(add_query_arg($server->response(), admin_url('admin.php')));
     exit;        
 });
 
-add_action('wp_ajax_clipboard', function() {
-    //$response = array('response'=>'ajax test response ;)',);
-    
-    $server = \CODERS\Clipboard\Admin\Controller::redirect('ajax',INPUT_POST);
-    
+add_action('wp_ajax_coder_clipboard', function() {
+    $server = \CODERS\Clipboard\Admin\Controller::redirect('ajax', INPUT_POST);
     wp_send_json_success($server->response());
     exit;
 });
+add_action('wp_ajax_nopriv_coder_clipboard', function() {
+    $server = \CODERS\Clipboard\Admin\Controller::redirect('ajax', INPUT_POST);
+    wp_send_json_success($server->response());
+    exit;
+});
+
 
 add_action('admin_enqueue_scripts', function( ) {
     \CODERS\Clipboard\Admin\View::load(filter_input(INPUT_GET, 'page') ?? '');
@@ -171,6 +168,13 @@ class Controller{
     /**
      * @return string
      */
+    protected function context(){
+        $class = explode('\\',get_called_class());
+        return $class[count($class)-1];
+    }
+    /**
+     * @return string
+     */
     protected function action(){
         return $this->_input['action'] ?? 'main';
     }
@@ -185,7 +189,8 @@ class Controller{
                 $this->$call( ) :
                 $this->error($action);
 
-        return $this->set('log',$this->log())
+        return $this->set('_log',$this->log())
+                ->set('_context', $this->context())
                 ->set('_response', $this->completed())
                 ->set('_action',$action);
     }
@@ -463,9 +468,11 @@ class SettingsController extends Controller{
  * 
  */
 class PostController extends Controller{
-    
-    function __construct() {
-        parent::__construct();
+    /**
+     * @param array $input
+     */
+    function __construct($input = array()) {
+        parent::__construct($input);
         $this->set('page', 'coder_clipboard');
     }
     /**
@@ -487,9 +494,11 @@ class PostController extends Controller{
  * 
  */
 class AjaxController extends Controller{
-    
-    function __construct() {
-        parent::__construct();
+    /**
+     * @param array $input
+     */
+    function __construct( $input = array()) {
+        parent::__construct( $input );
     }
     /**
      * @return bool
@@ -509,8 +518,26 @@ class AjaxController extends Controller{
      * @return bool
      */
     protected function mainAction(): bool {
+        return $this->listAction();
+    }
+    /**
+     * @return bool
+     */
+    protected function listAction(): bool{
+        $items = Content::collection($this->id);
+        $this->set('input', $this->data());
+        $this->set('items',$items);
         return true;
     }
+    /**
+     * @return bool
+     */
+    protected function loadAction() :bool{
+        $clip = Content::load($this->id);
+        $this->set('item',$clip ? $clip->meta() : null);
+        return true;
+    }
+
     /**
      * @return boolean
      */
@@ -633,6 +660,25 @@ class Content extends \CODERS\Clipboard\Clip{
      */
     public static function manager(){
         return \CODERS\Clipboard\Clipboard::instance();
+    }
+    /**
+     * @param string $id
+     * @return array
+     */
+    public static function collection( $id = '' ){
+        $clips = self::manager()->list($id,true);
+        return array_map( function ($clip){
+            $data = $clip->meta();
+            $data['slot'] = intval( $clip->slot );
+            return $data;
+        },$clips);
+    }
+    /**
+     * @return array
+     */
+    public function data(){
+        $data = parent::data();
+        return $data;
     }
 }
 /**
@@ -967,15 +1013,20 @@ class View{
             $script = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_URL);
             $script_path = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_DIR);
             // Register and enqueue CSS
-            wp_enqueue_style('clipboard-admin-style', $style, [], filemtime($style_path));
+            wp_enqueue_style('clipboard-style', $style, [], filemtime($style_path));
 
             // Register and enqueue JS
-            wp_enqueue_script('clipboard-admin-script', $script, ['jquery'], filemtime($script_path), true);
+            wp_enqueue_script('clipboard-script', $script, ['jquery'], filemtime($script_path), true);
 
+            $public = Content::manager()->clipdata();
+            $admin = self::adminurl();
             // Optional: Pass variables to JS
-            wp_localize_script('clipboard-admin-api', 'CoderClipboardAPI', [
-                'url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('clipboard_nonce')
+            wp_localize_script('clipboard-script', 'CodersAPI', [
+                'public' => $public,
+                'admin' => $admin,
+                //'url' => admin_url('admin-ajax.php'),
+                'ajax' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('clipboard_nonce'),
             ]);
         }
     }
