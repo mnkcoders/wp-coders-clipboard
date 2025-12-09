@@ -973,8 +973,8 @@ class View{
             wp_enqueue_script('clipboard-admin-script', $script, ['jquery'], filemtime($script_path), true);
 
             // Optional: Pass variables to JS
-            wp_localize_script('clipboard-admin-script', 'ClipboardData', [
-                'ajax_url' => admin_url('admin-ajax.php'),
+            wp_localize_script('clipboard-admin-api', 'CoderClipboardAPI', [
+                'url' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('clipboard_nonce')
             ]);
         }
