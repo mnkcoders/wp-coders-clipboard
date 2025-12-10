@@ -10,7 +10,7 @@
 //Loader
 document.addEventListener('DOMContentLoaded', function () {
 
-    CodersClipboard.instance( CoderInput.create().get('id') );
+    App.instance( CoderInput.create().get('id') );
 });
 /**
  * 
@@ -52,9 +52,9 @@ class CoderInput{
 }
 
 /**
- * @type {CoderEvents}
+ * @type {Handler}
  */
-class CoderEvents {
+class Handler {
     constructor() {
         this._e = {};
     }
@@ -62,7 +62,7 @@ class CoderEvents {
      * Register an event
      * @param {String} e 
      * @param {Function} call 
-     * @returns {CoderEvents}
+     * @returns {Handler}
      */
     _(e = '', call = null) {
         if (e && typeof call === 'function') {
@@ -82,34 +82,220 @@ class CoderEvents {
         return this;
     }
 }
+/**
+ * 
+ */
+class CoderClient extends Handler{
+    
+    constructor(){
+        super();
+        this._api = this.apidata();
+        this._tasks = [];
+    }
+    /**
+     * @returns {Object}
+     */
+    apidata(){
+        const data = { public: '' , admin: '', ajax: ajaxurl, nonce: '' };
+        const api = CodersAPI || {};
+        Object.keys(data).forEach( key => data[key] = api[key] || '' );
+        return data;
+    }
+    /**
+     * @returns {Object}
+     */
+    api(){ return this._api; }
+    /**
+     * @returns {String}
+     */
+    publicurl(){ return this.api().public; }
+    /**
+     * @param {String} id 
+     * @returns {String}
+     */
+    clipurl(id = ''){ return `${this.publicurl()}/clipdata/${id}`; }
+    /**
+     * @param {String} id 
+     * @returns {String} 
+     */
+    clipboardurl( id = '' ){
+        return `${this.publicurl()}/clipboard/${id}`;
+    }
+    /**
+     * @returns {String} 
+     */
+    adminurl( ){ return this.api().admin; }
+    /**
+     * @returns {String}
+     */
+    ajaxurl(){ return this.api().ajax; }
+    /**
+     * @returns {String}
+     */
+    nonce(){ return this.api().nonce || ''; }
+
+    /**
+     * @returns {ClipTask[]}
+     */
+    tasks(active = false) { return active ? this.tasks().filter(t => !t.finished()) : this._tasks; }
+    /**
+     * @param {ClipTask} task 
+     * @returns {Uploader}
+     */
+    add(task = null) {
+        if (task instanceof ClipTask) {
+            const runloop = !this.count();
+            this.tasks().push(task);
+            runloop && this.update();
+        }
+        return this;
+    }
+    /**
+     * @param {Boolean} active
+     * @returns {Number}
+     */
+    count(active = false ) { return this.tasks(active).length; }
+    /**
+     * @returns {Boolean}
+     */
+    done(){ return !this.count(true); }
+    /**
+     * @returns {CoderClient}
+     */
+    clear(){
+        this._tasks = [];
+        return this;
+    }
+    /**
+     * @returns {Boolean}
+     */
+    update() {
+        const task = this.tasks(true)[0] || null;
+        task && task.request();
+        
+        if( !this.done()){
+            //keep looping through
+            this.$('update',this.progress());
+            return true;
+        }
+        //finish and report if required
+        const completed = this.tasks().filter( t => t.completed() );
+        this.$('done', completed).clear();
+        return false;
+    }
+    /**
+     * @returns {Number} %
+     */
+    progress() {
+        const count = this.tasks().length;
+        const progress = count && this.tasks(true) / parseFloat(count) || 0;
+        return Math.floor(progress * 100);
+    }
+    /**
+     * @param {ClipTask} task 
+     * @returns {CoderClient}
+     */
+    add( task = null ){
+        if( task instanceof ClipTask){
+            task._('done', task => this.update());
+            this.tasks().push(task);
+        }
+        return this;
+    }
+
+
+    /// define all task creators
+    /**
+     * list and populate all items in the clipboard
+     * @param {String} id 
+     * @param {Function} callback 
+     * @returns {CoderClient}
+     */
+    list( id = '' , callback = nul ){
+        return this.add(new ClipTask('list',id && {'id':id} || {},callback));
+    }
+    /**
+     * @param {String} id 
+     * @param {Function} callback 
+     * @returns {CoderClient}
+     */
+    load( id = '' , callback = null ){
+        return this.add( new ClipTask('load',{'id':id},callback));
+    }
+    /**
+     * save clipdata
+     * @param {ClipData} data 
+     * @param {Function} callback 
+     * @returns {CoderClient}
+     */
+    save( data = null , callback = null ){
+        if( data instanceof ClipData){
+            this.add(new ClipTask('save',data.content(),callback));
+        }
+        return this;
+    }
+    /**
+     * @param {String} id 
+     * @param {Function} callback 
+     * @returns {CoderClient}
+     */
+    moveup( id = '', callback = null ){
+        return this.add(new ClipTask('moveup',{
+            'id': id,
+        },callback));
+    }
+    /**
+     * @param {String} id 
+     * @param {String} target 
+     * @param {Function} callback 
+     * @returns {CoderClient}
+     */
+    moveto( id = '', target = '' , callback = null ){
+        return this.add(new ClipTask('moveto',{
+            'id': id,
+            'target': target,
+        },callback));
+    }
+    /**
+     * @param {ClipData} id 
+     * @param {Function} callback 
+     * @returns {CoderClient}
+     */
+    remove( id = '' , callback = null ){
+        return this.add(new ClipTask('remove',{
+            'id': id,
+        },callback));
+    }
+    /**
+     * @param {ClipData} id 
+     * @param {Function} callback 
+     * @returns {CoderClient}
+     */
+    sort( id = '' , slot = 0, callback = null ){
+        return this.add(new ClipTask('sort',{
+            'id': id,
+            'slot': slot || 0,
+        },callback));
+    }
+}
 
 /**
  * 
- * @type CodersClipboard
+ * @type App
  */
-class CodersClipboard extends CoderEvents {
+class App extends Handler {
     /**
      * @param {String} id
-     * @returns {CodersClipboard}
+     * @returns {App}
      */
     constructor( id = '') {
         super();
-        if (CodersClipboard.__instance) {
-            return CodersClipboard.__instance;
+        if (App.__instance) {
+            return App.__instance;
         }
-        CodersClipboard.__instance = this;
+        App.__instance = this;
 
-        //this._id = id || '';
         this._clip = id && new ClipData(id) || null;
-        //new version models
-        this._strings = new CoderStrings();
-        this._display = new ClipboardView();
-        this._drive = new CoderDrive('content');
-        this._api = this.readapi();
-
-        //old version models
-        //this._clipboard = ClipboardContent.create();
-        //this.initialize();
         this.initialize();
         console.log(this);
     }
@@ -117,70 +303,32 @@ class CodersClipboard extends CoderEvents {
      * 
      */
     initialize(){
-        this.display().form().attach(this.clip());
-        this.display().refresh( this.id() );
+        this.setupserver();
+        this.setupview();
     }
-    /**
-     * @returns {Object}
-     */
-    readapi(){
-        return CodersAPI || { public: '' , admin: '', ajax: ajaxurl, nonce: '' };
-    }
-    /**
-     * @param {ClipboardContent} cb
-     * @returns {bool}
-     */
-    initializeBAK() {
+    setupserver(){
+        //new version models
+        this._strings = new CoderStrings();
+        this._drive = new CoderDrive('content');
+        this._server = new CoderClient();
 
-        if (this.clipboard().ready()) {
-            this.setupFileInput();
-            this.setupDragDrop();
-            this.setupDragStart();
-            this.setupDragEnd();
-            this.setupDragOver();
-            this.setupDrop();
+    }
+    setupview(){
+        this._form = new ClipFormView('content');
+        this._notifier = new Notifier('coder-notifier');
+        this._collection = new Collection('collections');
+        this._uploader = new Uploader('upload');
+        this._toolbar = new Toolbar('tools');
+        this._navigator = new NavigatorView('coder-navigator');
 
-            this.setupCopy();
-            this.setupPaste();
-        }
-        this.setupTabs();
+        this.form()._('load', clip => this.navigator().refresh(clip.path()));
+        this.form().load(this.clip());
     }
     /**
-     * @param {String} id
-     * @returns {CodersClipboard}
+     * @returns {CoderClient}
      */
-    static instance( id = '') {
-        return CodersClipboard.__instance || new CodersClipboard( id );
-    }
-
-    /**
-     * @param {String} message 
-     * @param {String} type 
-     * @returns {ClipboardView}
-     */
-    static notify(message, type = 'info') {
-        console.log(message,type);
-        this.instance().display().notifier().show(message, type);
-        return this;
-    }    
-    /**
-     * @param {String} text 
-     * @returns {String}
-     */
-    static text(text = '') { return this.instance().strings().get(text); }
-    /**
-     * @returns {Object}
-     */
-    static api() { return this.instance()._api; }
-    /**
-     * @param {String} id 
-     * @returns {String}
-     */
-    static public(id = ''){ return this.api().public && this.api().public + id || ''; }
-    /**
-     * @param {String} id 
-     */
-    static admin( id = '' ){ this.api().admin && id ? `${this.api().admin}&id=${id}` : this.api().admin || ''; }
+    server(){ return this._server; }
+    
     /**
      * @returns {CoderStrings}
      */
@@ -191,10 +339,6 @@ class CodersClipboard extends CoderEvents {
      */
     drive() { return this._drive; }
     /**
-     * @returns {ClipboardView}
-     */
-    display() { return this._display; }
-    /**
      * @returns {ClipData}
      */
     clip(){ return this._clip; }
@@ -202,10 +346,92 @@ class CodersClipboard extends CoderEvents {
      * @returns {String}
      */
     id(){ return this.clip() && this.clip().id() || ''; }
+
     /**
-     * @returns {ClipView[]}
+     * @returns {Notifier}
      */
-    list(){ return this.display().collection().items(); }
+    notifier(){ return this._notifier; }
+    /**
+     * @returns {ClipFormView}
+     */
+    form(){ return this._form; }
+    /**
+     * @returns {Collection}
+     */
+    collection(){ return this._collection; }
+    /**
+     * @returns {NavigatorView}
+     */
+    navigator(){ return this._navigator; }
+    /**
+     * @returns {Uploader}
+     */
+    uploader(){ return this._uploader; }
+    /**
+     * @returns {Toolbar}
+     */
+    toolbar(){ return this._toolbar; }
+
+
+
+    /**
+     * @param {String} id
+     * @returns {App}
+     */
+    static instance( id = '') {
+        return App.__instance || new App( id );
+    }
+    /**
+     * @returns {CoderClient}
+     */
+    static Server(){ return this.instance().server(); }
+
+    /**
+     * @param {String} message 
+     * @param {String} type 
+     * @returns {ClipboardView}
+     */
+    static notify(message, type = 'info') {
+        this.instance().notifier().show(message, type);
+        return this;
+    }    
+    /**
+     * @param {String} text 
+     * @returns {String}
+     */
+    static text(text = '') { return this.instance().strings().get(text); }
+    /**
+     * @returns {Object}
+     */
+    static api() { return this.Server().api(); }
+
+
+    /**
+     * @returns {ClipFormView}
+     */
+    static Clip(){ return this.instance()._form; }
+    /**
+     * @returns {Collection}
+     */
+    static Clipboard(){ return this.instance().collection(); }
+    /**
+     * @returns {NavigatorView}
+     */
+    static Nav(){ return this.instance().navigator(); }
+    /**
+     * @returns {Uploader}
+     */
+    static Content(){ return this.instance().form(); }
+    /**
+     * @returns {Toolbar}
+     */
+    static Tools(){ return this.instance().toolbar(); }
+    /**
+     * @returns {Uploader}
+     */
+    static Uploads(){ return this.instance().uploader(); }
+
+
 
     upload( items = []){
         const uploader = this.display().uploader();
@@ -667,7 +893,7 @@ class CoderDrive{
  * {task: sort, id: string , position: (1,...) } requests a sorting update to arrange the collection
  * @type {ClipTask}
  */
-class ClipTask extends CoderEvents {
+class ClipTask extends Handler {
     /**
      * @param {String} task 
      * @param {Object} data
@@ -676,16 +902,11 @@ class ClipTask extends CoderEvents {
     constructor(task = '', data = {}, callback = null) {
         super();
         this._status = ClipTask.Status.Ready;
-        this._task = task || 'main';
+        this._action = task || 'main';
         this._data = data || {};
-        this._ref = null;
         //this._callback = callback || null;
         this._response = {};
         this._('response',callback );
-        console.log(this);
-
-        //add to queue?
-        this.uploader().add(this);
     }
     /**
      * @param {String} task 
@@ -697,9 +918,9 @@ class ClipTask extends CoderEvents {
         return new ClipTask(task,data,callback);
     }
     /**
-     * @returns {UploaderView}
+     * @returns {Uploader}
      */
-    uploader(){ return CodersClipboard.instance().display().uploader(); }
+    uploader(){ return App.instance().display().uploader(); }
     /**
      * @returns {Object}
      */
@@ -714,17 +935,17 @@ class ClipTask extends CoderEvents {
      */
     log(){ return this.response()._log || []; }
     /**
-     * @returns {Object}
+     * @returns {CoderClient}
      */
-    api() { return CodersClipboard.api(); }
+    client() { return App.Server(); }
     /**
      * @returns {String}
      */
-    url() { return this.api().ajax || ''; }
+    url() { return this.client().ajaxurl(); }
     /**
      * @returns {String}
      */
-    nonce() { return this.api().nonce; }
+    nonce() { return this.client().nonce(); }
     /**
      * @returns {String}
      */
@@ -749,7 +970,7 @@ class ClipTask extends CoderEvents {
     /**
      * @returns {String}
      */
-    task() { return this._task; }
+    task() { return this._action; }
     /**
      * @returns {Object|File}
      */
@@ -766,26 +987,6 @@ class ClipTask extends CoderEvents {
      */
     valid() {
         return !!this.task();
-    }
-    /**
-     * @returns {Element}
-     */
-    ref() {
-        return this._ref;
-    }
-    /**
-     * @param {Object} ref 
-     * @returns {ClipTask}
-     */
-    setRef(ref) {
-        this._ref = ref;
-        return this;
-    }
-    /**
-     * @returns {Boolean}
-     */
-    hasRef() {
-        return this.ref() !== null;
     }
     /**
      * @returns {ClipboardContent}
@@ -811,7 +1012,7 @@ class ClipTask extends CoderEvents {
             this._response = response.data || {};
             this._status = ClipTask.Status.Complete;
             this.$('response',this.response());
-            //this.$('done', this);
+            this.$('done', this);
         }
         else{
             this._status = ClipTask.Status.Failed;
@@ -824,7 +1025,7 @@ class ClipTask extends CoderEvents {
     failure(error) {
         console.log('Task Error', error, this);
         this._status = ClipTask.Status.Failed;
-        //this.$('done', this);
+        this.$('done', this);
         return this;
     }
     /**
@@ -887,7 +1088,7 @@ class FormTask extends ClipTask{
      */
     constructor( content = null , callback = null){
         super( 'save' ,
-            content instanceof ClipData ? content.data() : {},
+            content instanceof ClipData ? content.content() : {},
             callback );
     }
 }
@@ -897,7 +1098,7 @@ class FormTask extends ClipTask{
  * Use to portdata between the list and the server tasks
  * @type {ClipData}
  */
-class ClipData extends CoderEvents{
+class ClipData extends Handler{
     /**
      * 
      * @param {String} id 
@@ -935,7 +1136,7 @@ class ClipData extends CoderEvents{
             data.slot || '',
         );
     }
-    link(){ return CodersClipboard.api().public + this.id(); }
+    link(){ return App.api().public + this.id(); }
     /**
      * @param {Object} data 
      * @returns {ClipData}
@@ -956,7 +1157,7 @@ class ClipData extends CoderEvents{
     /**
      * @returns {Object}
      */
-    data(){
+    content(){
         return {
             id: this.id(),
             name : this.name(),
@@ -1316,48 +1517,86 @@ class ContentView {
 /**
  * Base View class
  */
-class CoderView extends CoderEvents {
+class Component extends Handler {
     /**
-     * 
+     * @param {String} name
      */
-    constructor() {
+    constructor( name = '' ) {
         super();
-        this.initialize();
+        this._node = this.render(name);
+        this.initialize( name);
     }
     /**
-     * 
+     * @param {String} classname
      */
-    initialize() {
+    initialize( classname = '') {
         //override
+        this._components = [];
     }
+    /**
+     * @param {String} name 
+     * @returns {Element}
+     */
+    attachto( name = '' ){ return [...document.getElementsByClassName(name)][0] || null; }
+    /**
+     * @param {Component} c 
+     * @returns {Component}
+     */
+    add( c = null ){
+        if( c instanceof Component){
+            this.components().push(c);
+            this.node() && this.node().appendChild( c.node() );
+            //append extra events such as remove
+            c.$('remove', c => this.drop(c) ); 
+        }
+        return this;
+    }
+    /**
+     * @param {Component} component 
+     * @returns {Component}
+     */
+    drop( component = null ){
+        if( component instanceof Component){
+            this._components = this.components().filter( c => c !== component);
+        }
+        return this;
+    }
+    /**
+     * @returns {Component[]}
+     */
+    components(){ return this._components;}
+    /**
+     * @returns {Element}
+     */
+    node(){ return this._node; }
     /**
      * @param {String} text 
      * @returns {String}
      */
-    text(text = '') { return CodersClipboard.instance().strings().get(text); }
+    text(text = '') { return App.instance().strings().get(text); }
     /**
-     * @returns {Element}
+     * @returns {CoderClient}
      */
-    render() {
-        //override
-        return this.html('div', { 'class': 'empty' }, '');
+    api() { return App.Server(); }
+    /**
+     * @param {String[]} path
+     * @param {Object} params
+     * @returns {String}
+     */
+    url( path = [] , params = null  ) {
+        const pairs = [];
+        const url = this.api().publicurl() + path.join('/');
+        Object.keys(params || {}).forEach( key => pairs.push( `${key}=${params[key]}`));
+        return pairs.length ? `${url}?${pairs.join('&')}`  : url;
     }
     /**
-     * @returns {Object}
+     * @returns {String}
      */
-    api() { return CodersClipboard.api(); }
+    adminurl(){ return this.api().adminurl(); }
     /**
      * @returns {String}
      */
-    url() { return this.api().url; }
-    /**
-     * @returns {String}
-     */
-    public(){ return this.api().public; }
-    /**
-     * @returns {String}
-     */
-    nonce() { return this.api().nonce; }
+    nonce() { return this.api().nonce(); }
 
 
     /**
@@ -1378,14 +1617,20 @@ class CoderView extends CoderEvents {
         return element;
     }
     /**
+     * @returns {Element}
+     */
+    render( name = '') {
+        return name && this.attachto(name) || this.html('div', { 'class': 'empty' }, '');
+    }
+    /**
      * @param {Object} request
      * @param {String|Element} content 
      * @param {String} className 
      * @param {String} target _self|_blank
      * @returns {Element}
      */
-    link(request = {}, content, className = '', target = '_self') {
-        const base = `${this.url()}?page=coder_clipboard`;
+    link(request = {}, content, className = '', target = '_self' ) {
+        const base = this.adminurl();
         const data = Object.keys(request)
             .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(request[key])}`);
         const url = data.length ? `${base}&${data.join('&')}` : base;
@@ -1401,107 +1646,62 @@ class CoderView extends CoderEvents {
         return this.link({ action: action }, content, className, '_self');
     }
 }
+
 /**
  * 
  */
-class ClipboardView extends CoderView {
+class Collection extends Component {
     /**
-     * 
+     * @param {String} name 
      */
-    constructor() {
-        super();
-        this._form = new ClipFormView('content');
-        this._notifier = new NotifierView('coder-notifier');
-        this._collection = new CollectionView('collections');
-        this._uploader = new UploaderView('upload');
-        this._toolbar = new ToolbarView('tools');
-        this._navigator = new NavigatorView('coder-navigator');
-        this.initialize();
+    constructor( name = '' ) {
+        super( name);
     }
     /**
      * 
      */
     initialize(){
-        this.onDragDrop();
-        this.onDragStart();
-        this.onDragOver();
-        this.onDragEnd();
-        this.onFileInput();
-        this.onCopy();
-        this.onPaste();
-    }
-    /**
-     * @returns {NotifierView}
-     */
-    notifier() { return this._notifier; };
-    /**
-     * @returns {CollectionView}
-     */
-    collection() { return this._collection; };
-    /**
-     * @returns {UploaderView}
-     */
-    uploader() { return this._uploader; };
-    /**
-     * @returns {ToolbarView}
-     */
-    toolbar() { return this._toolbar; };
-    /**
-     * @returns {NavigatorView}
-     */
-    navigator() { return this._navigator; };
-    /**
-     * @returns {ClipFormView}
-     */
-    form(){ return this._form; }
+        super.initialize( );
+        this.onCopy();        
+        this.onPaste();        
+        this.onDragDrop();        
+        this.onDragStart();        
+        this.onDragEnd();        
+        this.onDragOver();    
 
-    /**
-     * @param {String} id 
-     * @returns {ClipboardView}
-     */
-    refresh( id = ''){
-        ClipTask.create('list', id ? {'id':id} : {}, (r) =>{
-            this.collection().fill( r.items || [] );
+        this.populate();
+    }
+    populate(){
+        const clip = this.clip();
+        App.Server().list(clip && clip.id() || '',(r) =>{
+            this.fill((r.items || []).map( data => ClipData.fromdata(data) ));
         });
-        return this;
     }
-
-
-
-    onFileInput(){}
-    onDragDrop(){}
-    onDragStart(){}
-    onDragEnd(){}
-    onDragOver(){}
-    onDrop(){}
-    onCopy(){}
-    onPaste(){}
-}
-/**
- * 
- */
-class CollectionView extends CoderView {
     /**
-     * @param {String} classname 
+     * @returns {ClipData}
      */
-    constructor(classname = '') {
-        super();
-        this._collection = [...document.getElementsByClassName(classname)][0] || null;
-    }
+    clip(){ return App.Clip(); }
+
+    onFileInput(){ return this;}
+    onDragDrop(){return this;}
+    onDragStart(){return this;}
+    onDragEnd(){return this;}
+    onDragOver(){return this;}
+    onDrop(){return this;}
+    onCopy(){return this;}
+    onPaste(){return this;}
     /**
      * @returns {Element}
      */
-    collection(){ return this._collection; }
+    collection(){ return this._node; }
     /**
-     * @param {Object[]} items 
+     * @param {ClipData[]} items 
      */
     fill( items = [] ){
         console.log(items);
         const collection = this.collection();
         if( collection){
-            (items || []).map( data => ClipData.fromdata(data)).map( clip => new ClipView(clip) ).forEach( element => {
-                collection.appendChild( element.render() );
-            });
+            (items || []).map( clip => new ClipView(clip) ).forEach( c => this.add(c) );
         }
     }
     /**
@@ -1512,24 +1712,24 @@ class CollectionView extends CoderView {
 /**
  * 
  */
-class NotifierView extends CoderView {
+class Notifier extends Component {
     /**
-     * @param {String} classname 
+     * @param {String} name 
      */
-    constructor(classname = '') {
-        super();
-        this._notifier = [...document.getElementsByClassName(classname)][0] || null;
+    constructor(name = '') {
+        super(name);
     }
     /**
      * @returns {Element}
      */
-    notifier() { return this._notifier; }
+    notifier() { return this.node(); }
     /**
      * @param {String} content 
      * @param {String} type 
-     * @returns {NotifierView}
+     * @returns {Notifier}
      */
     show(content = '', type = 'info') {
+        console.log(message,type);
         if (content && this.notifier()) {
             this.notifier().appendChild(this.html('div', { 'class': `is-dismissible notice type-${type}` }, content));
         }
@@ -1540,7 +1740,7 @@ class NotifierView extends CoderView {
 /**
  * Use this new model instead ClipData
  */
-class ClipView extends CoderView {
+class ClipView extends Component {
     /**
      * @param {String} id 
      * @param {String} parentid 
@@ -1552,7 +1752,6 @@ class ClipView extends CoderView {
     constructor( data = null ) {
         super();
         this._data = data instanceof ClipData ? data : null;
-        console.log(this.data());
     }
     /**
      * @returns {ClipData}
@@ -1563,9 +1762,10 @@ class ClipView extends CoderView {
      */
     empty(){ return !this.data(); }
     /**
-     * @returns {String}
+     * @param {String} id 
+     * @returns {ClipView}
      */
-    dataurl(){ return !this.empty() ? this.public() + this.data().id() : ''; }
+    clipurl( id = '' ){ return this.api().clipurl(id); }
     /**
      * @returns {String}
      */
@@ -1660,7 +1860,7 @@ class ClipView extends CoderView {
 /**
  * 
  */
-class ClipContentView extends CoderView {
+class ClipContentView extends Component {
     /**
      * 
      * @param {ClipData} clip 
@@ -1710,7 +1910,7 @@ class ClipImageView extends ClipContentView {
      * @param {ClipData} clip 
      */
     constructor(clip = null) {
-        this._clip = clip;
+        super(clip);
     }
 }
 /**
@@ -1721,35 +1921,32 @@ class ClipMediaView extends ClipContentView {
      * @param {ClipData} clip 
      */
     constructor(clip = null) {
-        this._clip = clip;
+        super(clip);
     }
 }
 
 /**
  * 
  */
-class ClipFormView extends CoderView {
+class ClipFormView extends Component {
     /**
-     * @param {String} classname 
+     * @param {String} name 
      */
-    constructor(classname = '') {
-        super();
-        this._form = [...document.getElementsByClassName(classname)][0] || null;
-        this._clip = null;
+    constructor(name = '') {
+        super(name);
+        this.clear();
     }
     /**
      * @param {ClipData} clip 
      * @returns {ClipFormView}
      */
-    attach( clip = null ){
+    load( clip = null ){
         this._clip = clip instanceof ClipData && clip || null;
         if( this.clip()){
             //refresh all data changes when the clip geets updated
-            this.clip()._('update', clip => { this.refresh(clip); });
-            //any time the form changes, send the data back to the clip
-            this._('update', data => this.clip().refresh(data || {}));
-            //load clip data
-            ClipTask.create('load',{'id':this.clip().id()}, data => { this.clip().refresh(data.item || {}); });
+            this.clip()._('update', clip => { this.refresh(clip,false); });
+            //fire clip data event
+            this.$('load',this.clip());
         }
         return this;
     }
@@ -1757,8 +1954,10 @@ class ClipFormView extends CoderView {
      * @param {ClipData} clip 
      * @returns {ClipFormView}
      */
-    refresh( clip = null ){
+    refresh( clip = null, runevent = false){
         if( clip instanceof ClipData){
+            this._clip = clip;
+            runevent && this.$('refresh',this.clip());
             //fill fporm data here
             console.log('Form Data ' , clip);
         }
@@ -1773,128 +1972,119 @@ class ClipFormView extends CoderView {
      * @returns {ClipFormView}
      */
     clear(){
+        this._clip = null;
         return this;
     }
 }
 /**
  * Manage tasks and uploads, update the progress with a progress bar
  */
-class UploaderView extends CoderView {
+class Uploader extends Component {
     /**
-     * @param {String} classname 
+     * @param {String} name 
      */
-    constructor(classname = '') {
-        super();
-        this._uploader = [...document.getElementsByClassName(classname)][0] || null;
-        this._tasks = [];
+    constructor(name = '') {
+        super(name);
     }
     /**
-     * @returns {ClipTask[]}
+     * 
+     * @param {Number} progress 
+     * @returns {Uploader}
      */
-    tasks(active = false) { return active ? this.tasks().filter(t => !t.finished()) : this._tasks; }
-    /**
-     * @param {ClipTask} task 
-     * @returns {UploaderView}
-     */
-    add(task = null) {
-        if (task instanceof ClipTask) {
-            const runloop = !this.count();
-            this.tasks().push(task);
-            runloop && this.update();
-        }
+    update( progress = 0){
+        console.log(progress);
         return this;
     }
     /**
-     * @param {Boolean} active
-     * @returns {Number}
+     * 
      */
-    count(active = false ) { return this.tasks(active).length; }
-    /**
-     * @returns {Boolean}
-     */
-    update() {
-        const task = this.tasks(true)[0] || null;
-        task && task.request();
-        
-        if( this.count(true)){
-            //keep looping through
-            return true;
-        }
-        //finish and report if required
-        const summary = this.count();
-        if( summary > 1 ){
-            const completed = this.tasks().filter( t => t.completed() );
-            CodersClipboard.notify(`${completed} / ${summary} tasks completed`,'update');
-        }
-        return false;
-    }
-    /**
-     * @returns {Number} %
-     */
-    progress() {
-        const count = this.tasks().length;
-        const progress = count && this.tasks(true) / parseFloat(count) || 0;
-        return Math.floor(progress * 100);
+    initialize(){
+        App.Server().$('update', amount => {
+            this.progress(amount);
+        });
     }
 }
 /**
  * Component to build the gallery navigation hierarchy at the top
  */
-class NavigatorView extends CoderView {
+class NavigatorView extends Component {
     /**
-     * @param {String} classname 
+     * @param {String} name 
      */
-    constructor(classname = '') {
-        super();
-        this._nav = [...document.getElementsByClassName(classname)][0] || null;
+    constructor(name = '') {
+        super(name);
+        this._path = {};
     }
     /**
-     * @returns {Element}
+     * 
      */
-    navigagor() { return this._nav; }
+    initialize(){
+        //refresh on loading clip form
+        App.Clip().$('load', clip => {
+            this.refresh(clip.tree());
+        });
+    }
     /**
+     * @param {Object} path 
      * @returns {NavigatorView}
      */
-    clear() { this.navigagor().innerHTML = ''; return this; }
-    /**
-     * @param {Object} pathdata 
-     * @returns {NavigatorView}
-     */
-    render(pathdata = {}) {
-        const nav = this.clear().navigagor();
-        nav.appendChild('li', { 'class': 'item home' }, this.text('clipboard'));
-        if (pathdata instanceof Object) {
-            Object.keys(pathdata).forEach(id => {
-                nav.appendChild(id ?
-                    this.link({ 'id': id }, pathdata[id], 'link') :
-                    this.html('span', { 'class': 'current' }, pathdata[id]));
-            });
+    refresh( path = {} ){
+        if( path instanceof Object){
+            this._path = path;
         }
         return this;
     }
     /**
-     * @param {ClipData} content 
      * @returns {NavigatorView}
      */
-    refresh(content = null) {
-
-        if (content instanceof ClipData) {
-            this.render(content.path());
-        }
-
+    populate(){
+        const data = this.path();
+        this.list().forEach( id => {
+            //refill path items
+        });
+        return this;
+    }
+    /**
+     * @returns {Object}
+     */
+    path(){ return this._path; }
+    /**
+     * @returns {String[]}
+     */
+    list(){ return Object.keys( this.path() ); }
+    /**
+     * @returns {Element}
+     */
+    nav() { return this.node(); }
+    /**
+     * @returns {NavigatorView}
+     */
+    clear() {
+        this.nav().innerHTML = '';
         return this;
     }
 }
 /**
  * Selective actions for the collection view
  */
-class ToolbarView extends CoderView {
+class Toolbar extends Component {
     /**
-     * @param {String} classname 
+     * @param {String} name 
      */
-    constructor(classname = '') {
-        super();
-        this._toolbar = [...document.getElementsByClassName(classname)][0] || null;
+    constructor(name = '') {
+        super(name);
+    }
+    /**
+     * 
+     */
+    initialize(){
+        //register events here
+    }
+    /**
+     * 
+     */
+    populate(){
+
     }
 }
 

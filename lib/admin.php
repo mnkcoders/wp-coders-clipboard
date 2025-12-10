@@ -1018,7 +1018,8 @@ class View{
             // Register and enqueue JS
             wp_enqueue_script('clipboard-script', $script, ['jquery'], filemtime($script_path), true);
 
-            $public = Content::manager()->clipdata();
+            //$public = Content::manager()->clipdata();
+            $public = get_site_url();
             $admin = self::adminurl();
             // Optional: Pass variables to JS
             wp_localize_script('clipboard-script', 'CodersAPI', [
