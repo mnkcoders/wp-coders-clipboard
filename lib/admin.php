@@ -280,7 +280,7 @@ class MainController extends Controller{
         
         $content = Content::load( $this->id ,true);
         
-        $this->view()->setContent( $content )->show('default');
+        $this->view()->setContent( $content )->show('clipboard');
 
         return true;
     }
@@ -765,7 +765,7 @@ class View{
      * @param string $context
      * @return \CODERS\Clipboard\Admin\View
      */
-    static public function create($context = 'default') {
+    static public function create($context = 'main') {
         $view = sprintf('\CODERS\Clipboard\Admin\%sView', ucfirst($context));
         return is_subclass_of($view, self::class) ? new $view($context) : new View($context);
     }
@@ -919,21 +919,6 @@ class View{
 
         return $base_url;
     }
-    /**
-     * @param array $args
-     * @return string|url
-     */
-    /*protected function adminurl( array $args = array()){
-        //$admin_url = menu_page_url('coder-sandbox');
-        return View::adminurl($args);
-        
-        $admin_url = admin_url('admin.php?page=coders-clipboard');
-        $get = array();
-        foreach ($args as $var => $val ){
-            $get[] = $var . '=' . $val;
-        }
-        return count($args) ? $admin_url . '&' . implode('&', $get) : $admin_url;
-    }*/
     /**
      * @param string $action
      * @param array $args

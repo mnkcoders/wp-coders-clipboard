@@ -1,14 +1,15 @@
 <?php defined('ABSPATH') or die; ?>
 <!-- COLLECTION BLOCK -->
 <ul class="clipboard-box" class="inline queue"></ul>
-<ul class="collections container drag-drop">
+<ul class="collection container drag-drop">
     <?php if (!$this->is_empty()) : ?>
-        <?php foreach ($this->list_items() as $item) : ?>
+        <?php //foreach ($this->list_items() as $item) : ?>
+        <?php foreach ( array() as $item) : ?>
             <li class="item" data-id="<?php
                     print $item->id ?>" data-slot="<?php 
                     print $item->slot ?>">
                 <span class="placeholder" data-slot="<?php print $item->slot ?>"></span>
-                <div class="content">
+                <div class="content" draggable="true" >
                     <?php if ($item->is_media()) : ?>
                         <img class="media <?php print $item->tags ?>" src="<?php
                             print $item->url ?>" alt="<?php

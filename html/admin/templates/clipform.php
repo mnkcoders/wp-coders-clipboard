@@ -1,5 +1,5 @@
 <?php defined('ABSPATH') or die; ?>
-<div class="content container">
+
 <form name="content" action="<?php print $this->form ?>" method="post">
     <div class="tab <?php print $this->has_items() ? 'collapsed' : '' ?>">
         <a target="_blank" class="button" href="<?php
@@ -62,4 +62,3 @@
         </div>
     </div>
 </form>
-</div>
