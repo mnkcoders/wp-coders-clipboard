@@ -31,7 +31,7 @@ class App {
         this._input = new CoderInput();
         //this._id = this.input().get('id') || '';
         this._components = {};
-
+        this._attributes = [];
         this.setup().initialize();
         console.log(this);
     }
@@ -61,11 +61,19 @@ class App {
     initialize() {
         //initialize views
         //console.log('Initialize Components:', this.components());
+        //this.loadattributes();
         this.components()
             .map(c => this._components[c])
             .filter(c => c instanceof ViewComponent)
             .forEach(c => c.initialize());
 
+        return this;
+    }
+    /**
+     * @returns {App}
+     */
+    loadattributes(){
+        App.server().attributes( r => r.attributes && r.attributes.forEach( a => this._attributes.push(a)));
         return this;
     }
     /**
@@ -312,6 +320,13 @@ class CoderServer {
      */
     list(id = '', callback = nul) {
         return this.add(new ClipTask('list', id && { 'id': id } || {}, callback));
+    }
+    /**
+     * @param {Function} callback 
+     * @returns {CoderServer}
+     */
+    attributes(callback = null ){
+        return this.add(new ClipTask('attributes',{},callback));
     }
     /**
      * @param {String} id 
@@ -750,7 +765,6 @@ class ClipData extends Component {
         this._tags = [];
         this._path = {};
         this._items = 0;
-        console.log(this);
     }
     /**
      * 
@@ -764,7 +778,6 @@ class ClipData extends Component {
                 this[t] = data[key];
             }
         });
-        console.log(this);
         return this;
     }
     /**

@@ -532,6 +532,14 @@ class AjaxController extends Controller{
     /**
      * @return bool
      */
+    protected function attributesAction(): bool{
+        $clip = new Content();
+        $this->set('attributes',$clip->attributes());
+        return true;
+    }
+    /**
+     * @return bool
+     */
     protected function loadAction() :bool{
         $clip = Content::load($this->id);
         $this->set('item',$clip ? $clip->meta() : null);
@@ -643,6 +651,12 @@ class AjaxController extends Controller{
  * 
  */
 class Content extends \CODERS\Clipboard\Clip{
+    /**
+     * @return array
+     */
+    public function attributes(){
+        return array_keys($this->data());
+    }
 
     /**
      * @param \CODERS\Clipboard\Clip[] $clips
