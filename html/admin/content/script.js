@@ -742,14 +742,15 @@ class ClipData extends Component {
         super();
         this._id = id || '';
         this._slot = 0;
-        this._parent = '';
+        this._parent_id = '';
         this._name = 'new-clip';
         this._type = '';
         this._title = '';
-        this._desc = '';
+        this._description = '';
         this._tags = [];
         this._path = {};
         this._items = 0;
+        console.log(this);
     }
     /**
      * 
@@ -866,7 +867,7 @@ class ClipData extends Component {
     /**
      * @returns {String}
      */
-    desc() { return this._desc; }
+    desc() { return this._description; }
     /**
      * @returns {String}
      */
@@ -874,7 +875,7 @@ class ClipData extends Component {
     /**
      * @returns {String}
      */
-    parent() { return this._parent; }
+    parent() { return this._parent_id; }
     /**
      * @returns {String[]}
      */
@@ -1458,6 +1459,7 @@ class ClipView extends ViewComponent {
      * @returns {Element}
      */
     render() {
+        console.log(this.parent());
         const item = this.html('li', { 'class': 'item', 'data-id': this.id(), 'data-slot': this.slot()});
         item.appendChild(this.makeplaceholder());
         item.appendChild(this.makecontent());
