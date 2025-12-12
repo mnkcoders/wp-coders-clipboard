@@ -8,16 +8,18 @@
     
     <?php $this->show_log() ?>
 
-    <div class="content container">
+    <div class="content container <?php print $this->get_main() ?>">
         <?php if ($this->is_valid()) : ?>
-            <?php $this->show_clipform() ?>
+            <?php $this->show_attachment() ?>
+            <?php $this->show_content() ?>
         <?php else: ?>
             <?php $this->show_sidebar() ?>
         <?php endif; ?>
     </div>
-
-    <?php $this->show_uploader() ?>
-    <?php $this->show_tasks() ?>    
-    <?php $this->show_collection() ?>
+    <div class="clipboard container">
+        <?php $this->show_uploader() ?>
+        <?php $this->show_toolbar() ?>    
+        <?php $this->show_collection() ?>
+    </div>
 </div>
 

@@ -192,6 +192,7 @@ class Controller{
         return $this->set('_log',$this->log())
                 ->set('_context', $this->context())
                 ->set('_response', $this->completed())
+                ->set('_input',$this->data())
                 ->set('_action',$action);
     }
     /**
@@ -525,7 +526,6 @@ class AjaxController extends Controller{
      */
     protected function listAction(): bool{
         $items = Content::collection($this->id);
-        $this->set('input', $this->data());
         $this->set('items',$items);
         return true;
     }
@@ -566,8 +566,9 @@ class AjaxController extends Controller{
         $clip = Content::load($this->id);
         
         if($clip && $clip->remove()){
-                $this->notify(sprintf('%s removed!',$clip->name),'update');
-                return true;
+            $this->notify(sprintf('%s removed!',$clip->name),'update');
+            $this->set('id',$this->id);
+            return true;
         }
         else{
             $this->notify('Invalid file','warning');
@@ -670,6 +671,7 @@ class Content extends \CODERS\Clipboard\Clip{
         return array_map( function ($clip){
             $data = $clip->meta();
             $data['slot'] = intval( $clip->slot );
+            $data['items'] = $clip->countItems();
             return $data;
         },$clips);
     }
@@ -1025,7 +1027,7 @@ class MainView extends View{
     /**
      * @var string
      */
-    private $_mode = 'manual';
+    //private $_mode = 'manual';
     
     /**
      * @return \CODERS\Clipboard\Clip[]
@@ -1109,7 +1111,20 @@ class MainView extends View{
      * @return string
      */
     public function getMode(){
-        return $this->_mode;
+        return 'ajax';
+        //return $this->_mode;
+    }
+    /**
+     * @return boolean
+     */
+    public function isMain(){
+        return !$this->hasContent();
+    }
+    /**
+     * @return string
+     */
+    public function getMain(){
+        return $this->isMain() ? 'main' : 'item';
     }
     /**
      * @return string

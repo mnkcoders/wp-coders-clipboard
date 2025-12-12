@@ -514,6 +514,7 @@ class Clip{
     public function getCss(){
         $meta = explode('/',$this->type);
         $meta[] = $this->getDisposition();
+        $meta[] = $this->tags;
         return implode(' ',$meta);
     }
     /**
