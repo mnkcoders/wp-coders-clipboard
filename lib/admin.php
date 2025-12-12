@@ -394,9 +394,16 @@ class MainController extends Controller{
      * @return bool
      */
     protected function recoverAction() : bool {
-        $lostfiles = Content::findLost();
+        $lost = Content::findLost();
         $orphen = Content::restoreLost();
-        $this->notify('Recovered %s lost items and %s unparented items',$lostfiles,$orphen);
+        if( $lost + $orphen ){
+            $this->notify(sprintf('Recovered %s lost items and %s unparented items',
+                $lost,
+                $orphen));
+        }
+        else{
+            $this->notify('All clear, nothing found :)');
+        }
         return $this->mainAction();
     }
     /**
@@ -758,6 +765,18 @@ class Content extends \CODERS\Clipboard\Clip{
     public function data(){
         $data = parent::data();
         return $data;
+    }
+    /**
+     * @return Int
+     */
+    public static function findLost(){
+        return self::manager()->findLost();
+    }
+    /**
+     * @return int
+     */
+    public static function restoreLost(){
+        return self::manager()->restoreLost();
     }
 }
 /**

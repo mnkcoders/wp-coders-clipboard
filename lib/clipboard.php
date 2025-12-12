@@ -108,15 +108,15 @@ class Clipboard{
         $db_ids = array_map('strtolower', $this->db()->allids());
         $drive = $this->storage();
         $lost = [];
+        $skip = ['..','.'];
         $files = $drive->list();
-
         foreach ($files as $file) {
-            if ( !in_array(strtolower($file), $db_ids)) {
+            if ( !in_array(strtolower($file), $db_ids) && !in_array($file, $skip)) {
                 $path = $drive->route($file);
                 $lost[$file] = mime_content_type($path);
             }
         }
-        return $lost;
+        return count($lost);
     }    
         
     
