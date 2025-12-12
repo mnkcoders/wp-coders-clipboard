@@ -104,7 +104,10 @@ class App {
      * @returns {String}
      */
     id() { return this.input().get('id') || ''; }
-
+    /**
+     * @returns {String}
+     */
+    drive(){ return this.input().get('drive') || 'content'; }
 
     /**
      * @returns {App}
@@ -320,6 +323,15 @@ class CoderServer {
      */
     list(id = '', callback = nul) {
         return this.add(new ClipTask('list', id && { 'id': id } || {}, callback));
+    }
+    /**
+     * list and populate all items in the clipboard
+     * @param {String} drive 
+     * @param {Function} callback 
+     * @returns {CoderServer}
+     */
+    drive(drive = '', callback = nul) {
+        return this.add(new ClipTask('drive', drive && { 'drive': drive } || {}, callback));
     }
     /**
      * @param {Function} callback 
@@ -1158,12 +1170,22 @@ class Collection extends ViewComponent {
      * @returns {Collection}
      */
     populate() {
-        const id = App.client().id() || '';
-        App.server().list(id, (r) => {
-            //console.log(id, r);
-            this.fill((r.items || []).map(data => ClipData.fromdata(data)));
-            this.$('refresh',this.count());
-        });
+        const id = App.client().id();
+        const drive = App.client().drive();
+        console.log(id,drive);
+        if( id ){
+            App.server().list(id, (r) => {
+                //console.log(id, r);
+                this.fill((r.items || []).map(data => ClipData.fromdata(data)));
+                this.$('refresh',this.count());
+            });
+        }
+        else{
+            App.server().drive(drive, (r) => {
+                this.fill((r.items || []).map(data => ClipData.fromdata(data)));
+                this.$('refresh',this.count());
+            });
+        }
         return this;
     }
     /**
@@ -1710,11 +1732,11 @@ class Uploader extends ViewComponent {
     /**
      * @returns {Element}
      */
-    fileinput() { return this.node().querySelector('input[type=file]') || null; }
+    fileinput() { return this.node() && this.node().querySelector('input[type=file]') || null; }
     /**
      * @returns {Element}
      */
-    uploadbutton(){ return this.node().querySelector('button.upload') || null; }
+    uploadbutton(){ return this.node() && this.node().querySelector('button.upload') || null; }
     /**
      * @param {String} text
      * @returns {Element}

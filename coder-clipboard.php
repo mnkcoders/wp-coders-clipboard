@@ -10,7 +10,7 @@
  * Class: Clipboard
  * **************************************************************************** */
 
-define('CODER_CLIPBOARD_DIR', plugin_dir_path(__FILE__));
+define('CODER_CLIPBOARD_DIR', preg_replace('/\\\\/', '/',  plugin_dir_path(__FILE__)));
 define('CODER_CLIPBOARD_URL', plugin_dir_url(__FILE__));
 define('CODER_CLIPBOARD_DATA','clipdata');
 define('CODER_CLIPBOARD_VIEW','clipboard');

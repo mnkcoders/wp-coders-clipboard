@@ -2,7 +2,7 @@
 
 defined('ABSPATH') or die;
 
-add_action('admin_post_clipboard_action', function() {
+add_action('admin_post_coder_clipboard', function() {
     $server = \CODERS\Clipboard\Admin\Controller::redirect('post',INPUT_POST);
     wp_redirect(add_query_arg($server->response(), admin_url('admin.php')));
     exit;        
@@ -278,13 +278,24 @@ class MainController extends Controller{
      * @return bool
      */
     protected function mainAction(): bool {
-        
-        $content = Content::load( $this->id ,true);
-        
-        $this->view()->setContent( $content )->show('clipboard');
+        $clip = Content::load( $this->id ,true);
+        $this->view()
+                ->set('drive' , $this->drive )
+                ->setContent( $clip )
+                ->show('clipboard');
 
         return true;
     }
+
+
+    /**
+     * @return bool
+     */
+    protected function driveAction(): bool{
+        var_dump(Content::drive($this->drive));
+        return true;
+    }
+
     /**
      * @return bool
      */
@@ -490,6 +501,17 @@ class PostController extends Controller{
         $data = $this->data();
         return false;
     }
+    /**
+     * @return bool
+     */
+    protected function driveAction(): bool{
+        $storage = Content::manager()->storage( $this->drive );
+        var_dump($storage);
+        if($storage->create()){
+            $this->notify(sprintf('<b>%s</b> created!',$storage->drive()),'update');
+        }
+        return $this->set('drive',$storage->drive())->mainAction();
+    }    
 }
 /**
  * 
@@ -529,6 +551,14 @@ class AjaxController extends Controller{
         $this->set('items',$items);
         return true;
     }
+    /**
+     * @return bool
+     */
+    protected function driveAction(): bool{
+        $this->set('items',Content::drive($this->drive));
+        return true;
+    }
+
     /**
      * @return bool
      */
@@ -657,6 +687,15 @@ class Content extends \CODERS\Clipboard\Clip{
     public function attributes(){
         return array_keys($this->data());
     }
+    /**
+     * @return array
+     */
+    public function meta(): array {
+        $data = parent::meta();
+        $data['slot'] = intval($data->slot);
+        $data['items'] = $this->countItems();
+        return $data;
+    }
 
     /**
      * @param \CODERS\Clipboard\Clip[] $clips
@@ -689,6 +728,30 @@ class Content extends \CODERS\Clipboard\Clip{
             return $data;
         },$clips);
     }
+    /**
+     * 
+     * @param type $drive
+     * @return array
+     */
+    public static function drive( $drive = ''){
+        $clips = self::manager()->db()->list('', array(),
+                strlen($drive) ? $drive : 'content' );
+        return array_map( function ($data){
+            $content = new Content($data);
+            return $content->meta();
+        },$clips);
+    }
+    /**
+     * @param string $id
+     * @return array
+     */
+    /*public static function list( $id = '' , $drive = ''){
+        $db = self::manager()->db();
+        return array_map( function($data){
+            return new Clip($data);
+        },$db->list($id,[],$drive));
+    } */     
+
     /**
      * @return array
      */
@@ -770,6 +833,10 @@ class View{
      * @var string
      */
     private $_context = '';
+    /**
+     * @var array
+     */
+    private $_settings = array();
     
     /**
      * @param string $context
@@ -785,6 +852,7 @@ class View{
         $view = sprintf('\CODERS\Clipboard\Admin\%sView', ucfirst($context));
         return is_subclass_of($view, self::class) ? new $view($context) : new View($context);
     }
+
     /**
      * @param object $content
      * @return \View Description
@@ -801,8 +869,26 @@ class View{
     protected function content(){
         return $this->_content;
     }
-    
     /**
+     * @param string $key
+     * @return string
+     */
+    public function get( $key = ''){
+        return strlen($key) ? $this->_settings[$key] ?? '' : '';
+    }
+    /**
+     * @param string $key
+     * @param string $value
+     * @return \CODERS\Clipboard\Admin\View
+     */
+    public function set( $key = '' , $value = ''){
+        if(strlen($key)){
+            $this->_settings[$key] = $value;
+        }
+        return $this;
+    }
+
+        /**
      * @param string $name
      * @param array $arguments
      * @return mixed
@@ -833,7 +919,7 @@ class View{
             case preg_match('/^editor_/', $name):
                 return $this->__editor( substr($name, 7), ...$args );
             case preg_match('/^link_/', $name):
-                return $this->link( substr($name, 5) );
+                return $this->link( substr($name, 5), ... $args );
             case preg_match('/^url_/', $name):
                 return $this->url( explode( '_', substr($name, 4)), ...$args );
         }
@@ -853,7 +939,10 @@ class View{
         if( method_exists($this, $get)){
             return $this->$get();
         }
-        return !is_null($this->content()) ? $this->content()->$name : '';
+        if( $this->hasContent()){
+            return $this->content()->$name;
+        }
+        return $this->get($name);
     }
     /**
      * @param string $name
@@ -908,20 +997,23 @@ class View{
     /**
      * 
      * @param string $link
-     * @param array $args
+     * @param array $query
      * @return string|url
      */
-    protected function link($link = '', array $args = array()) {
+    protected function link($link = '', array $query = array()) {
         $call = sprintf('link%s', ucfirst($link));
-        return method_exists($this, $call) ? $this->$call($args) : $this->url($link,$args);
+        return method_exists($this, $call) ? $this->$call($query) : $this->url($link,$query);
     }
     /**
      * @param array $path
      * @param array $args
      * @return string
      */
-    protected function url( $path = array() , array $args = array() ){
-        $base_url = site_url( count($path) ? implode('/', $path) : '' );
+    protected function url( $path = '' , array $args = array() ){
+        if(is_array($path)){
+            $path = implode('/', $path);
+        }
+        $base_url = site_url( $path );
 
         $get = array();
 
@@ -935,6 +1027,18 @@ class View{
 
         return $base_url;
     }
+    /**
+     * @param type $form
+     * @param array $args
+     * @return type
+     */
+    protected function form( $form = '' , array $args = array() ){
+        if(strlen($form)){
+            $args['task'] = $form;
+        }
+        return View::adminurl($args);
+    }
+
     /**
      * @param string $action
      * @param array $args
@@ -992,7 +1096,14 @@ class View{
     protected function hasContent(){
         return !is_null( $this->content());
     }
-    
+        /**
+     * @return string
+     */
+    protected function getNonce(){
+        return '';
+        return wp_nonce_field(-1,'coder_nonce',false,false);
+    }
+
     /**
      * @param array $args
      * @return url|string
@@ -1004,6 +1115,13 @@ class View{
         }
         return add_query_arg($query, admin_url('admin.php'));
     }
+    /**
+     * @return string
+     */
+    public function getForm(){
+        return esc_url(admin_url('admin-post.php'));
+    }
+
     /**
      * @param string $page
      */
@@ -1028,7 +1146,7 @@ class View{
                 'admin' => $admin,
                 //'url' => admin_url('admin-ajax.php'),
                 'ajax' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('clipboard_nonce'),
+                'nonce' => wp_create_nonce('coder_nonce'),
             ]);
         }
     }
@@ -1119,7 +1237,8 @@ class MainView extends View{
      * @return int
      */
     public function countItems(){
-        return $this->hasContent() ? count(Content::list($this->id)) : 0;
+        //return $this->hasContent() ? count(Content::list($this->id)) : 0;
+        return count(Content::list($this->id));
     }
     /**
      * @return string
@@ -1128,6 +1247,7 @@ class MainView extends View{
         return 'ajax';
         //return $this->_mode;
     }
+
     /**
      * @return boolean
      */
@@ -1144,7 +1264,8 @@ class MainView extends View{
      * @return string
      */
     public function getDrive() {
-        return 'content';
+        $drive = $this->get('drive');
+        return strlen($drive) ? $drive : 'content';
     }
     /**
      * @param string $id
@@ -1164,15 +1285,6 @@ class MainView extends View{
         return View::adminurl(array('id'=>$id));
     }
     /**
-     * @return string
-     */
-    protected function getForm( $id = '' ){
-        if(strlen($id) === 0){
-            $id = $this->id;
-        }
-        return View::adminurl(array('id'=>$id));
-    }    
-    /**
      * @param string $id
      * @return string
      */
@@ -1182,6 +1294,14 @@ class MainView extends View{
         }
         return Content::manager()->clipdata($id);
     }
+    /**
+     * @param string $drive
+     * @return string
+     */
+    public function actionDrive( $drive = 'content' ){
+        return View::adminurl(array('drive'=>$drive));
+    }
+
     /**
      * @param string $id
      * @return string

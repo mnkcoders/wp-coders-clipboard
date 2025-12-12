@@ -143,7 +143,7 @@ class View{
      * @return string
      */
     public static function path( $file = '' ) {
-        return sprintf('%s/html/public/%s', CODER_CLIPBOARD_DIR,$file);
+        return sprintf('%shtml/public/%s', CODER_CLIPBOARD_DIR,$file);
     }
     /**
      * @param string $file
@@ -192,7 +192,6 @@ class View{
         });
         
         $layout = $this->layout;
-        
         wp_head();
         //render body class
         printf('<body class="coders-clipboard %s %s">',

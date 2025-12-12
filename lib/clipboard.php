@@ -408,7 +408,7 @@ class Clip{
      * @return array
      */
     public function listTags(){
-        return explode(' ', $this->tags);
+        return explode(' ', trim($this->tags));
     }
     /**
      * @param bool $filter
@@ -1087,21 +1087,26 @@ class Data{
     }
     /**
      * @param string $id
-     * @param array $items //leave empty to get them all
+     * @param array $columns //leave empty to get them all
+     * @param string $drive 
      * @return array
      */
-    public function list( $id = '' , array $items = array()){
+    public function list( $id = '' , array $columns = array() , $drive = ''){
         $wpdb = $this->wpdb();
         $table = self::table();
         
-        $scope = count($items) ? sprintf('`%s`',implode('`,`', $items)) : '*';
+        $scope = count($columns) ? sprintf('`%s`',implode('`,`', $columns)) : '*';
         
-        $sql = "SELECT $scope FROM `$table`";
-        $sql .= strlen($id) ?
-                " WHERE `parent_id`='$id'" :
-                " WHERE `parent_id` IS NULL OR `parent_id`=''";
-        $sql .= "  ORDER BY `slot`;";
-        $list = $wpdb->get_results( $sql , ARRAY_A );
+        $sql = array("SELECT $scope FROM `$table`");
+        if(strlen($id)){
+            $sql[] = "WHERE `parent_id`='$id'" ;
+        }
+        else{
+            $sql[] = "WHERE (`parent_id` IS NULL OR `parent_id`='')";
+            $sql[] = sprintf("AND `drive`='%s'", strlen($drive) ? $drive : 'content');
+        }
+        $sql[] = "ORDER BY `slot`;";
+        $list = $wpdb->get_results( implode(' ', $sql) , ARRAY_A );
         
         if(!is_null($list)){
             return $list;
@@ -1235,6 +1240,13 @@ class Storage{
         $this->_drive = $folder;
     }
     /**
+     * @return string
+     */
+    public function drive(){
+        return $this->_drive;
+    }
+
+    /**
      * @param string $name
      * @return string
      */
@@ -1267,7 +1279,7 @@ class Storage{
      */
     public function list(){
         return array_filter( scandir($this->route()), function($file){
-            return $file !== '.' && $file !== '..';
+            return $item !== '.' && $item !== '..';
         });
     }
     /**

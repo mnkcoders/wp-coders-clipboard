@@ -1,20 +1,23 @@
 <?php defined('ABSPATH') or die; ?>
 
-<form name="content" action="<?php print $this->form ?>" method="post">
-        <!--span class=" button-primary right toggle">
-            <span class="dashicons dashicons-edit"></span>
-            <?php print __('Edit','coder_clipboard') ?>
-        </span-->
-
+<form name="content" action="<?php print $this->get_form() ?>" method="post">
             <!-- content top -->
-            <input id="id_title" class="block form-input header" name="title" value="<?php print $this->title ?>" placeholder="<?php print __('Set a title', 'coder_clipboard') ?>">
+            <input id="id_title" class="block form-input header" name="title" value="<?php
+                print $this->title ?>" placeholder="<?php
+                print __('Set a title', 'coder_clipboard') ?>">
             <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <input type="hidden" name="context_id" value="<?php print $this->id ?>" />
-            <a target="_blank" class="button" href="<?php
-                print $this->clipboard ?>">
-                <span class="dashicons dashicons-images-alt2"></span>
-                <?php print __('View','coder_clipboard') ?>
-            </a>
+            <p class="separator">
+                <a target="_blank" class="button" href="<?php
+                    print $this->clipboard ?>">
+                    <span class="dashicons dashicons-images-alt2"></span>
+                    <?php print __('Preview','coder_clipboard') ?>
+                </a>
+                <button class="button-primary right" type="submit" name="action" value="update">
+                    <span class="dashicons dashicons-saved"></span>
+                    <?php print __('Update', 'coder_clipboard'); ?>
+                </button>
+            </p>            
         
         
             <!-- content left -->
@@ -45,8 +48,10 @@
 
             <!-- content bottom -->
             <?php $this->editor_description() ?>
-            <a class="button" target="_self" href="<?php print $this->action_delete($this->id) ?>"><?php print __('delete', 'coder_clipboard') ?></a>
-            <button class="button-primary right" type="submit" name="action" value="update"><?php
-            print __('Update', 'coder_clipboard');
-            ?></button>
+            <p class="separator">
+                <a class="button right" target="_self" href="<?php
+                    print $this->action_delete($this->id) ?>">
+                    <span class="dashicons dashicons-trash"></span>
+                </a>
+            </p>
 </form>
