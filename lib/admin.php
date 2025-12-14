@@ -55,10 +55,6 @@ class Controller{
     const INPUT_GET = INPUT_GET;
     const INPUT_POST = INPUT_POST;
     /**
-     * @var array
-     */
-    static private $_log = array();
-    /**
      * @var bool
      */
     private $_completed = false;
@@ -85,6 +81,15 @@ class Controller{
      */
     public function __get($name) {
         return $this->_input[$name] ?? '';
+    }
+    /**
+     * @param string $name
+     * @param string $value
+     */
+    public function __set($name,$value ){
+        if(array_key_exists($name, $this->_input)){
+            $this->_input[$name] = $value ?? '';
+        }
     }
     /**
      * @param string $name
@@ -122,6 +127,7 @@ class Controller{
     protected function data(){
         return $this->_input;
     }
+
     /**
      * @return bool
      */
@@ -281,6 +287,21 @@ class MainController extends Controller{
                 ->show('clipboard');
 
         return true;
+    }
+    /**
+     * @return bool
+     */
+    protected function removeAction() : bool{
+        $clip = Content::load($this->id);
+        if( $clip){
+            $parent = $clip->parent_id;
+            if( $clip->remove() ){
+                $this->notify(sprintf('<b>%s</b> removed',$clip->name));                
+                $this->id = strlen($parent) ? $parent : '';
+                $this->action = '';
+            }
+        }
+        return $this->mainAction();
     }
 
     /**
@@ -894,9 +915,14 @@ class Content extends \CODERS\Clipboard\Clip{
             return $this->save() && $target->save();
         }
     }
-
-
     /**
+     * @return \CODERS\Clipboard\Admin\Content
+     */
+    public function clone(){
+        return new Content($this->data());
+    }
+
+        /**
      * @param string $id
      * @return int
      */
@@ -921,7 +947,7 @@ class Content extends \CODERS\Clipboard\Clip{
      */
     public static function load($id = '',$preload = false , $toplevel = '') {
         $clip = parent::load($id,$preload,$toplevel);
-        return $clip ? new Content( $clip->data()) : null;
+        return $clip ? new Content( $clip->data(),$preload) : null;
     }
     /**
      * @return \CODERS\Clipboard\Clipboard
@@ -1553,6 +1579,13 @@ class MainView extends View{
     public function actionDrive( $drive = 'content' ){
         return View::adminurl(array('drive'=>$drive));
     }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function actionRemove( $id = '' ){
+        return $this->adminurl(array('action'=>'remove','id'=>$id ? $id : ''));
+    }
 
     /**
      * @param string $id
@@ -1778,6 +1811,10 @@ class Text{
         return array(
             'test' => __('This is a test TEXT','coder_clipboard'),
             'workspace' => __('Workspace','coder_clipboard'),
+            'removeitem' => __('All items will move up after removal','coder_clipboard'),
+            'title' => __('Title', 'coder_clipboard'),
+            'created' => __('Created', 'coder_clipboard'),
+            'update' => __('Update', 'coder_clipboard'),
         );
     }
     /**

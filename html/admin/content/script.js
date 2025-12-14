@@ -640,11 +640,15 @@ class ClipTask extends Component {
         if (this.valid()) {
             this._status = ClipTask.State.Running;
             const content = this.createForm(this.data());
-            //console.log(`Sending ${this.url()}`);
-            fetch(this.url(), { method: 'POST', body: content })
-                .then(r => r.json())
-                .then(r => this.success(r))
-                .catch(error => this.failure(error));
+            try{
+                fetch(this.url(), { method: 'POST', body: content })
+                    .then(r => r.json())
+                    .then(r => this.success(r))
+                    .catch(error => this.failure(error));
+            }
+            catch(err){
+                this.failure(err);
+            }
         }
         return this;
     }
@@ -667,9 +671,9 @@ class ClipTask extends Component {
      * @param {Object} error 
      */
     failure(error) {
-        console.log('Task Error', error, this);
+        console.log('ERROR', error, this);
         this._status = ClipTask.State.Failed;
-        this.$('notify', [{ content: error, type: 'error' }]).$('done', this);
+        this.$('notify', [{ content: error.toString(), type: 'error' }]).$('done', this);
         return this;
     }
 }
@@ -1770,15 +1774,9 @@ class Uploader extends ViewComponent {
      */
     toggle() {
         this.node() && this.node().classList.toggle('ajax');
-        return this.refresh().useajax();
-    }
-    /**
-     * @returns {Uploader}
-     */
-    refresh() {
         const active = this.useajax();
         this.changetext(App.text(active && 'Drop your files here' || 'Select your files'));
-        return this;
+        return active;
     }
     /**
      * @returns {Uploader}
@@ -1796,29 +1794,34 @@ class Uploader extends ViewComponent {
     /**
      * @returns {Element}
      */
-    gauge() { return this.node().querySelector('.gauge .progress'); }
+    gaugebar() { return this.node().querySelector('.gauge'); }
+    /**
+     * @returns {Element}
+     */
+    progressbar(){ return this.gaugebar().querySelector('.progress'); }
     /**
      * @param {Number} progress 
      * @returns {Uploader}
      */
     progress(progress = 0) {
-        const gauge = this.gauge();
-        //console.log(gauge, progress);
+        const gauge = this.gaugebar();
+        const bar = this.progressbar();
+        console.log(gauge, progress);
         if (gauge) {
             !this.isactive() && gauge.classList.add('active');
-            gauge.style.width = `${Math.min(progress, 100)}%`;
+            bar.style.width = `${Math.min(progress, 100)}%`;
         }
         return this;
     }
     /**
      * @returns {Boolean}
      */
-    isactive() { return this.gauge() && this.gauge().classList.contains('active') || false; }
+    isactive() { return this.gaugebar() && this.gaugebar().classList.contains('active') || false; }
     /**
      * @returns {Uploader}
      */
     clear() {
-        this.isactive() && this.gauge().classList.remove('active');
+        this.isactive() && this.gaugebar().classList.remove('active');
         return this;
     }
     /**
@@ -1942,6 +1945,7 @@ class NavigatorView extends ViewComponent {
             copylink.addEventListener('click', function (e) {
                 e.preventDefault();
                 const link = this.dataset.link || '';
+                console.log(copylink,link);
                 if (link) {
                     navigator.clipboard.writeText(link)
                         .then(e => {
@@ -1972,7 +1976,7 @@ class Toolbar extends ViewComponent {
      */
     initialize() {
         super.initialize();
-        App.collection()._('refresh', count => this.refresh(count));
+        App.collection()._('refresh', count => this.update(count));
     }
     /**
      * @returns {Element}
@@ -1982,7 +1986,7 @@ class Toolbar extends ViewComponent {
      * @param {Number} count 
      * @returns {Toolbar}
      */
-    refresh(count = 0) {
+    update(count = 0) {
         const counter = this.counter();
         if (counter) {
             counter.innerHTML = count;

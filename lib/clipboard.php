@@ -478,6 +478,12 @@ class Clip{
         return preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename );
     }
     /**
+     * @return string
+     */
+    public function getTitleorName(){
+        return strlen($this->title) ? $this->title : $this->name;
+    }
+    /**
      * @return String
      */
     public function getPath(){

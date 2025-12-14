@@ -11,6 +11,7 @@
     <div class="content container <?php print $this->get_main() ?>">
         <?php if ($this->has_content()) : ?>
             <?php $this->show_attachment() ?>
+            <?php $this->show_toolbox() ?>
             <?php $this->show_content() ?>
         <?php else: ?>
             <?php $this->show_sidebar() ?>

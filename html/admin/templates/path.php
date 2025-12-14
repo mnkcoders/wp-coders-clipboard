@@ -1,6 +1,4 @@
 <?php defined('ABSPATH') or die; ?>
-
-
 <ul class="coders-clipboard-title path container">
     <li class="path">
         <a class="base" href="<?php print $this->base ?>" target="_self">
@@ -20,7 +18,7 @@
                         <span data-id="<?php print $this->id ?>">
                             <?php print $title ?>
                         </span>
-                        <span class="copy-link" data-link="<?php print $this->get_clipboard() ?>">
+                        <span class="copy-link" data-link="<?php print $this->clipboard ?>">
                             <span class="dashicons dashicons-admin-links"></span>
                         </span>                        
                     <?php endif; ?>

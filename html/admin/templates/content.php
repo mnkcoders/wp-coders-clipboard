@@ -4,25 +4,20 @@
             <!-- content top -->
             <input id="id_title" class="block form-input header" name="title" value="<?php
                 print $this->title ?>" placeholder="<?php
-                print __('Set a title', 'coder_clipboard') ?>">
+                print $this->text_title ?>">
             <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <input type="hidden" name="context_id" value="<?php print $this->id ?>" />
             <p class="separator">
-                <a target="_blank" class="button" href="<?php
-                    print $this->clipboard ?>">
-                    <span class="dashicons dashicons-images-alt2"></span>
-                    <?php print __('Preview','coder_clipboard') ?>
-                </a>
                 <button class="button-primary right" type="submit" name="action" value="update">
                     <span class="dashicons dashicons-saved"></span>
-                    <?php print __('Update', 'coder_clipboard'); ?>
+                    <?php print $this->text_update; ?>
                 </button>
             </p>            
         
         
             <!-- content left -->
             <span class="block solid">
-                <label><?php print __('Created', 'coder_clipboard') ?></label>
+                <label><?php print $this->text_created ?></label>
                 <span class="right"><?php print $this->created_at ?></span>
             </span>
 
@@ -49,8 +44,12 @@
             <!-- content bottom -->
             <?php $this->editor_description() ?>
             <p class="separator">
+                <i>
+                    <span class="dashicons dashicons-info"></span>
+                    <?php print $this->text_removeitem ?>
+                </i>
                 <a class="button right" target="_self" href="<?php
-                    print $this->action_delete($this->id) ?>">
+                    print $this->action_remove($this->id) ?>">
                     <span class="dashicons dashicons-trash"></span>
                 </a>
             </p>

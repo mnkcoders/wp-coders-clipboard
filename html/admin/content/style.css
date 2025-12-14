@@ -359,9 +359,14 @@
     transition: border ease-in 200ms, padding ease-in 150ms;
     box-sizing: border-box;
 }
+#wpbody-content .coders-clipboard .collection > li.item > .content img.picture,
 #wpbody-content .coders-clipboard .collection > li.item > .content img.landscape{
     width: auto;
     height: 100%;
+}
+#wpbody-content .coders-clipboard .collection > li.item > .content img.portrait{
+    width: 100%;
+    height: auto;
 }
 #wpbody-content .coders-clipboard .collection > li.item > .task{
     position: absolute;
