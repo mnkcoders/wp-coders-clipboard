@@ -45,7 +45,6 @@ class App {
     setup() {
         //console.log('Setup Components:' , this.components());
         return this.register(new CoderServer(CodersAPI || {}))
-            .register(new CoderDrive())
             .register(new CoderStrings())
             .register(new ClipFormView('div.content'))
             .register(new Notifier('div.notifier'))
@@ -72,8 +71,8 @@ class App {
     /**
      * @returns {App}
      */
-    loadattributes(){
-        App.server().attributes( r => r.attributes && r.attributes.forEach( a => this._attributes.push(a)));
+    loadattributes() {
+        App.server().attributes(r => r.attributes && r.attributes.forEach(a => this._attributes.push(a)));
         return this;
     }
     /**
@@ -104,13 +103,6 @@ class App {
      * @returns {String}
      */
     id() { return this.input().get('id') || ''; }
-    /**
-     * @returns {String}
-     */
-    drive(){
-        return App.uploader().drive();
-        //return this.input().get('drive') || 'content';
-    }
 
     /**
      * @returns {App}
@@ -119,7 +111,7 @@ class App {
     /**
      * @returns {Notifier}
      */
-    static log(){
+    static log() {
         return this.client().component(Notifier.name);
     }
     /**
@@ -292,8 +284,8 @@ class CoderServer {
      * @param {Object[]} messages 
      * @returns {CoderServer}
      */
-    notify( messages = [] ){
-        messages.forEach( m => App.notify( m.content || '' , m.type || 'info'));
+    notify(messages = []) {
+        messages.forEach(m => App.notify(m.message || '', m.type || 'info'));
         return this;
     }
     /**
@@ -301,8 +293,8 @@ class CoderServer {
      * @param {ClipTask} task 
      * @returns {CoderServer}
      */
-    add( task = null ){
-        if( task instanceof ClipTask ){
+    add(task = null) {
+        if (task instanceof ClipTask) {
             //notify?
             task._('notify', messages => this.notify(messages));
             task.request();
@@ -322,20 +314,11 @@ class CoderServer {
         return this.add(new ClipTask('list', id && { 'id': id } || {}, callback));
     }
     /**
-     * list and populate all items in the clipboard
-     * @param {String} drive 
      * @param {Function} callback 
      * @returns {CoderServer}
      */
-    drive(drive = '', callback = nul) {
-        return this.add(new ClipTask('drive', drive && { 'drive': drive } || {}, callback));
-    }
-    /**
-     * @param {Function} callback 
-     * @returns {CoderServer}
-     */
-    attributes(callback = null ){
-        return this.add(new ClipTask('attributes',{},callback));
+    attributes(callback = null) {
+        return this.add(new ClipTask('attributes', {}, callback));
     }
     /**
      * @param {String} id 
@@ -348,17 +331,15 @@ class CoderServer {
     /**
      * @param {File} file 
      * @param {String} id 
-     * @param {String} drive
      * @param {Function} callback 
      * @returns {CoderServer}
      */
-    upload(file = null, id = '' , drive = '', callback = null) {
+    upload(file = null, id = '', callback = null) {
         if (file instanceof File) {
             const data = {};
-            if( id ){
+            if (id) {
                 data['id'] = id;
             }
-            data['drive'] = drive || 'content';
             this.add(new UploadTask(file, data, callback));
         }
         return this;
@@ -445,8 +426,9 @@ class ClipQueue extends Component {
      * @param {File[]} files 
      * @returns {ClipQueue}
      */
-    upload(files = []) {
+    send(files = []) {
         if (files && files.length && this.empty()) {
+            console.log(files);
             this._items = files;
             this.reset().update();
         }
@@ -507,7 +489,7 @@ class ClipQueue extends Component {
         if (this.count()) {
             const id = this._header || this._id;
             const file = this.next();
-            file && this.server().upload(file, id, drive, r => {
+            file && this.server().upload(file, id, r => {
                 this.deliver(r.items || []);
                 this.$('update', this.progress());
                 this.update();
@@ -537,22 +519,6 @@ class ClipQueue extends Component {
     }
 }
 
-
-/**
- * handle storage selection operations
- */
-class CoderDrive {
-    /**
-     * @param {String} storage 
-     */
-    constructor(storage = '') {
-        this._storage = storage || '';
-    }
-    /**
-     * @returns {String}
-     */
-    storage() { return this._storage; }
-}
 
 /**
  * Subscribe to response and  done event calls 
@@ -666,7 +632,7 @@ class ClipTask extends Component {
         form.append('task', this.task());
         Object.keys(input).forEach(key => form.append(key, input[key]));
         return form;
-    }    
+    }
     /**
      * @returns {ClipboardContent}
      */
@@ -703,7 +669,7 @@ class ClipTask extends Component {
     failure(error) {
         console.log('Task Error', error, this);
         this._status = ClipTask.State.Failed;
-        this.$('notify',[{ content: error, type: 'error' }]).$('done', this);
+        this.$('notify', [{ content: error, type: 'error' }]).$('done', this);
         return this;
     }
 }
@@ -769,7 +735,7 @@ class ClipData extends Component {
     /**
      * @param {String} id 
      */
-    constructor(id = '' ) {
+    constructor(id = '') {
         super();
         this._id = id || '';
         this._slot = 0;
@@ -787,10 +753,10 @@ class ClipData extends Component {
      * @param {Object} data 
      * @returns {ClipData}
      */
-    populate(data = {}){
-        Object.keys(data || {}).forEach( key => {
+    populate(data = {}) {
+        Object.keys(data || {}).forEach(key => {
             const t = '_' + key;
-            if(this.hasOwnProperty(t) && typeof this[t] !== 'function' ){
+            if (this.hasOwnProperty(t) && typeof this[t] !== 'function') {
                 this[t] = data[key];
             }
         });
@@ -824,7 +790,7 @@ class ClipData extends Component {
     /**
      * @returns {Number}
      */
-    count(){ return this._items; }
+    count() { return this._items; }
     /**
      * @param {ClipData} clip 
      * @returns {ClipData}
@@ -844,7 +810,7 @@ class ClipData extends Component {
     /**
      * @returns {String}
      */
-    adminlink(){ return `${App.server().adminurl()}&id=${this.id()}`; }
+    adminlink() { return `${App.server().adminurl()}&id=${this.id()}`; }
 
     /**
      * @returns {Boolean}
@@ -991,22 +957,31 @@ class ViewComponent extends Component {
      */
     initialize() {
         //initialize view data and events
-        if(!this._node){
+        if (!this._node) {
             this._node = this.render();
         }
         this._state = ViewComponent.State.Initialized;
         //console.log(`Initializing ${ this.constructor.name }`)
     }
     /**
+     * @param {String} message 
+     * @param {String} type 
+     * @returns {ViewComponent}
+     */
+    notify(message = '', type = 'info') {
+        App.notify(message, type);
+        return this;
+    }
+    /**
      * @returns {Number}
      */
-    state(){ return this._state; }
+    state() { return this._state; }
     /**
      * @param {String} selector 
      * @returns {Element}
      */
     selector(selector = '') {
-        if( selector){
+        if (selector) {
             const query = ['#wpbody-content', '.coders-clipboard'];
             query.push(selector);
             return document.querySelector(query.join(' ')) || null;
@@ -1019,11 +994,11 @@ class ViewComponent extends Component {
      * @returns {ViewComponent}
      */
     append(c = null) {
-        if ( c && c instanceof ViewComponent) {
+        if (c && c instanceof ViewComponent) {
             //console.log(this,c);
             !c.node() && c.initialize();
             this.components().push(c);
-            if( this.node() && c.node() ){
+            if (this.node() && c.node()) {
                 this.node().appendChild(c.node());
             }
             //append extra events such as remove
@@ -1046,8 +1021,15 @@ class ViewComponent extends Component {
      */
     drop(component = null) {
         if (component instanceof ViewComponent) {
-            this._components = this.components().filter(c => c.state() === ViewComponent.State.Removed);
+            this._components = this.components().filter(c => component !== c);
         }
+        return this;
+    }
+    /**
+     * @returns {ViewComponent}
+     */
+    refresh() {
+        this._components = this.components().filter(c => c.state() !== ViewComponent.State.Removed);
         return this;
     }
     /**
@@ -1137,7 +1119,7 @@ class ViewComponent extends Component {
  * @type {ViewComponent.State|Number}
  */
 ViewComponent.State = {
-    New:0,
+    New: 0,
     Created: 1,
     Initialized: 2,
     Removed: 3
@@ -1174,22 +1156,9 @@ class Collection extends ViewComponent {
      * @returns {Collection}
      */
     populate() {
-        const id = App.client().id();
-        const drive = App.client().drive();
-        console.log(id,drive);
-        if( id ){
-            App.server().list(id, (r) => {
-                //console.log(id, r);
-                this.fill((r.items || []).map(data => ClipData.fromdata(data)));
-                this.$('refresh',this.count());
-            });
-        }
-        else{
-            App.server().drive(drive, (r) => {
-                this.fill((r.items || []).map(data => ClipData.fromdata(data)));
-                this.$('refresh',this.count());
-            });
-        }
+        App.server().list(App.client().id(), (r) => {
+            this.fill((r.items || []).map(data => ClipData.fromdata(data)));
+        });
         return this;
     }
     /**
@@ -1199,14 +1168,17 @@ class Collection extends ViewComponent {
     /**
      * @returns {Number}
      */
-    count(){ return this.items().length }
+    count() { return this.items().length }
     /**
      * @param {ClipData} clip 
      * @returns {Collection}
      */
     add(clip = null) {
         if (clip instanceof ClipData) {
-            this.append(new ClipView(clip));
+            const item = new ClipView(clip);
+            item._('remove', c => this.populate());
+            this.append(item );
+
         }
         return this;
     }
@@ -1215,13 +1187,55 @@ class Collection extends ViewComponent {
      */
     clip() { return App.clipview(); }
     /**
+     * @returns {Collection}
+     */
+    clear() {
+        this.items().forEach(item => item.remove());
+        return this;
+    }
+    /**
      * @param {ClipData[]} items 
      * @returns {Collection}
      */
     fill(items = []) {
-        const content = this.node();
-        content && (items || []).forEach(data => this.add(data));
+        const current = App.client().id();
+        const listed = this.listids();
+        console.log(this);
+        console.log(listed);
+        console.log(items.map(i => i.id()));
+        //add only items matching current parent_id and not present in tje list
+        (items || [])
+            .filter( item => !listed.includes(item.id()) )
+            .filter(item => item.parent() === current)
+            .forEach(data => this.add(data));
+
         return this;
+        //return this.updatecounters( (items || [] ).filter( i => i.parent() !== current).map( i => i.parent()) );
+    }
+    /**
+     * @returns {String[]}
+     */
+    listids(){
+        return this.components()
+            .filter( c => !!c.id )
+            .map( c => c.id() );
+    }
+    /**
+     * @param {String[]} items 
+     * @returns {Collection}
+     */
+    updatecounters(items = []) {
+        const list = items && items.map(id => this.getitem(id)) || [];
+        console.log(list);
+        return this;
+    }
+    /**
+     * 
+     * @param {String} id 
+     * @returns 
+     */
+    getitem(id = '') {
+        return this.components().find(c => c.id() === id) || null;
     }
     /**
      * @param {String} id 
@@ -1231,8 +1245,9 @@ class Collection extends ViewComponent {
     move(id = '', target = '') {
         App.server().moveto(id, target, r => {
             const id = r.id || '';
-            const item = this.items().find(item => item.id() === id);
-            item.remove();
+            const item = this.items().find(item => item.id() === id) || null;
+            console.log('removing item ', item);
+            item && item.remove();
         });
         return this;
     }
@@ -1282,7 +1297,11 @@ class Collection extends ViewComponent {
                 'application/json',
                 JSON.stringify({ 'id': id, 'slot': slot }));
             // Create a custom drag image
-            this.createGhost(item.querySelector('img.media'));
+            const ghost = this.createGhost(item.querySelector('img.media'));
+            // Wait for the browser to render the ghost before setting it as the drag image
+            e.dataTransfer.setDragImage(ghost, 0, 0);
+            // Optional cleanup
+            setTimeout(() => ghost.remove(), 1000);
 
         });
         return this;
@@ -1303,16 +1322,10 @@ class Collection extends ViewComponent {
                 ghost.style.zIndex = '-1'; // avoid blocking other elements
                 ghost.style.pointerEvents = 'none';
                 document.body.appendChild(ghost);
-
-                // Wait for the browser to render the ghost before setting it as the drag image
-                requestAnimationFrame( e => {
-                    e.dataTransfer.setDragImage(ghost, 0, 0);
-                    // Optional cleanup
-                    setTimeout(() => ghost.remove(), 1000);
-                });
+                return ghost;
             }
         }
-        return this;
+        return null;
     }
     /**
      * @returns {Collection}
@@ -1373,7 +1386,7 @@ class Notifier extends ViewComponent {
     /**
      * 
      */
-    initialize(){
+    initialize() {
         super.initialize();
     }
     /**
@@ -1382,9 +1395,9 @@ class Notifier extends ViewComponent {
      * @returns {Notifier}
      */
     show(content = '', type = 'info') {
-        console.log(content, type);
+        console.log(`[${type}] ${content}`);
         if (content && this.node()) {
-            this.node().appendChild(this.add(content,type,true));
+            this.node().appendChild(this.add(content, type, true));
         }
         return this;
     }
@@ -1394,14 +1407,14 @@ class Notifier extends ViewComponent {
      * @param {Boolean} timeout 
      * @returns {Element}
      */
-    add( content = '', type = 'info' , timeout = false ){
+    add(content = '', type = 'info', timeout = false) {
         const message = this.html('div', { 'class': `is-dismissible notice type-${type}` }, content);
-        message.addEventListener('click', function(e) {
+        message.addEventListener('click', function (e) {
             e.preventDefault();
             this.remove();
             return true;
         });
-        timeout && window.setTimeout( () => message.remove() ,4000);
+        timeout && window.setTimeout(() => message.remove(), 4000);
         return message;
     }
 }
@@ -1450,7 +1463,7 @@ class ClipView extends ViewComponent {
     /**
      * @returns {Boolean}
      */
-    ismedia() { return this.isimage() ||this.isvideo(); }
+    ismedia() { return this.isimage() || this.isvideo(); }
     /**
      * @returns {String}
      */
@@ -1458,11 +1471,11 @@ class ClipView extends ViewComponent {
     /**
      * @returns {Boolean}
      */
-    parent(){ return this.data() && this.data().parent() || ''; }
+    parent() { return this.data() && this.data().parent() || ''; }
     /**
      * @returns {Number}
      */
-    counter(){ return this.data() && this.data().count() || 0; }
+    counter() { return this.data() && this.data().count() || 0; }
 
     /**
      * @returns {Boolean}
@@ -1498,7 +1511,7 @@ class ClipView extends ViewComponent {
      */
     render() {
         console.log(this.parent());
-        const item = this.html('li', { 'class': 'item', 'data-id': this.id(), 'data-slot': this.slot()});
+        const item = this.html('li', { 'class': 'item', 'data-id': this.id(), 'data-slot': this.slot() });
         item.appendChild(this.makeplaceholder());
         item.appendChild(this.makecontent());
         item.appendChild(this.makecheck());
@@ -1510,7 +1523,7 @@ class ClipView extends ViewComponent {
     /**
      * @returns {Element}
      */
-    makeplaceholder(){
+    makeplaceholder() {
         return this.html('span', { 'class': 'placeholder', 'data-slot': this.slot() });
     }
     /**
@@ -1520,10 +1533,10 @@ class ClipView extends ViewComponent {
         const selector = `select_${this.id()}`;
         const element = this.html('label', {
             'class': 'top-left task select',
-            'for' : selector
+            'for': selector
         });
-        element.appendChild(this.html('input',{
-            'type':'checkbox',
+        element.appendChild(this.html('input', {
+            'type': 'checkbox',
             'id': selector,
             'value': this.id(),
         }));
@@ -1542,12 +1555,13 @@ class ClipView extends ViewComponent {
      * @returns {Element}
      */
     makemoveup() {
-        const element = this.html('span', { 'class':'task top-right dashicons dashicons-arrow-up-alt'});
-        element.addEventListener( 'click', e => {
+        const element = this.html('span', { 'class': 'task top-right dashicons dashicons-arrow-up-alt' });
+        element.addEventListener('click', e => {
             e.preventDefault();
             this.id() && App.server().moveup(this.id(), r => {
                 //remove from active view
-                r.id && this.id() === r.id && this.remove();
+                this.remove();
+                //r.id && this.id() === r.id && this.remove();
             });
             return true;
         });
@@ -1561,7 +1575,7 @@ class ClipView extends ViewComponent {
         const element = this.html('span', {
             'class': 'task bottom-right dashicons dashicons-remove',
         });
-        element.addEventListener( 'click', e => {
+        element.addEventListener('click', e => {
             e.preventDefault();
             this.id() && App.server().remove(this.id(), r => {
                 r.id && this.id() === r.id && this.remove();
@@ -1570,14 +1584,14 @@ class ClipView extends ViewComponent {
         });
         //add actions
         return element;
-    }    
+    }
     /**
      * @returns {Element}
      */
     makecontent() {
         const data = this.data();
         const content = this.html('div', { 'class': 'content', 'draggable': 'true' });
-        if( data){
+        if (data) {
             switch (true) {
                 case this.isimage():
                     content.appendChild(this.makeimage());
@@ -1586,30 +1600,31 @@ class ClipView extends ViewComponent {
                     content.appendChild(this.makeattachment());
                     break;
             }
-            content.appendChild(this.html('a',{
-                'class':'caption',
-                'data-id':data.id(),
-                'href':data.adminlink()}, data.title() ));
+            content.appendChild(this.html('a', {
+                'class': 'caption',
+                'data-id': data.id(),
+                'href': data.adminlink()
+            }, data.title()));
         }
         return content;
     }
     /**
      * @returns {Element}
      */
-    makeattachment(){
+    makeattachment() {
         const d = this.data();
-        return d && this.html('span',{
+        return d && this.html('span', {
             'class': 'dashicons attachment dashicons-media-document' + d.tags().join(' ')
         }) || super.render();
     }
     /**
      * @returns {Element}
      */
-    makeimage(){
+    makeimage() {
         const d = this.data();
-        return d && this.html('img',{
+        return d && this.html('img', {
             'src': d.link(),
-            'alt' : d.name(),
+            'alt': d.name(),
             'title': d.title(),
             'class': 'media ' + d.tags().join(' ')
         }) || super.render();
@@ -1732,64 +1747,38 @@ class Uploader extends ViewComponent {
      */
     inputfile() { return this.node() && this.node().querySelector('input[type=file]') || null; }
     /**
-     * @returns {String}
-     */
-    inputdrive(){
-        return this.node() && this.node().querySelector('input[name=drive]') || null;
-    }
-    /**
-     * @returns {String}
-     */
-    drive(){
-        const input = this.inputdrive();
-        return input && input.value || 'content';
-    }
-    /**
      * @returns {Element}
      */
-    uploadbutton(){ return this.node() && this.node().querySelector('button.upload') || null; }
+    uploadbutton() { return this.node() && this.node().querySelector('button.upload') || null; }
     /**
      * @param {String} text
      * @returns {Element}
      */
-    changetext( text = ''){
+    changetext(text = '') {
         const element = this.node() && this.node().querySelector('.files > span.caption') || null;
-        if( text && element){
+        if (text && element) {
             element.innerHTML = text;
         }
         return this;
     }
     /**
-     * @returns {Uploader}
+     * @returns {Boolean}
      */
-    toggle(){
-        const content = this.node();
-        if( content) {
-            content.classList.toggle('ajax');
-            this.setmode(!content.classList.contains('ajax'));
-        }
-        return this;
-    }
-    /**
-     * @param {Boolean} active
-     * @returns {Uploader}
-     */
-    setmode( active = false){
-        const content = this.node();
-        if( content){
-            active && content.classList.add('ajax') || content.classList.remove('ajax');
-            this.changetext(App.text( active && 'Drop your files here' || 'Select your files'));
-        }
-        localStorage.setItem('useajax',active || false);
-        App.notify(`Ajax mode <b>${active ? 'ON' : 'OFF'}</b>`);
-        return this;
-    }
+    useajax() { return this.node() && this.node().classList.contains('ajax') || false; }
     /**
      * @returns {Boolean}
      */
-    useajax() {
-        return localStorage.getItem('useajax') ||  false;
-        //return !!this.node() && this.node().classList.contains('ajax');
+    toggle() {
+        this.node() && this.node().classList.toggle('ajax');
+        return this.refresh().useajax();
+    }
+    /**
+     * @returns {Uploader}
+     */
+    refresh() {
+        const active = this.useajax();
+        this.changetext(App.text(active && 'Drop your files here' || 'Select your files'));
+        return this;
     }
     /**
      * @returns {Uploader}
@@ -1797,13 +1786,11 @@ class Uploader extends ViewComponent {
     setupFileInput() {
         const input = this.inputfile();
         const id = App.client().id();
-        const drive = App.client().drive();
-        if (this.useajax()) {
-            input && this.inputfile().addEventListener('change', e => App.server().upload(e.target.files, id,drive));
-        }
-        else{
-            input && input.removeEventListener('change',e => App.server().upload(e.target.files, id,drive));
-        }
+        input && input.addEventListener('change', e => {
+            //e.preventDefault();
+            this.useajax() && this.enqueue(e.target.files, id);
+            return true;
+        });
         return this;
     }
     /**
@@ -1839,29 +1826,12 @@ class Uploader extends ViewComponent {
      */
     collection() { return App.collection(); }
     /**
-     * @param {File[]} files 
+     * @param {File[]} files remove
      * @returns {Uploader}
      */
     enqueue(files = []) {
-        console.log('Uploading: ', files);
-        this.queue().upload(files);
-        return this;
-    }
-    /**
-     * @param {File} file 
-     * @param {String} id 
-     * @returns {Uploader}
-     */
-    upload(file = null, id = '') {
-        if (file instanceof File) {
-            const server = App.server();
-            const drive = this.drive();
-            server.upload(file, id, drive , r => {
-                //files,count
-                this.fill(ClipData.fromlist(r.items || []));
-                r.count && App.notify(`${r.count} Clips uploaded`, 'update');
-            });
-        }
+        //console.log('Uploading: ', files);
+        this.queue().send(Array.from(files));
         return this;
     }
     /**
@@ -1875,7 +1845,7 @@ class Uploader extends ViewComponent {
         document.addEventListener('drop', e => {
             e.preventDefault();
             if (e.dataTransfer.files.length) {
-                this.enqueue(Array.from(e.dataTransfer.files));
+                this.enqueue(e.dataTransfer.files);
             }
         });
         return this;
@@ -1968,16 +1938,17 @@ class NavigatorView extends ViewComponent {
     onCopy() {
         const copylink = this.copylink();
         if (copylink) {
+            const _self = this;
             copylink.addEventListener('click', function (e) {
                 e.preventDefault();
                 const link = this.dataset.link || '';
                 if (link) {
                     navigator.clipboard.writeText(link)
-                        .then(() => {
-                            ContentView.notify('URL copied to clipboard!', 'updated');
+                        .then(e => {
+                            _self.notify('URL copied to clipboard!', 'updated');
                         })
                         .catch(err => {
-                            ContentView.notify('Failed to copy: ', err);
+                            _self.notify('Failed to copy: ', err);
                         });
                 }
                 return true;
@@ -2006,14 +1977,14 @@ class Toolbar extends ViewComponent {
     /**
      * @returns {Element}
      */
-    counter(){ return this.node() && this.node().querySelector('.counter') || null; }
+    counter() { return this.node() && this.node().querySelector('.counter') || null; }
     /**
      * @param {Number} count 
      * @returns {Toolbar}
      */
-    refresh( count = 0){
+    refresh(count = 0) {
         const counter = this.counter();
-        if( counter ){
+        if (counter) {
             counter.innerHTML = count;
         }
         return this;
@@ -2029,19 +2000,19 @@ class Toolbar extends ViewComponent {
 /**
  * 
  */
-class ToggleAjax extends ViewComponent{
+class ToggleAjax extends ViewComponent {
     /**
      * @param {String} selector 
      */
-    constructor( selector = '' ){
+    constructor(selector = '') {
         super(selector);
     }
-    create(){
+    create() {
         super.create();
     }
-    initialize(){
+    initialize() {
         super.initialize();
-        this.node() && this.node().addEventListener( 'click',  e=> {
+        this.node() && this.node().addEventListener('click', e => {
             e.preventDefault();
             App.uploader().toggle();
             return true;

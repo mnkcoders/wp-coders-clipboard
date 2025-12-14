@@ -8,7 +8,7 @@
                     print $this->get_clipboard($item->id,$this->get_context()) ?>" >
                     <?php if ($item->is_image()) : ?>
                         <img class="media" src="<?php
-                            print $item->url ?>" alt="<?php
+                            print $this->get_url($item->id) ?>" alt="<?php
                             print $item->name ?>" title="<?php
                             print $item->title ?>" />
                     <?php else : ?>

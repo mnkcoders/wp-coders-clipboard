@@ -21,7 +21,7 @@ add_action('wp_ajax_nopriv_coder_clipboard', function() {
 
 
 add_action('admin_enqueue_scripts', function( ) {
-    \CODERS\Clipboard\Admin\View::load(filter_input(INPUT_GET, 'page') ?? '');
+    \CODERS\Clipboard\Admin\View::preload(filter_input(INPUT_GET, 'page') ?? '');
 });
 
 add_action('admin_menu', function () {
@@ -153,17 +153,14 @@ class Controller{
      * @return array
      */
     static public function log(){
-        return Controller::$_log;
+        return Content::manager()->log();
     }
     /**
      * @param string $message
      * @param string $type
      */
     static public function notify( $message = '' , $type = 'update'){
-        Controller::$_log[] = array(
-            'message' => $message,
-            'type' => $type,
-        );
+        Content::manager()->notify($message, $type);
     }
     /**
      * @return string
@@ -280,13 +277,24 @@ class MainController extends Controller{
     protected function mainAction(): bool {
         $clip = Content::load( $this->id ,true);
         $this->view()
-                ->set('drive' , $this->drive )
                 ->setContent( $clip )
                 ->show('clipboard');
 
         return true;
     }
 
+    /**
+     * @return bool
+     */
+    protected function replaceAction() : bool{
+        $clip = Content::load($this->id);
+        $target = Content::load($this->target);
+        if($clip && $clip->swap($target)){
+            $this->notify(sprintf('<b>%s</b> swapped by <b>%s</b>',
+                    $clip->name,$target->name), 'update');
+        }
+        return $this->mainAction();
+    }
 
     /**
      * @return bool
@@ -301,7 +309,7 @@ class MainController extends Controller{
      */
     protected function uploadAction( ) : bool {
         if($this->canupload()){
-            $clips = Uploader::create( 'upload' )->items( $this->id , $this->drive );
+            $clips = Uploader::create( 'upload' )->items( $this->id  );
             $this->notify(sprintf('%s items uploaded!','update'),count($clips));
         }
         else{
@@ -368,7 +376,7 @@ class MainController extends Controller{
     protected function moveAction( ) : bool {
         $clip = Content::load($this->id);
         if( $clip && $clip->moveto($this->parent_id) ){
-            $this->notify('Moved!','update');
+            $this->set('id',$this->id);
         }
         return $this->mainAction();
     }
@@ -378,7 +386,7 @@ class MainController extends Controller{
     protected function moveupAction( ): bool {
         $clip = Content::load( $this->id );
         if (!is_null($clip) && $clip->moveup()) {
-            $this->notify('Moved!','update');
+            $this->set('id',$this->id);
         }
         return $this->mainAction();
     }
@@ -395,9 +403,9 @@ class MainController extends Controller{
     protected function recoverAction() : bool {
         $lost = Content::findLost();
         $orphen = Content::restoreLost();
-        if( $lost + $orphen ){
+        if( count($lost) + $orphen ){
             $this->notify(sprintf('Recovered %s lost items and %s unparented items',
-                $lost,
+                count($lost),
                 $orphen));
         }
         else{
@@ -504,20 +512,12 @@ class PostController extends Controller{
      * @return boolean
      */
     protected function saveAction( ){
-        $data = $this->data();
+        $clip = Content::load($this->id);
+        if( $clip ){
+            $clip->override($this->data());
+        }
         return false;
     }
-    /**
-     * @return bool
-     */
-    protected function driveAction(): bool{
-        $storage = Content::manager()->storage( $this->drive );
-        var_dump($storage);
-        if($storage->create()){
-            $this->notify(sprintf('<b>%s</b> created!',$storage->drive()),'update');
-        }
-        return $this->set('drive',$storage->drive())->mainAction();
-    }    
 }
 /**
  * 
@@ -587,11 +587,10 @@ class AjaxController extends Controller{
      */
     protected function uploadAction( ) : bool{
         if($this->canupload()){
-            $clips = Uploader::create( 'upload' )->items($this->id,$this->drive);
+            $clips = Uploader::create( 'upload' )->items($this->id);
             $this->notify(sprintf('%s items uploaded!',count($clips)));
             $response = array(
                 'count' => count($clips),
-                //'items' => Content::clipmeta($clipdata),
                 'items' => $clips,
                 );
             $this->fill($response);
@@ -606,35 +605,37 @@ class AjaxController extends Controller{
      * @return boolean
      */
     protected function removeAction( ) : bool{
-        
         $clip = Content::load($this->id);
-        
-        if($clip && $clip->remove()){
-            $this->notify(sprintf('%s removed!',$clip->name),'update');
-            $this->set('id',$this->id);
-            return true;
+        $this->set('id',$this->id);
+        if( is_null( $clip ) ){
+            $this->notify(sprintf('Invalid clip <b>%s</b>',$this->id),'warning');
+            return false;
         }
-        else{
-            $this->notify('Invalid file','warning');
+        $items = $clip->listIds();
+        if( !$clip->remove()){
+            $this->notify(sprintf('Unable to remove <b>%s</b>',$this->id));
+            return false;
         }
-        
-        return false;
+        $this->set('items',$items);
+        $this->notify(sprintf('Clip <b>%s</b> removed',$this->name),'update');
+        return true;
     }
     /**
      * @return boolean
      */
     protected function moveAction( ) : bool{
         $clip = Content::load($this->id);
-
-        if($clip && $clip->moveto($this->parent_id)){
-                $this->notify(sprintf('%s moved!',$clip),'update');
-                return true;
+        $this->set('id',$this->id);
+        if( !$clip ) {
+            $this->notify('Invalid clip','warning');
+            return false;
         }
-        else{
-            $this->notify('Cannot move','warning');
+        if(!$clip->moveto($this->parent_id)){
+            $this->notify(sprintf('Unable to move <b>%s</b>',$this->id),'warning');
+            return false;
         }
         
-        return false;
+        return true;
     }
     /**
      * @return boolean
@@ -647,6 +648,18 @@ class AjaxController extends Controller{
         }
         else{
             $this->notify('Invalid item','error');
+        }
+        return false;
+    }
+    /**
+     * @return bool
+     */
+    protected function replaceAction() : bool{
+        $clip = Content::load($this->id);
+        $target = Content::load($this->target);
+        $this->set('id',$this->id)->set('target',$this->target);
+        if($clip && $target){
+            return $clip->swap($target);
         }
         return false;
     }
@@ -692,13 +705,138 @@ class Content extends \CODERS\Clipboard\Clip{
         parent::__construct($input, $preload, $toplevel);
         //override with new attributes?
     }*/
-
+    
     /**
      * @return array
      */
     public function attributes(){
         return array_keys($this->data());
     }
+    /**
+     * @return array
+     */
+    public function listIds() {
+        return $this->db()->list($this->id, array('id'));
+    }
+    
+    /**
+     * @param string $parent_id
+     * @param int $slot
+     * @param int $range
+     * @return int
+     */
+    public function arrange($slot = -1 , $range = 0 ){
+        return $this->db()->arrange($this->id, $slot, $range);
+    }    
+
+    /**
+     * @return int
+     */
+    public function copynames() {
+        $name = $this->name;
+        $title = $this->title;
+        $db = $this->db();
+        $count = $db->update(array(
+            'name' => $name,
+            'title' => $title,
+        ), array('parent_id' => $this->id));
+        //fetch all error messsages from $db?
+        return $count ?? 0;
+    }
+
+    /**
+     * @return int
+     */
+    public function copylayouts(){
+        
+        $count = $this->db()->update(array(
+            'layout' => $this->layout
+        ), array( 'parent_id'=>$this->id));
+        
+        return $count ?? 0;
+    }
+    /**
+     * @return int
+     */
+    public function copyroles( ){
+        
+        $count = $this->db()->update(array(
+            'acl' => $this->acl
+        ), array( 'parent_id'=>$this->id));
+        
+        return $count ?? 0;
+    }
+    /**
+     * @return boolean
+     */
+    public function moveto( $parent_id = '') {
+        if( !$this->isValid()){
+            $this->notify('Invalid id', 'warning');
+            return false;
+        }
+        if( $this->parent_id === $parent_id ){
+            $this->notify( sprintf('Same id as parent <b>%s</b>',$parent_id), 'warning');
+            return false;
+        }
+        //load upper level, or set to root
+        $content = self::load($parent_id);
+        $upper_id = $content ? $content->parent_id : '';
+        $data = array(
+            'parent_id' => strlen($upper_id) ? $upper_id : '',
+            'slot' => self::count($upper_id),
+        );
+        if ( !$this->db()->update($data, array('id' => $this->id)) ) {
+            $this->notify(sprintf('Failed to move to parent <b>%s</b>', $parent_id),'warning');
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * @return boolean
+     */
+    public function moveup(){
+        if( $this->parent_id ){
+            $parent = self::load($this->parent_id);
+            return $this->moveto($parent->parent_id);
+        }
+        return false;
+    }    
+    
+    /**
+     * Remove and update depending childs to parent's id
+     * @return boolean
+     */
+    public function remove( ){
+        $db = $this->db();
+        $storage = self::manager()->storage();
+        $id = $this->id;
+        $parent_id = $this->parent_id;
+
+        if( strlen($id) === 0 ){
+            $this->notify('Invalid id', 'warning');
+            return false;
+        }
+        if ( !$storage->remove($id)) {
+            $this->notify(sprintf('Unable to remove <b>File %s</b>', $id));
+            return false;
+        }
+        if (!$db->delete(array('id' => $id))) {
+            $this->notify(sprintf('Unable to remove <b>Clip %s</b>', $id));
+            return false;
+        }
+        //update all items belonging to this removed clip
+        $count = $db->update(
+                array('parent_id' => $parent_id),
+                array('parent_id' => $id));
+
+        if($count){
+            $this->notify(sprintf('<b>%s</b> items updated',$count));
+        }
+
+        return true;
+    }
+    
     /**
      * Override with more metadata for the admin view
      * @return array
@@ -709,28 +847,82 @@ class Content extends \CODERS\Clipboard\Clip{
         $data['post'] = View::adminurl(array('id'=>$clip->id));
         return $data;
     }
-
     /**
-     * @param \CODERS\Clipboard\Clip[] $clips
-     * @return array
-     */
-    public static function clipmeta( $clips = array() ){
-        return array_map(function( $clip ){
-                $meta = $clip->meta();
-                $meta['post'] = View::adminurl(array('id'=>$clip->id));
-                return $meta;
-            
-        }, $clips);
-    } 
-    /**
-     * @param array $data
+     * @param string $tag
      * @return \CODERS\Clipboard\Admin\Content
      */
-    public static function create( array $data = array()){
-        $clip = parent::create($data);
-        return $clip ? new Content($clip->data()) : null;
+    private function tag($tag = ''){
+        if(strlen($tag)){
+            $this->tags = $this->tags . ' ' . $tag; 
+        }
+        return $this;
+    }
+    /**
+     * Generate image format css tags
+     * @return \CODERS\Clipboard\Admin\Content
+     */
+    private function tagmedia(){
+        if($this->isImage()){
+            $size = getimagesize($this->getPath());
+            $aspect = count($size) > 1 ? $size[0] / $size[1] : 1;
+            if( $aspect > 1.5 ){
+                $this->tag('landscape');
+            }
+            elseif( $aspect < 0.75 ){
+                $this->tag('portrait');
+            }
+            else{
+                $this->tag('picture');
+            }
+        }
+        return $this;
+    }
+    /**
+     * @param \CODERS\Clipboard\Admin\Content $target
+     */
+    public function swap($target = null) {
+        if(get_class($target) === self::class){
+            $parent = $this->parent_id;
+            $slot = $this->slot;
+            
+            $this->slot = $target->slot;
+            $this->parent_id = $target->parent_id;
+        
+            $target->slot = $slot;
+            $target->parent_id = $parent;
+            
+            return $this->save() && $target->save();
+        }
     }
 
+
+    /**
+     * @param string $id
+     * @return int
+     */
+    public static function count($id = '') {
+        $list = self::db()->list($id);
+        return count($list);
+    }
+    /**
+     * @param array $data
+     * @return \CODERS\Clipboard\Clip
+     */
+    public static function create( array $data = array()) {
+            $clip = new Content($data);
+            $clip->tagmedia();
+            return $clip->db()->create($clip->data()) ? $clip : null;
+    }
+    /**
+     * @param string $id
+     * @param boolean $preload
+     * @param string $toplevel
+     * @return \CODERS\Clipboard\Admin\Content
+     */
+    public static function load($id = '',$preload = false , $toplevel = '') {
+        $clip = parent::load($id,$preload,$toplevel);
+        return $clip ? new Content( $clip->data()) : null;
+    }
     /**
      * @return \CODERS\Clipboard\Clipboard
      */
@@ -763,24 +955,44 @@ class Content extends \CODERS\Clipboard\Clip{
             return $content->meta();
         },$clips);
     }
-    /**
-     * @return array
-     */
-    public function data(){
-        $data = parent::data();
-        return $data;
-    }
-    /**
-     * @return Int
-     */
-    public static function findLost(){
-        return self::manager()->findLost();
-    }
+    
     /**
      * @return int
      */
     public static function restoreLost(){
-        return self::manager()->restoreLost();
+        return self::db()->recover();
+    }
+    /**
+     * @global wpdb $wpdb
+     * @return array
+     */
+    public static function findLost() {
+        $db_ids = array_map('strtolower', self::db()->allids());
+        $drive = self::manager()->storage();
+        $lost = [];
+        $skip = ['..','.'];
+        $files = $drive->list();
+        foreach ($files as $file) {
+            if ( !in_array(strtolower($file), $db_ids) && !in_array($file, $skip)) {
+                $path = $drive->route($file);
+                $lost[$file] = mime_content_type($path);
+            }
+        }
+        return self::restore($lost);
+    }    
+    /**
+     * @param array $files
+     * @return \CODERS\Clipboard\Admin\Content[]
+     */
+    private static function restore( $files = []) {
+        $restored = array();
+        foreach ($files as $id => $type ){
+            $restored[] = self::create(array(
+                'id'=>$id,
+                'type'=>$type
+            ));
+        }
+        return $restored;
     }
 }
 /**
@@ -1165,7 +1377,7 @@ class View{
     /**
      * @param string $page
      */
-    public static function load( $page = ''){
+    public static function preload( $page = ''){
         if ($page === 'coder_clipboard') {
             $style = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_URL);
             $style_path = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_DIR);
@@ -1393,16 +1605,13 @@ class Uploader {
     }
     /**
      * @param string $id
-     * @param string $storage
      * @return \CODERS\Clipboard\Clip[]
      */
-    public function items( $id = '' , $storage = '' ) {
+    public function items( $id = '' ) {
         $container = Content::load($id);
         $slot = !is_null($container) ? $container->count() : 0;
         $layout = !is_null($container) ? $container->layout : '';
         $acl = !is_null($container) ? $container->acl : '';
-        //inherit paren'ts drive
-        $drive = !is_null($container) ? $container->drive : $storage;
 
         $list = array();
         foreach($this->files() as $file ){
@@ -1411,7 +1620,6 @@ class Uploader {
             $file['slot'] = ++$slot;
             $file['acl'] = $acl;
             $file['layout'] = $layout;
-            $file['drive'] = strlen($drive) ? $drive : 'content';
             //then set the next to the first file ID
             if (strlen($id) === 0) {
                 $id = $file['id'];
@@ -1486,11 +1694,13 @@ class Uploader {
         return move_uploaded_file($from, $to);
     }
     /**
+     * @param string $from upload input
+     * @param string $into drive/storage content
      * @return \Uploader
      */
-    public static final function create($from = 'upload') {
+    public static final function create($from = 'upload',$into = 'content' ) {
 
-        $drive = self::storage('content');
+        $drive = self::storage( $into );
         $input = self::import($from);
         $files = array();
 

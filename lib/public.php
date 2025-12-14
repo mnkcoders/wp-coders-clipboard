@@ -1,4 +1,4 @@
-<?php namespace CODERS\Clipboard;
+<?php namespace CODERS\Clipboard\Pub;
 
 defined('ABSPATH') or die;
 
@@ -8,12 +8,19 @@ add_action( 'coder_clipboard', function( $clipdata = array()){
     $id = $clipdata[0] ?? '';
     $context = $clipdata[1] ?? $id;
     $page = $clipdata[2] ?? '';
-    \CODERS\Clipboard\View::create(
+    \CODERS\Clipboard\Pub\View::create(
             $id,
             $context,
             strlen($page) ? intval($page) : 0
     )->show();
 });
+
+/**
+ * Make all reqired overrides to publish hte current clipboard
+ */
+class Content extends \CODERS\Clipboard\Clip{
+    
+}
 
 /**
  * 
@@ -42,7 +49,6 @@ class View{
      */
     public function __get($name) {
         return $this->hasContent() ? $this->clip()->$name : '';
-        //return !is_null($this->load()) ? $this->load()->$name : '';
     }
     /**
      * 
@@ -255,7 +261,6 @@ class View{
      */
     protected function countAvailable() {
         return count($this->listAvailable());
-        //return $this->hasContent() ? $this->clip()->countItems() : 0;
     }
     /**
      * @return array
@@ -268,7 +273,6 @@ class View{
      */
     protected function listPath() {
         return $this->hasContent() ? $this->clip()->listPath() : array();
-        //return $this->hasContent() ? $this->clip()->outline() : array();
     }
     /**
      * @return \CODERS\Clipboard\Clip[]
@@ -294,19 +298,18 @@ class View{
     /**
      * @return string
      */
-    protected function getUrl() {
-        return $this->hasContent() ? $this->clip()->url() : ''; 
+    protected function getUrl($id = '') {
+        return Content::clipdata(strlen($id) ? $id : $this->id);
     }
     /**
      * @param string $id
      * @return string
      */
     protected function getClipboard( $id = '' ) {
-        if(strlen($id) === 0){
-            $id = $this->id;
-        }
-        return \CODERS\Clipboard\Clipboard::clipboard($id,$this->getContext());
-        //return $this->hasContent() ? $this->clip()->url(true) : '';
+        return Content::clipboard(
+                strlen($id) ? $id : $this->id,
+                $this->getContext()
+        );
     }
     
     

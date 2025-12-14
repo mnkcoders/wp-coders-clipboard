@@ -17,7 +17,7 @@
                 <?php print __('Upload!', 'coder_clipboard'); ?>                        
             </button>
             <input type="hidden" name="drive" value="<?php print $this->get_drive() ?>" />
-            <?php if ($this->is_valid()) : ?>
+            <?php if ($this->has_content()) : ?>
                 <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <?php endif; ?>
         </form>

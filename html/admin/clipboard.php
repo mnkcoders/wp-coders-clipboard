@@ -9,7 +9,7 @@
     <?php $this->show_log() ?>
 
     <div class="content container <?php print $this->get_main() ?>">
-        <?php if ($this->is_valid()) : ?>
+        <?php if ($this->has_content()) : ?>
             <?php $this->show_attachment() ?>
             <?php $this->show_content() ?>
         <?php else: ?>
