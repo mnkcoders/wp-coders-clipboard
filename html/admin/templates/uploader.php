@@ -10,12 +10,13 @@
                        type="file"
                        class="<?php print $this->get_mode() ?>"
                        name="upload[]"
-                       multiple="multiple" />        
+                       multiple="multiple" />
             </label>
             <button class="button button-primary wide right upload" type="submit" name="action" value="upload">
                 <span class="dashicons dashicons-upload"></span>                        
                 <?php print __('Upload!', 'coder_clipboard'); ?>                        
             </button>
+            <input type="hidden" name="drive" value="<?php print $this->get_drive() ?>" />
             <?php if ($this->is_valid()) : ?>
                 <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <?php endif; ?>

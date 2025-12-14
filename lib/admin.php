@@ -301,8 +301,7 @@ class MainController extends Controller{
      */
     protected function uploadAction( ) : bool {
         if($this->canupload()){
-            $id = $this->id;
-            $clips = Uploader::create( 'upload' )->items( $id );
+            $clips = Uploader::create( 'upload' )->items( $this->id , $this->drive );
             $this->notify(sprintf('%s items uploaded!','update'),count($clips));
         }
         else{
@@ -588,12 +587,12 @@ class AjaxController extends Controller{
      */
     protected function uploadAction( ) : bool{
         if($this->canupload()){
-            $id = $this->id;
-            $clips = Uploader::create( 'upload' )->items( $id );
-            $this->notify(sprintf('%s items uploaded!',$clips));
+            $clips = Uploader::create( 'upload' )->items($this->id,$this->drive);
+            $this->notify(sprintf('%s items uploaded!',count($clips)));
             $response = array(
                 'count' => count($clips),
-                'files' => Content::clipmeta($clips),
+                //'items' => Content::clipmeta($clipdata),
+                'items' => $clips,
                 );
             $this->fill($response);
             return true;
@@ -688,6 +687,12 @@ class AjaxController extends Controller{
  * 
  */
 class Content extends \CODERS\Clipboard\Clip{
+    
+    /*public function __construct($input = array(), $preload = false, $toplevel = '') {
+        parent::__construct($input, $preload, $toplevel);
+        //override with new attributes?
+    }*/
+
     /**
      * @return array
      */
@@ -695,12 +700,13 @@ class Content extends \CODERS\Clipboard\Clip{
         return array_keys($this->data());
     }
     /**
+     * Override with more metadata for the admin view
      * @return array
      */
     public function meta(): array {
         $data = parent::meta();
-        $data['slot'] = intval($data->slot);
-        $data['items'] = $this->countItems();
+        $data['items'] =$this->countItems();
+        $data['post'] = View::adminurl(array('id'=>$clip->id));
         return $data;
     }
 
@@ -716,6 +722,15 @@ class Content extends \CODERS\Clipboard\Clip{
             
         }, $clips);
     } 
+    /**
+     * @param array $data
+     * @return \CODERS\Clipboard\Admin\Content
+     */
+    public static function create( array $data = array()){
+        $clip = parent::create($data);
+        return $clip ? new Content($clip->data()) : null;
+    }
+
     /**
      * @return \CODERS\Clipboard\Clipboard
      */
@@ -748,17 +763,6 @@ class Content extends \CODERS\Clipboard\Clip{
             return $content->meta();
         },$clips);
     }
-    /**
-     * @param string $id
-     * @return array
-     */
-    /*public static function list( $id = '' , $drive = ''){
-        $db = self::manager()->db();
-        return array_map( function($data){
-            return new Clip($data);
-        },$db->list($id,[],$drive));
-    } */     
-
     /**
      * @return array
      */
@@ -856,12 +860,17 @@ class View{
      * @var array
      */
     private $_settings = array();
+    /**
+     * @var \CODERS\Clipboard\Admin\Text
+     */
+    private $_text = null;
     
     /**
      * @param string $context
      */
     function __construct( $context = '' ) {
         $this->_context = $context;
+        $this->_text = new Text();
     }
     /**
      * @param string $context
@@ -952,16 +961,22 @@ class View{
      */
     public function __get(string $name) {
         $get = sprintf('get%s', ucfirst($name));
-        if( $this->hasContent() && method_exists($this->content(), $get)){
-            return $this->content()->$get();
+        switch(true){
+            case preg_match('/^text_/', $name):
+                return $this->text()->get(substr($name, 5));
+            case preg_match('/^print_/', $name):
+                print $this->text()->get(substr($name, 6));
+                break;
+            case $this->hasContent() && method_exists($this->content(), $get):
+                return $this->content()->$get();
+            case method_exists($this, $get):
+                return $this->$get();
+            case $this->hasContent():
+                return $this->content()->$name;
+            default:
+                return $this->get($name);                
         }
-        if( method_exists($this, $get)){
-            return $this->$get();
-        }
-        if( $this->hasContent()){
-            return $this->content()->$name;
-        }
-        return $this->get($name);
+        return '';
     }
     /**
      * @param string $name
@@ -979,6 +994,12 @@ class View{
 
         wp_editor($content, $id, $settings);
     }    
+    /**
+     * @return \CODERS\Clipboard\Admin\Text
+     */
+    protected function text( ){
+        return $this->_text;
+    }
     /**
      * @param string $list
      * @return array
@@ -1372,13 +1393,16 @@ class Uploader {
     }
     /**
      * @param string $id
+     * @param string $storage
      * @return \CODERS\Clipboard\Clip[]
      */
-    public function items( $id = '' ) {
+    public function items( $id = '' , $storage = '' ) {
         $container = Content::load($id);
         $slot = !is_null($container) ? $container->count() : 0;
         $layout = !is_null($container) ? $container->layout : '';
         $acl = !is_null($container) ? $container->acl : '';
+        //inherit paren'ts drive
+        $drive = !is_null($container) ? $container->drive : $storage;
 
         $list = array();
         foreach($this->files() as $file ){
@@ -1387,14 +1411,13 @@ class Uploader {
             $file['slot'] = ++$slot;
             $file['acl'] = $acl;
             $file['layout'] = $layout;
-            //4cf3baa3c78c32df
+            $file['drive'] = strlen($drive) ? $drive : 'content';
             //then set the next to the first file ID
             if (strlen($id) === 0) {
                 $id = $file['id'];
             }
             $clip = Content::create($file);
-            var_dump($clip);
-            $list[$clip->id] = $clip;
+            $list[] = $clip->meta();
         }
         return $list;
     }
@@ -1524,4 +1547,45 @@ class Uploader {
         return $uploaded;
     }
 }
+/**
+ * 
+ */
+class Text{
+    /**
+     * @var array
+     */
+    private $_strings = array();
+    /**
+     * @param string $path
+     */
+    public function __construct( $path = '') {
+        $this->_strings = $this->load();
+    }
+    /**
+     * @return array
+     */
+    protected function load(){
+        return array(
+            'test' => __('This is a test TEXT','coder_clipboard'),
+            'workspace' => __('Workspace','coder_clipboard'),
+        );
+    }
+    /**
+     * @param string $text
+     * @return string
+     */
+    public function get( $text = ''){
+        return strlen($text) ? $this->_strings[$text] ?? $text : 'empty';
+    }
+    /**
+     * @param string $name
+     * @return string
+     */
+    public function __get($name){
+        return $this->get($name);
+    }
+}
+
+
+
 

@@ -44,7 +44,7 @@ class App {
      */
     setup() {
         //console.log('Setup Components:' , this.components());
-        return this.register(new CoderServer())
+        return this.register(new CoderServer(CodersAPI || {}))
             .register(new CoderDrive())
             .register(new CoderStrings())
             .register(new ClipFormView('div.content'))
@@ -107,7 +107,10 @@ class App {
     /**
      * @returns {String}
      */
-    drive(){ return this.input().get('drive') || 'content'; }
+    drive(){
+        return App.uploader().drive();
+        //return this.input().get('drive') || 'content';
+    }
 
     /**
      * @returns {App}
@@ -245,19 +248,13 @@ class Component {
  * Events: update , done
  */
 class CoderServer {
-
-    constructor() {
-        this._api = this.apidata();
-        this._tasks = [];
-    }
     /**
-     * @returns {Object}
+     * @param {Object} api 
      */
-    apidata() {
-        const data = { public: '', admin: '', ajax: ajaxurl, nonce: '' };
-        const api = CodersAPI || {};
-        Object.keys(data).forEach(key => data[key] = api[key] || '');
-        return data;
+    constructor(api = {}) {
+        this._tasks = [];
+        this._api = { public: '', admin: '', ajax: ajaxurl, nonce: '' };
+        Object.keys(this._api).forEach(key => this._api[key] = api[key] || '');
     }
     /**
      * @returns {Object}
@@ -351,12 +348,18 @@ class CoderServer {
     /**
      * @param {File} file 
      * @param {String} id 
+     * @param {String} drive
      * @param {Function} callback 
      * @returns {CoderServer}
      */
-    upload(file = null, id = '', callback = null) {
+    upload(file = null, id = '' , drive = '', callback = null) {
         if (file instanceof File) {
-            this.add(new UploadTask(file, id && { 'id': id } || {}, callback));
+            const data = {};
+            if( id ){
+                data['id'] = id;
+            }
+            data['drive'] = drive || 'content';
+            this.add(new UploadTask(file, data, callback));
         }
         return this;
     };
@@ -504,7 +507,7 @@ class ClipQueue extends Component {
         if (this.count()) {
             const id = this._header || this._id;
             const file = this.next();
-            file && this.server().upload(file, id, r => {
+            file && this.server().upload(file, id, drive, r => {
                 this.deliver(r.items || []);
                 this.$('update', this.progress());
                 this.update();
@@ -521,6 +524,7 @@ class ClipQueue extends Component {
      * @returns {ClipQueue}
      */
     deliver(content = []) {
+        console.log(content);
         const clips = ClipData.fromlist(content || []);
         if (clips.length) {
             if (!this._header) {
@@ -815,7 +819,7 @@ class ClipData extends Component {
      */
     static fromlist(list = []) {
         return list && list.map(data => this.fromdata(data)) || [];
-        return list && list.map(data => this.fromdata(data)) || [];
+        //return list && list.map(data => this.fromdata(data)) || [];
     }
     /**
      * @returns {Number}
@@ -1301,7 +1305,7 @@ class Collection extends ViewComponent {
                 document.body.appendChild(ghost);
 
                 // Wait for the browser to render the ghost before setting it as the drag image
-                requestAnimationFrame(() => {
+                requestAnimationFrame( e => {
                     e.dataTransfer.setDragImage(ghost, 0, 0);
                     // Optional cleanup
                     setTimeout(() => ghost.remove(), 1000);
@@ -1375,13 +1379,12 @@ class Notifier extends ViewComponent {
     /**
      * @param {String} content 
      * @param {String} type 
-     * @param {Boolean} timeout
      * @returns {Notifier}
      */
-    show(content = '', type = 'info', timeout = false) {
+    show(content = '', type = 'info') {
         console.log(content, type);
         if (content && this.node()) {
-            this.node().appendChild(this.add(content,type,timeout));
+            this.node().appendChild(this.add(content,type,true));
         }
         return this;
     }
@@ -1701,7 +1704,6 @@ class Uploader extends ViewComponent {
      */
     constructor(name = '') {
         super(name);
-        this._ajax = true;
     }
     /**
      * 
@@ -1722,17 +1724,26 @@ class Uploader extends ViewComponent {
         this.queue()._('done', completed => this.clear());
     }
     /**
-     * @returns {Boolean}
-     */
-    useajax(){ return this._ajax; }
-    /**
      * @returns {ClipQueue}
      */
     queue() { return this._queue; }
     /**
      * @returns {Element}
      */
-    fileinput() { return this.node() && this.node().querySelector('input[type=file]') || null; }
+    inputfile() { return this.node() && this.node().querySelector('input[type=file]') || null; }
+    /**
+     * @returns {String}
+     */
+    inputdrive(){
+        return this.node() && this.node().querySelector('input[name=drive]') || null;
+    }
+    /**
+     * @returns {String}
+     */
+    drive(){
+        const input = this.inputdrive();
+        return input && input.value || 'content';
+    }
     /**
      * @returns {Element}
      */
@@ -1752,31 +1763,46 @@ class Uploader extends ViewComponent {
      * @returns {Uploader}
      */
     toggle(){
-        this.node() && this.node().classList.toggle('ajax');
-        if( this.useajax() ){
-            this.changetext(App.text('Drop your files here'));
+        const content = this.node();
+        if( content) {
+            content.classList.toggle('ajax');
+            this.setmode(!content.classList.contains('ajax'));
         }
-        else{
-            this.changetext(App.text('Select your files'));
+        return this;
+    }
+    /**
+     * @param {Boolean} active
+     * @returns {Uploader}
+     */
+    setmode( active = false){
+        const content = this.node();
+        if( content){
+            active && content.classList.add('ajax') || content.classList.remove('ajax');
+            this.changetext(App.text( active && 'Drop your files here' || 'Select your files'));
         }
-        App.notify(`Ajax mode <b>${this.useajax() ? 'ON' : 'OFF'}</b>`);
+        localStorage.setItem('useajax',active || false);
+        App.notify(`Ajax mode <b>${active ? 'ON' : 'OFF'}</b>`);
         return this;
     }
     /**
      * @returns {Boolean}
      */
-    useajax() { return !!this.node() && this.node().classList.contains('ajax'); }
+    useajax() {
+        return localStorage.getItem('useajax') ||  false;
+        //return !!this.node() && this.node().classList.contains('ajax');
+    }
     /**
      * @returns {Uploader}
      */
     setupFileInput() {
-        const input = this.fileinput();
+        const input = this.inputfile();
+        const id = App.client().id();
+        const drive = App.client().drive();
         if (this.useajax()) {
-            const id = App.client().id();
-            input && this.fileinput().addEventListener('change', e => App.server().upload(e.target.files, id));
+            input && this.inputfile().addEventListener('change', e => App.server().upload(e.target.files, id,drive));
         }
         else{
-            input && input.removeEventListener('change',e => App.server().upload(e.target.files, id));
+            input && input.removeEventListener('change',e => App.server().upload(e.target.files, id,drive));
         }
         return this;
     }
@@ -1829,9 +1855,10 @@ class Uploader extends ViewComponent {
     upload(file = null, id = '') {
         if (file instanceof File) {
             const server = App.server();
-            server.upload(file, id, r => {
+            const drive = this.drive();
+            server.upload(file, id, drive , r => {
                 //files,count
-                this.fill(ClipData.fromlist(r.files || []));
+                this.fill(ClipData.fromlist(r.items || []));
                 r.count && App.notify(`${r.count} Clips uploaded`, 'update');
             });
         }
@@ -2008,7 +2035,6 @@ class ToggleAjax extends ViewComponent{
      */
     constructor( selector = '' ){
         super(selector);
-        console.log(this);
     }
     create(){
         super.create();

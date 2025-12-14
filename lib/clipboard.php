@@ -569,6 +569,7 @@ class Clip{
             'tags' => $this->listTags(),
             'link' => $this->getUrl(),
             'attach' => $this->getDisposition(),
+            'slot' => intval($this->slot),
         );        
     }
 

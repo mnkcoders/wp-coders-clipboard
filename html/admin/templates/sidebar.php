@@ -1,5 +1,8 @@
 <?php defined('ABSPATH') || die; ?>
 <ul class="options drives">
+    <li class="item">
+        <h3><?php print $this->text_workspace ?></h3>
+    </li>
     <?php foreach ($this->list_drives() as $drive => $current) : ?>
         <li class="item">
             <?php if ($current) : ?>
