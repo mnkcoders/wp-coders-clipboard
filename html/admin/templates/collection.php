@@ -27,12 +27,12 @@
                     <a class="task top-right dashicons dashicons-arrow-up-alt" href="<?php
                         print $this->action_moveup($item->id) ?>"></a>
                     <?php endif; ?>
-                    <label class="task top-left select" for="<?php
+                    <!--label class="task top-left select" for="<?php
                             print sprintf('select_%s',$item->id)?>">
                         <input type="checkbox" id="<?php
                             print sprintf('select_%s',$item->id) ?>" value="<?php
                             print $item->id ?>" />
-                    </label>
+                    </label-->
                     <?php if($item->has_items()) : ?>
                     <span class="task counter visible bottom-left" >
                         <?php print $item->count_items(); ?>

@@ -373,7 +373,7 @@ class Clip{
      * @return array
      */
     protected function loadtree( $toplevel = '' ) {
-        $list = array( $this->id => $this->title );
+        $list = array( $this->id => $this->getTitleorName() );
         if($this->id === $toplevel){
             return $list;
         }
@@ -877,8 +877,9 @@ class Data{
      * 
      */
     public function recover(){
-        $query = sprintf("UPDATE `%s` SET parent_id = NULL WHERE id = parent_id OR parent_id = ''", self::table());
-        return $this->wpdb()->query($query) ?? 0;
+        $query[] = sprintf("UPDATE `%s` SET parent_id = NULL", self::table());
+        $query[] = "WHERE `id`=`parent_id` OR `parent_id`=''";
+        return $this->wpdb()->query(implode(' ', $query)) ?? 0;
     }
     /**
      * @return array
@@ -916,20 +917,21 @@ class Data{
             $table = self::table();
             // Set the variable
             $wpdb->query("SET @rownum = 0");
-            $query = $wpdb->prepare(
-                "UPDATE `$table`
-                 SET `slot` = (@rownum := @rownum + 1) - 1
-                 WHERE `parent_id` = %s",
-                $id
-            );
+            $query = array( "UPDATE `$table` SET `slot` = (@rownum := @rownum + 1)" );
+            if( $id ){
+                $query[] = sprintf("WHERE `parent_id` = '%s'",$id);
+            }
+            else{
+                $query[] = "WHERE `parent_id` IS NULL OR `parent_id` = ''";
+            }
             if( $slot >= 0 ){
-                $query .= sprintf(' AND `slot` >= %s',$slot);
+                $query[] = sprintf('AND `slot` >= %s',$slot);
             }
             if( $range ){
-                $query .= sprintf(' AND `slot` <= %s',$range);
+                $query[] = sprintf('AND `slot` <= %s',$range);
             }
-            $query .= " ORDER BY `slot` ASC";
-            $count = $wpdb->query($query);
+            $query[] = "ORDER BY `slot` ASC";
+            $count = $wpdb->query(implode(' ', $query));
             if(is_numeric($count)){
                 return $count;
             }

@@ -1,12 +1,11 @@
 <?php defined('ABSPATH') or die; ?>
+<?php if( $this->has_content() ) : ?>
 <ul class="coders-clipboard-title path container">
     <li class="path">
-        <a class="base" href="<?php print $this->base ?>" target="_self">
-            <span class="dashicons dashicons-art"></span>
-            <?php print get_admin_page_title() ?>
+        <a href="<?php print $this->base ?>" target="_self">
+            <span class="dashicons dashicons-images-alt"></span>
         </a>
     </li>
-    <?php if( $this->has_content() ) : ?>
         <?php foreach ($this->list_path() as $id => $title) : ?>
             <li class="path">
                 <?php if (strlen($id)) : ?>
@@ -25,8 +24,8 @@
                 <?php endif; ?>
             </li>
         <?php endforeach; ?>
-    <?php endif ;?>
 </ul>
+<?php endif ;?>
 
 
 

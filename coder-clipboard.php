@@ -33,16 +33,18 @@ register_deactivation_hook(__FILE__, function() {
 
 // Redirect Handler
 add_action('template_redirect', function(){
-    $clip_id = get_query_var('clip_id');
-    if( $clip_id ){
-        \CODERS\Clipboard\Clipboard::attach( $clip_id );
-        exit;
-    }
-    $clipboard_id = get_query_var('clipboard_id');
-    if( $clipboard_id ){
-        //support path nodes
-        \CODERS\Clipboard\Clipboard::board( explode('/', trim($clipboard_id,'/') ) );
-        exit;
+    if( !is_admin()){
+        $clip_id = get_query_var('clip_id');
+        if( $clip_id ){
+            \CODERS\Clipboard\Clipboard::attach( $clip_id );
+            exit;
+        }
+        $clipboard_id = get_query_var('clipboard_id');
+        if( $clipboard_id ){
+            //support path nodes
+            \CODERS\Clipboard\Clipboard::board( explode('/', trim($clipboard_id,'/') ) );
+            exit;
+        }
     }
 });
 

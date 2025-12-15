@@ -96,10 +96,6 @@ class App {
     component(name = '') { return this._components[name] || null; }
 
     /**
-     * @returns {ClipData}
-     */
-    clip() { return this.id() && new ClipData(this.id()) || null; }
-    /**
      * @returns {String}
      */
     id() { return this.input().get('id') || ''; }
@@ -202,39 +198,6 @@ class CoderInput {
         return content;
     }
 }
-
-/**
- * @type {Component}
- */
-class Component {
-    constructor() {
-        this.__e = {};
-    }
-    /**
-     * Register an event
-     * @param {String} e 
-     * @param {Function} call 
-     * @returns {Component}
-     */
-    _(e = '', call = null) {
-        if (e && typeof call === 'function') {
-            if (!this.__e[e]) this.__e[e] = [];
-            this.__e[e].push(typeof call === 'function' && call || (data => console.log(data)));
-        }
-        return this;
-    }
-    /**
-     * Run an event
-     * @param {String} e 
-     * @param {*} data 
-     * @returns 
-     */
-    $(e = '', data = false) {
-        e && this.__e[e] && this.__e[e].forEach(call => call(data));
-        return this;
-    }
-}
-
 
 /**
  * Events: update , done
@@ -384,6 +347,18 @@ class CoderServer {
         }, callback));
     }
     /**
+     * @param {String} id 
+     * @param {String} target 
+     * @param {Function} callback 
+     * @returns {CoderServer}
+     */
+    replace(id = '' , target  ='' , callback = null ){
+        return this.add(new ClipTask('replace',{
+            'id':id,
+            'target':target,
+        },callback ) );
+    }
+    /**
      * @param {ClipData} id 
      * @param {Function} callback 
      * @returns {CoderServer}
@@ -405,6 +380,41 @@ class CoderServer {
         }, callback));
     }
 }
+
+
+/**
+ * @type {Component}
+ */
+class Component {
+    constructor() {
+        this.__e = {};
+    }
+    /**
+     * Register an event
+     * @param {String} e 
+     * @param {Function} call 
+     * @returns {Component}
+     */
+    _(e = '', call = null) {
+        if (e && typeof call === 'function') {
+            if (!this.__e[e]) this.__e[e] = [];
+            this.__e[e].push(typeof call === 'function' && call || (data => console.log(data)));
+        }
+        return this;
+    }
+    /**
+     * Run an event
+     * @param {String} e 
+     * @param {*} data 
+     * @returns 
+     */
+    $(e = '', data = false) {
+        e && this.__e[e] && this.__e[e].forEach(call => call(data));
+        return this;
+    }
+}
+
+
 /**
  * Use to handle multiple uploads
  * events: update (progress) , upload( ClipData ) , done()
@@ -640,13 +650,13 @@ class ClipTask extends Component {
         if (this.valid()) {
             this._status = ClipTask.State.Running;
             const content = this.createForm(this.data());
-            try{
+            try {
                 fetch(this.url(), { method: 'POST', body: content })
                     .then(r => r.json())
                     .then(r => this.success(r))
                     .catch(error => this.failure(error));
             }
-            catch(err){
+            catch (err) {
                 this.failure(err);
             }
         }
@@ -737,32 +747,92 @@ class FormTask extends ClipTask {
  */
 class ClipData extends Component {
     /**
-     * @param {String} id 
+     * @param {Object} data
      */
-    constructor(id = '') {
+    constructor(data) {
         super();
-        this._id = id || '';
-        this._slot = 0;
-        this._parent_id = '';
-        this._name = 'new-clip';
-        this._type = '';
-        this._title = '';
-        this._description = '';
-        this._tags = [];
-        this._path = {};
-        this._items = 0;
+        this._data = {
+            'id': '',
+            'parent_id': '',
+            'name': 'new-clip',
+            'title': '',
+            'type': '',
+            'description': '',
+            'created': '',
+            'tags': '',
+            'path': {},
+            'slot': 0,
+            'items': 0,
+        };
+        this.populate(data)
+        //this._id = id || '';
+        //this._slot = 0;
+        //this._parent_id = '';
+        //this._name = 'new-clip';
+        //this._type = '';
+        //this._title = '';
+        //this._description = '';
+        //this._tags = [];
+        //this._path = {};
+        //this._items = 0;
     }
     /**
-     * 
+     * @returns {Object}
+     */
+    data() { return this._data; }
+    /**
+     * @returns {String[]}
+     */
+    attributes() { return Object.keys(this.data()) }
+    /**
+     * @param {String} name 
+     * @param {String|Number|Boolean} value 
+     * @returns {ClipData}
+     */
+    set(name = '', value = '') {
+        if (this.data().hasOwnProperty(name)) {
+            this.data()[name] = value;
+        }
+        return this;
+    }
+    /**
+     * @param {String} name 
+     * @returns {String}
+     */
+    get(name = '') { return name && this.data()[name] || ''; }
+    /**
+     * @param {String} name 
+     * @returns {Number}
+     */
+    getint(name = '') { return parseInt(this.get(name)) || 0; }
+    /**
+     * @param {String} name 
+     * @param {String} sep 
+     * @returns {String[]}
+     */
+    getlist(name = '', sep = ',') {
+        const value = this.get(name);
+        return Array.isArray(value) ? value : value.split(sep);
+    }
+    /**
+     * @param {String} name 
+     * @returns {Object}
+     */
+    getobj(name = '') {
+        const value = this.get(name);
+        return value && typeof value === 'object' ? value : {};
+    }
+    /**
      * @param {Object} data 
      * @returns {ClipData}
      */
     populate(data = {}) {
         Object.keys(data || {}).forEach(key => {
-            const t = '_' + key;
+            this.set(key, data[key]);
+            /*const t = '_' + key;
             if (this.hasOwnProperty(t) && typeof this[t] !== 'function') {
                 this[t] = data[key];
-            }
+            }*/
         });
         return this;
     }
@@ -771,17 +841,7 @@ class ClipData extends Component {
      * @returns {ClipData}
      */
     static fromdata(data = null) {
-        const clip = new ClipData();
-        return clip.populate(data);
-        return data && new ClipData(
-            data.id || '',
-            data.parent_id || '',
-            data.name || '',
-            data.type || '',
-            data.title || '',
-            data.desc || '',
-            data.slot || '',
-        ) || null;
+        return new ClipData(data || {});
     }
     /**
      * @param {Object[]} list 
@@ -789,24 +849,23 @@ class ClipData extends Component {
      */
     static fromlist(list = []) {
         return list && list.map(data => this.fromdata(data)) || [];
-        //return list && list.map(data => this.fromdata(data)) || [];
     }
     /**
      * @returns {Number}
      */
-    count() { return this._items; }
+    count() { return this.getint('items'); }
     /**
-     * @param {ClipData} clip 
+     * @param {Object} content 
      * @returns {ClipData}
      */
-    copy(clip = null) {
-        clip && Object.keys(this).forEach(key => {
-            if (key !== '_id' || !this.id()) {
-                this[key] = clip[key];
-            }
+    copy(content = {}) {
+        typeof content === 'object' && Object.keys(content).forEach(key => {
+            const value = content[key];
+            this.set(key, Array.isArray(value) ? value.slice() : value);
         });
         return this;
     }
+    clone() { return new ClipData().copy(this.data()); }
     /**
      * @returns {String}
      */
@@ -835,11 +894,9 @@ class ClipData extends Component {
     /**
      * @returns {ClipData}
      */
-    refresh() {
+    update() {
         if (this.id()) {
-            App.server().load(this.id(), r => {
-                this.copy(ClipData.fromdata(r.item || null));
-            });
+            App.server().load(this.id(), r => this.copy(r.item || {}));
         }
         return this;
     }
@@ -854,39 +911,39 @@ class ClipData extends Component {
     /**
      * @returns {String}
      */
-    type() { return this._type; }
+    type() { return this.get('type'); }
     /**
      * @returns {String}
      */
-    name() { return this._name; }
+    name() { return this.get('name'); }
     /**
      * @returns {String}
      */
-    title() { return this._title; }
+    title() { return this.get('title'); }
     /**
      * @returns {String}
      */
-    desc() { return this._description; }
+    desc() { return this.get('description'); }
     /**
      * @returns {String}
      */
-    id() { return this._id; }
+    id() { return this.get('id'); }
     /**
      * @returns {String}
      */
-    parent() { return this._parent_id; }
+    parent() { return this.get('parent_id'); }
     /**
      * @returns {String[]}
      */
-    tags() { return this._tags; }
+    tags() { return this.getlist('tags', ' '); }
     /**
      * @returns {Number}
      */
-    slot() { return this._slot; }
+    slot() { return this.getint('slot'); }
     /**
      * @returns {Object}
      */
-    path() { return this._path; }
+    path() { return this.getobj('path'); }
     /**
      * @returns {String[]}
      */
@@ -943,10 +1000,25 @@ class ViewComponent extends Component {
      */
     constructor(name = '') {
         super();
-        this._node = this.selector(name);
         this._state = ViewComponent.State.New;
-        //this._node = this.render(name);
+        this._node = this.selector(name);
         this.create();
+    }
+    /**
+     * @returns {String[]}
+     */
+    rootnode() { return ['#wpbody-content', '.coders-clipboard'].slice(); }
+    /**
+     * @param {String} selector 
+     * @returns {Element}
+     */
+    selector(selector = '') {
+        if (selector) {
+            const query = this.rootnode();
+            query.push(selector);
+            return document.querySelector(query.join(' ')) || null;
+        }
+        return null;
     }
     /**
      * Setup internal component data, before all components have been created
@@ -980,19 +1052,7 @@ class ViewComponent extends Component {
      * @returns {Number}
      */
     state() { return this._state; }
-    /**
-     * @param {String} selector 
-     * @returns {Element}
-     */
-    selector(selector = '') {
-        if (selector) {
-            const query = ['#wpbody-content', '.coders-clipboard'];
-            query.push(selector);
-            return document.querySelector(query.join(' ')) || null;
-        }
-        return null;
-        //return [...document.getElementsByClassName(name)][0] || null;
-    }
+
     /**
      * @param {ViewComponent} c 
      * @returns {ViewComponent}
@@ -1032,7 +1092,7 @@ class ViewComponent extends Component {
     /**
      * @returns {ViewComponent}
      */
-    refresh() {
+    update() {
         this._components = this.components().filter(c => c.state() !== ViewComponent.State.Removed);
         return this;
     }
@@ -1154,14 +1214,23 @@ class Collection extends ViewComponent {
         this.onDragStart();
         this.onDragEnd();
         this.onDragOver();
+        this.onDrop();
         this.populate();
+
+        this._('sort', (content ) => {
+            App.server().sort( content.id || '',  parseInt(content.slot) || 0, data => this.sortitem(ClipData.fromdata(data)) );
+        });
+
+        this._('move', ( content  ) => {
+            App.server().moveto(content.id || '', content.target || '', r => this.removeitem(r.id || '') );            
+        });
     }
     /**
      * @returns {Collection}
      */
     populate() {
         App.server().list(App.client().id(), (r) => {
-            this.fill((r.items || []).map(data => ClipData.fromdata(data)));
+            this.fill(ClipData.fromlist((r.items || [])));
         });
         return this;
     }
@@ -1169,6 +1238,32 @@ class Collection extends ViewComponent {
      * @returns {ClipView[]}
      */
     items() { return this.components(); }
+    /**
+     * @param {String} id 
+     * @returns {Collection}
+     */
+    removeitem( id = '' ){
+        const item = id && this.items().find( i => i.id() === id ) || null;
+        //console.log('removing item ', item);
+        item && item.remove();
+        return this;
+    }
+    /**
+     * @param {Object} data
+     * @returns {Collection}
+     */
+    sortitem( data = null){
+        if( data ){
+            const id = data.id || '';
+            const slot = data.slot || 0;
+            const item = id && this.items().find( i => i.id() === id ) || null;
+            if(item){
+                //move to slot
+                console.log(`Moving ${item.name()} to slot ${slot}`);
+            }
+        }
+        return  this;
+    }
     /**
      * @returns {Number}
      */
@@ -1181,7 +1276,7 @@ class Collection extends ViewComponent {
         if (clip instanceof ClipData) {
             const item = new ClipView(clip);
             item._('remove', c => this.populate());
-            this.append(item );
+            this.append(item);
 
         }
         return this;
@@ -1209,7 +1304,7 @@ class Collection extends ViewComponent {
         console.log(items.map(i => i.id()));
         //add only items matching current parent_id and not present in tje list
         (items || [])
-            .filter( item => !listed.includes(item.id()) )
+            .filter(item => !listed.includes(item.id()))
             .filter(item => item.parent() === current)
             .forEach(data => this.add(data));
 
@@ -1219,10 +1314,10 @@ class Collection extends ViewComponent {
     /**
      * @returns {String[]}
      */
-    listids(){
+    listids() {
         return this.components()
-            .filter( c => !!c.id )
-            .map( c => c.id() );
+            .filter(c => !!c.id)
+            .map(c => c.id());
     }
     /**
      * @param {String[]} items 
@@ -1271,12 +1366,14 @@ class Collection extends ViewComponent {
      * @returns {Collection}
      */
     onDragEnd() {
-        const node = this.node();
         document.addEventListener('dragend', e => {
             e.preventDefault();
-            node.classList.remove('move');
-            const source = node.querySelector('li.item.moving');
-            source.classList.remove('moving');
+            const node = this.node();
+            if( node ){
+                node.classList.remove('move');
+                const source = node.querySelector('li.item.moving');
+                source.classList.remove('moving');
+            }
         });
         return this;
     }
@@ -1295,6 +1392,7 @@ class Collection extends ViewComponent {
 
             const id = item.dataset.id;
             const slot = item.dataset.slot;
+            console.log(item,id,slot);
 
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData(
@@ -1303,9 +1401,11 @@ class Collection extends ViewComponent {
             // Create a custom drag image
             const ghost = this.createGhost(item.querySelector('img.media'));
             // Wait for the browser to render the ghost before setting it as the drag image
-            e.dataTransfer.setDragImage(ghost, 0, 0);
-            // Optional cleanup
-            setTimeout(() => ghost.remove(), 1000);
+            if( ghost ){
+                e.dataTransfer.setDragImage(ghost, 0, 0);
+                // Optional cleanup
+                setTimeout(() => ghost.remove(), 1000);
+            }
 
         });
         return this;
@@ -1317,17 +1417,14 @@ class Collection extends ViewComponent {
     createGhost(image = null) {
         if (image instanceof Element) {
             const ghost = image.cloneNode(true);
-            if (ghost) {
-                //console.log(ghost);
-                ghost.style.borderRadius = '50%';
-                ghost.style.position = 'absolute';
-                ghost.style.top = '-1000px';
-                ghost.style.left = '-1000px';
-                ghost.style.zIndex = '-1'; // avoid blocking other elements
-                ghost.style.pointerEvents = 'none';
-                document.body.appendChild(ghost);
-                return ghost;
-            }
+            ghost.style.borderRadius = '50%';
+            ghost.style.position = 'absolute';
+            ghost.style.top = '-1000px';
+            ghost.style.left = '-1000px';
+            ghost.style.zIndex = '-1'; // avoid blocking other elements
+            ghost.style.pointerEvents = 'none';
+            document.body.appendChild(ghost);
+            return ghost;
         }
         return null;
     }
@@ -1335,10 +1432,7 @@ class Collection extends ViewComponent {
      * @returns {Collection}
      */
     onDragOver() {
-        const content = this.node();
-        content.addEventListener('dragover', (e) => {
-            e.preventDefault(); // allow drop
-        });
+        this.node() && this.node().addEventListener('dragover', (e) => e.preventDefault());
         return this;
     }
     /**
@@ -1346,28 +1440,27 @@ class Collection extends ViewComponent {
      */
     onDrop() {
         const content = this.node();
+        console.log(content);
         content && content.addEventListener('drop', e => {
             e.preventDefault();
             const target = e.target;
-            //console.log(target.closest('li.item'));
             const item = target.closest('li.item');
             const data = JSON.parse(e.dataTransfer.getData('application/json') || '{}');
-            const _id = data.id || '';
-            const _slot = parseInt(data.slot) || 0;
-
+            const fromid = data.id || '';
+            const fromslot = parseInt(data.slot) || 0;
             const action = target.classList.contains('placeholder') && 'sort'
                 || target.classList.contains('caption') && 'move' || '';
+            console.log(data,action);
 
             switch (action) {
                 case 'move':
-                    const id = item && item.dataset.id || '';
-                    //const target_id = target.dataset.id;
-                    _id !== id && this.move(_id, id);
+                    const toid = item && item.dataset.id || '';
+                    fromid !== toid && this.$('move', {'id':fromid,'target':toid});
                     break;
                 case 'sort':
-                    const slot = item && parseInt(item.dataset.slot) || 0;
-                    //const slot = target.dataset.slot;
-                    slot && slot !== _slot && this.sort(_id, slot);
+                    const toslot = item && parseInt(item.dataset.slot) || 0;
+                    console.log(item,toslot,fromslot);
+                    toslot && toslot !== fromslot && this.$('sort', {'id':fromid,'slot':toslot});
                     break;
                 default:
                     //console.log(`No target selected`);
@@ -1401,7 +1494,7 @@ class Notifier extends ViewComponent {
     show(content = '', type = 'info') {
         console.log(`[${type}] ${content}`);
         if (content && this.node()) {
-            this.node().appendChild(this.add(content, type, true));
+            this.node().appendChild(this.newmessage(content, type, true));
         }
         return this;
     }
@@ -1411,7 +1504,7 @@ class Notifier extends ViewComponent {
      * @param {Boolean} timeout 
      * @returns {Element}
      */
-    add(content = '', type = 'info', timeout = false) {
+    newmessage(content = '', type = 'info', timeout = false) {
         const message = this.html('div', { 'class': `is-dismissible notice type-${type}` }, content);
         message.addEventListener('click', function (e) {
             e.preventDefault();
@@ -1518,7 +1611,8 @@ class ClipView extends ViewComponent {
         const item = this.html('li', { 'class': 'item', 'data-id': this.id(), 'data-slot': this.slot() });
         item.appendChild(this.makeplaceholder());
         item.appendChild(this.makecontent());
-        item.appendChild(this.makecheck());
+        //item.appendChild(this.makecheck());
+        item.appendChild(this.makereplace());
         this.parent() && item.appendChild(this.makemoveup()); //only in lower levels
         this.counter() && item.appendChild(this.makecount());
         item.appendChild(this.makeremove());
@@ -1555,11 +1649,25 @@ class ClipView extends ViewComponent {
         return element;
     }
     /**
+     * @returns {Element}
+     */
+    makereplace() {
+        const element = this.html('span', { 'class': 'task top-right dashicons dashicons-arrow-right-alt' });
+        element.addEventListener('click', e => {
+            e.preventDefault();
+            this.id() && App.server().replace(this.id(),this.parent(), r => {
+                this.remove();
+            });
+            return true;
+        });
+
+        return element;
+    }
     /**
      * @returns {Element}
      */
     makemoveup() {
-        const element = this.html('span', { 'class': 'task top-right dashicons dashicons-arrow-up-alt' });
+        const element = this.html('span', { 'class': 'task top-left dashicons dashicons-arrow-up-alt' });
         element.addEventListener('click', e => {
             e.preventDefault();
             this.id() && App.server().moveup(this.id(), r => {
@@ -1678,11 +1786,11 @@ class ClipFormView extends ViewComponent {
      * @returns {ClipFormView}
      */
     load(id = '') {
-        this._clip = id && new ClipData(id) || null;
+        this._clip = new ClipData(id && { 'id': id } || {});
         if (this.clip()) {
-            this.clip().refresh();
+            this.clip().update();
             //refresh all data changes when the clip geets updated
-            this.clip()._('update', clip => { this.refresh(clip, false); });
+            this.clip()._('update', clip => { this.update(clip, false); });
             //fire clip data event
             this.$('load', this.clip());
         }
@@ -1692,9 +1800,9 @@ class ClipFormView extends ViewComponent {
      * @param {ClipData} clip 
      * @returns {ClipFormView}
      */
-    refresh(clip = null, runevent = false) {
+    update(clip = null, runevent = false) {
         if (clip instanceof ClipData) {
-            this._clip = this.clip() ? this.clip().copy(clip) : clip;
+            this._clip = this.clip() ? this.clip().copy(clip.data()) : clip;
             runevent && this.$('refresh', this.clip());
             //fill fporm data here
             //console.log('Form Data ', clip);
@@ -1723,6 +1831,7 @@ class Uploader extends ViewComponent {
      */
     constructor(name = '') {
         super(name);
+        this._dragcounter = 0;
     }
     /**
      * 
@@ -1740,7 +1849,7 @@ class Uploader extends ViewComponent {
         this.onDragDrop();
         this.queue()._('update', progress => this.progress(progress));
         this.queue()._('upload', clips => this.collection().fill(clips));
-        this.queue()._('done', completed => this.clear());
+        this.queue()._('complete', completed => this.clear());
     }
     /**
      * @returns {ClipQueue}
@@ -1754,6 +1863,13 @@ class Uploader extends ViewComponent {
      * @returns {Element}
      */
     uploadbutton() { return this.node() && this.node().querySelector('button.upload') || null; }
+    /**
+     * @returns {Element}
+     */
+    clipboard() {
+        const clipboard = this.rootnode().join(' ') + '> .clipboard';
+        return document.querySelector(clipboard);
+    }
     /**
      * @param {String} text
      * @returns {Element}
@@ -1798,7 +1914,11 @@ class Uploader extends ViewComponent {
     /**
      * @returns {Element}
      */
-    progressbar(){ return this.gaugebar().querySelector('.progress'); }
+    progressbar() { return this.gaugebar().querySelector('.progress'); }
+    /**
+     * @returns {Element}
+     */
+    textbar() { return this.gaugebar().querySelector('.caption'); }
     /**
      * @param {Number} progress 
      * @returns {Uploader}
@@ -1806,10 +1926,13 @@ class Uploader extends ViewComponent {
     progress(progress = 0) {
         const gauge = this.gaugebar();
         const bar = this.progressbar();
+        const text = this.textbar();
         console.log(gauge, progress);
         if (gauge) {
             !this.isactive() && gauge.classList.add('active');
-            bar.style.width = `${Math.min(progress, 100)}%`;
+            const count = Math.floor(Math.min(progress, 100));
+            bar.style.width = `${count}%`;
+            text.innerHTML = `${count} %`;
         }
         return this;
     }
@@ -1818,10 +1941,19 @@ class Uploader extends ViewComponent {
      */
     isactive() { return this.gaugebar() && this.gaugebar().classList.contains('active') || false; }
     /**
+     * @param {Number} count
      * @returns {Uploader}
      */
-    clear() {
-        this.isactive() && this.gaugebar().classList.remove('active');
+    clear(count = 0) {
+        if (this.isactive()) {
+            const text = this.textbar();
+            if (text && count) {
+                text.innerHTML = `${count} new clips uploaded!`, 'update';
+            }
+            window.setTimeout(() => {
+                this.gaugebar().classList.remove('active');
+            }, 4000);
+        }
         return this;
     }
     /**
@@ -1840,16 +1972,52 @@ class Uploader extends ViewComponent {
     /**
      * @returns {Uploader}
      */
+    over() {
+        if (!this._dragcounter) {
+            const cb = this.clipboard();
+            cb && cb.classList.add('drag-content');
+        }
+        this._dragcounter++;
+        return this;
+    }
+    /**
+     * @param {Boolean} reset
+     * @returns {Uploader}
+     */
+    leave(reset = false) {
+        if (this._dragcounter) {
+            if (reset) {
+                this._dragcounter = 0;
+            }
+            else {
+                this._dragcounter--;
+            }
+            if (!this._dragcounter) {
+                const cb = this.clipboard();
+                cb && cb.classList.remove('drag-content');
+            }
+        }
+        return this;
+    }
+    /**
+     * @returns {Uploader}
+     */
     onDragDrop() {
         // Drag-drop
-        document.addEventListener('dragover', e => {
-            e.preventDefault();
+        document.addEventListener('dragover', e => e.preventDefault());
+        document.addEventListener('dragenter', e => {
+            if (![...e.dataTransfer.types].includes('Files')) return;
+            this.over();
+        });
+        document.addEventListener('dragleave', e => {
+            this.leave();
         });
         document.addEventListener('drop', e => {
             e.preventDefault();
             if (e.dataTransfer.files.length) {
                 this.enqueue(e.dataTransfer.files);
             }
+            this.leave(true);
         });
         return this;
     }
@@ -1894,7 +2062,7 @@ class NavigatorView extends ViewComponent {
         super.initialize();
         this.onCopy();
         const clipview = this.clipview();
-        clipview._('load', clip => clip && this.refresh(clip.path()));
+        clipview._('load', clip => clip && this.pathto(clip.path()));
     }
 
     /**
@@ -1905,7 +2073,7 @@ class NavigatorView extends ViewComponent {
      * @param {Object} path 
      * @returns {NavigatorView}
      */
-    refresh(path = {}) {
+    pathto(path = {}) {
         if (path instanceof Object) {
             this._path = path;
         }
@@ -1945,7 +2113,7 @@ class NavigatorView extends ViewComponent {
             copylink.addEventListener('click', function (e) {
                 e.preventDefault();
                 const link = this.dataset.link || '';
-                console.log(copylink,link);
+                console.log(copylink, link);
                 if (link) {
                     navigator.clipboard.writeText(link)
                         .then(e => {
@@ -1976,7 +2144,7 @@ class Toolbar extends ViewComponent {
      */
     initialize() {
         super.initialize();
-        App.collection()._('refresh', count => this.update(count));
+        App.collection()._('refresh', count => this.setcounter(count));
     }
     /**
      * @returns {Element}
@@ -1986,19 +2154,12 @@ class Toolbar extends ViewComponent {
      * @param {Number} count 
      * @returns {Toolbar}
      */
-    update(count = 0) {
+    setcounter(count = 0) {
         const counter = this.counter();
         if (counter) {
             counter.innerHTML = count;
         }
         return this;
-    }
-    /**
-     * 
-     */
-    create() {
-        super.create();
-        //register events here
     }
 }
 /**

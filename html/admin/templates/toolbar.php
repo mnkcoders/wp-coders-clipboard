@@ -7,7 +7,7 @@
         </span>
     </li>
     <li>
-        <a class="button" href="<?php print $this->action_arrange() ?>" title="<?php
+        <a class="button" href="<?php print $this->action_arrange($this->id) ?>" title="<?php
             print __('Sort all items','coder_clipboard') ?>">
             <span class="dashicons dashicons-editor-ol"></span>
         </a>

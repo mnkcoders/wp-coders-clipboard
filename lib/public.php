@@ -19,7 +19,16 @@ add_action( 'coder_clipboard', function( $clipdata = array()){
  * Make all reqired overrides to publish hte current clipboard
  */
 class Content extends \CODERS\Clipboard\Clip{
-    
+    /**
+     * @param string $id
+     * @param boolean $preload
+     * @param string $top
+     * @return \CODERS\Clipboard\Pub\Content
+     */
+    public static function load($id = '', $preload = false, $top = ''): \CODERS\Clipboard\Clip {
+        $clip = parent::load($id, $preload, $top);
+        return new Content($clip->data(),$preload,$top);
+    }
 }
 
 /**
@@ -27,7 +36,7 @@ class Content extends \CODERS\Clipboard\Clip{
  */
 class View{
     /**
-     * @var \CODERS\Clipboard\Clip
+     * @var \CODERS\Clipboard\Pub\Content
      */
     private $_clip = null;
     /**
@@ -39,7 +48,7 @@ class View{
      * @param Clip $clip
      * @param string $context_id
      */
-    protected function __construct( Clip $clip = null ) {
+    protected function __construct(Content $clip = null ) {
         $this->_clip = $clip;
     }
     
@@ -89,7 +98,7 @@ class View{
     }
     
     /**
-     * @return \CODERS\Clipboard\Clip
+     * @return \CODERS\Clipboard\Pub\Content
      */
     private function clip() {
         return $this->_clip;
@@ -135,7 +144,7 @@ class View{
     /**
      * @param string $message
      * @param string $type
-     * @return \CODERS\Clipboard\View
+     * @return \CODERS\Clipboard\Pub\View
      */
     private function log( $message = '' , $type = 'info') {
         $this->_log[] = array(
@@ -191,10 +200,10 @@ class View{
         add_action( 'wp_enqueue_scripts' , function(){
             wp_enqueue_style(
                     'coders-clipboard-style',
-                    \CODERS\Clipboard\View::url('content/style.css'));
+                    \CODERS\Clipboard\Pub\View::url('content/style.css'));
             wp_enqueue_script(
                     'coders-clipboard-script',
-                    \CODERS\Clipboard\View::url('content/script.js'));
+                    \CODERS\Clipboard\Pub\View::url('content/script.js'));
         });
         
         $layout = $this->layout;
@@ -275,13 +284,13 @@ class View{
         return $this->hasContent() ? $this->clip()->listPath() : array();
     }
     /**
-     * @return \CODERS\Clipboard\Clip[]
+     * @return \CODERS\Clipboard\Pub\Content[]
      */
     protected function listItems() {
         return $this->hasContent() ? $this->clip()->listItems() : array();
     }
     /**
-     * @return \CODERS\Clipboard\Clip[]
+     * @return \CODERS\Clipboard\Pub\Content[]
      */
     protected function listAvailable(){
         return array_filter( $this->listItems(),function($item){
@@ -327,7 +336,7 @@ class View{
      * @param string $root
      */
     public static final function create( $id = '' ,$root = ''){
-        return new View( Clip::load($id,true,$root) );
+        return new View(Content::load($id,true,$root) );
     }
 }
 

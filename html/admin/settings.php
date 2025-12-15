@@ -1,14 +1,11 @@
 <?php defined('ABSPATH') or die; ?>
-
-<h1 class="wp-heading-inline"><?php print get_admin_page_title() ?></h1>
-
-<?php $this->show_messages() ?>
-
 <div class="wrap coders-clipboard settings">
-    
+    <?php $this->show_messages() ?>
     <div class="container dev-only">
         <div class="container solid">
-            <a clasS="button right" href="<?php print $this->action_nuke() ?>"><?php print __('Reset Content Data','coder_clipboard') ?></a>
+            <a clasS="button right" href="<?php
+            print $this->action_nuke() ?>"><?php
+            print $this->text_nuke ?></a>
         </div>        
     </div>
 </div>

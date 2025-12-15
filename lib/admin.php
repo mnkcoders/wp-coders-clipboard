@@ -139,7 +139,7 @@ class Controller{
      * @param mixed $value
      * @return \CODERS\Clipboard\Admin\Controller
      */
-    protected function set($key = '' , $value = false ) {
+    protected function put($key = '' , $value = false ) {
         if(strlen($key)){
             $this->_response[$key] =  $value;
         }
@@ -192,11 +192,11 @@ class Controller{
                 $this->$call( ) :
                 $this->error($action);
 
-        return $this->set('_log',$this->log())
-                ->set('_context', $this->context())
-                ->set('_response', $this->completed())
-                ->set('_input',$this->data())
-                ->set('_action',$action);
+        return $this->put('_log',$this->log())
+                ->put('_context', $this->context())
+                ->put('_response', $this->completed())
+                ->put('_input',$this->data())
+                ->put('_action',$action);
     }
     /**
      * action[] , log[] , ...
@@ -218,7 +218,7 @@ class Controller{
      */
     protected function error( $action = '' ){
         $this->notify(sprintf('Invalid action [%s]',$action),'error');
-        $this->set('error', $this->log() );
+        $this->put('error', $this->log() );
         return false;
     }
     /**
@@ -311,7 +311,7 @@ class MainController extends Controller{
         $clip = Content::load($this->id);
         $target = Content::load($this->target);
         if($clip && $clip->swap($target)){
-            $this->notify(sprintf('<b>%s</b> swapped by <b>%s</b>',
+            $this->notify(sprintf('<b>%s</b> replaced by <b>%s</b>',
                     $clip->name,$target->name), 'update');
         }
         return $this->mainAction();
@@ -384,11 +384,8 @@ class MainController extends Controller{
      * @return bool
      */
     protected function arrangeAction() : bool {
-        $id = $this->id;
-        if($id ){
-            $count = Content::manager()->db()->arrange($id);
-            $this->notify(sprintf('%s items udpated',$count), 'update');
-        }
+        $count = Content::manager()->db()->arrange($this->id);
+        $this->notify(sprintf('%s items udpated',$count), 'update');
         return $this->mainAction();
     }
     /**
@@ -397,7 +394,7 @@ class MainController extends Controller{
     protected function moveAction( ) : bool {
         $clip = Content::load($this->id);
         if( $clip && $clip->moveto($this->parent_id) ){
-            $this->set('id',$this->id);
+            $this->put('id',$this->id);
         }
         return $this->mainAction();
     }
@@ -407,7 +404,7 @@ class MainController extends Controller{
     protected function moveupAction( ): bool {
         $clip = Content::load( $this->id );
         if (!is_null($clip) && $clip->moveup()) {
-            $this->set('id',$this->id);
+            $this->put('id',$this->id);
         }
         return $this->mainAction();
     }
@@ -520,7 +517,10 @@ class PostController extends Controller{
      */
     function __construct($input = array()) {
         parent::__construct($input);
-        $this->set('page', 'coder_clipboard');
+        $this->put('page', 'coder_clipboard');
+        if( strlen($this->id)){
+            $this->put('id',$this->id);
+        }
     }
     /**
      * @return bool
@@ -575,14 +575,14 @@ class AjaxController extends Controller{
      */
     protected function listAction(): bool{
         $items = Content::collection($this->id);
-        $this->set('items',$items);
+        $this->put('items',$items);
         return true;
     }
     /**
      * @return bool
      */
     protected function driveAction(): bool{
-        $this->set('items',Content::drive($this->drive));
+        $this->put('items',Content::drive($this->drive));
         return true;
     }
 
@@ -591,7 +591,7 @@ class AjaxController extends Controller{
      */
     protected function attributesAction(): bool{
         $clip = new Content();
-        $this->set('attributes',$clip->attributes());
+        $this->put('attributes',$clip->attributes());
         return true;
     }
     /**
@@ -599,7 +599,7 @@ class AjaxController extends Controller{
      */
     protected function loadAction() :bool{
         $clip = Content::load($this->id);
-        $this->set('item',$clip ? $clip->meta() : null);
+        $this->put('item',$clip ? $clip->meta() : null);
         return true;
     }
 
@@ -627,7 +627,7 @@ class AjaxController extends Controller{
      */
     protected function removeAction( ) : bool{
         $clip = Content::load($this->id);
-        $this->set('id',$this->id);
+        $this->put('id',$this->id);
         if( is_null( $clip ) ){
             $this->notify(sprintf('Invalid clip <b>%s</b>',$this->id),'warning');
             return false;
@@ -637,16 +637,16 @@ class AjaxController extends Controller{
             $this->notify(sprintf('Unable to remove <b>%s</b>',$this->id));
             return false;
         }
-        $this->set('items',$items);
+        $this->put('items',$items);
         $this->notify(sprintf('Clip <b>%s</b> removed',$this->name),'update');
         return true;
     }
     /**
      * @return boolean
      */
-    protected function moveAction( ) : bool{
+    protected function movetoAction( ) : bool{
         $clip = Content::load($this->id);
-        $this->set('id',$this->id);
+        $this->put('id',$this->id);
         if( !$clip ) {
             $this->notify('Invalid clip','warning');
             return false;
@@ -678,7 +678,7 @@ class AjaxController extends Controller{
     protected function replaceAction() : bool{
         $clip = Content::load($this->id);
         $target = Content::load($this->target);
-        $this->set('id',$this->id)->set('target',$this->target);
+        $this->put('id',$this->id)->put('target',$this->target);
         if($clip && $target){
             return $clip->swap($target);
         }
@@ -790,24 +790,29 @@ class Content extends \CODERS\Clipboard\Clip{
     /**
      * @return boolean
      */
-    public function moveto( $parent_id = '') {
+    public function moveto( $toid = '') {
         if( !$this->isValid()){
             $this->notify('Invalid id', 'warning');
             return false;
         }
-        if( $this->parent_id === $parent_id ){
-            $this->notify( sprintf('Same id as parent <b>%s</b>',$parent_id), 'warning');
+        if( $this->parent_id === $toid ){
+            $this->notify( sprintf('Same id as parent <b>%s</b>',$toid), 'warning');
             return false;
         }
         //load upper level, or set to root
-        $content = self::load($parent_id);
+        $content = self::load($toid);
         $upper_id = $content ? $content->parent_id : '';
+        if( $upper_id && $upper_id === $this->id ){
+            //avoid recursive dependencies id = parent and parent's parent = id...
+            $this->notify( sprintf('Cant create a recursive dependency<b>%s</b>',$toid), 'warning');
+            return false;
+        }
         $data = array(
             'parent_id' => strlen($upper_id) ? $upper_id : '',
             'slot' => self::count($upper_id),
         );
         if ( !$this->db()->update($data, array('id' => $this->id)) ) {
-            $this->notify(sprintf('Failed to move to parent <b>%s</b>', $parent_id),'warning');
+            $this->notify(sprintf('Failed to move to parent <b>%s</b>', $toid),'warning');
             return false;
         }
         return true;
@@ -906,6 +911,10 @@ class Content extends \CODERS\Clipboard\Clip{
             $parent = $this->parent_id;
             $slot = $this->slot;
             
+            if($target->parent_id === $this->id) {
+                $this->notify(sprintf('Cannot replace with a parent'), 'warning');
+                return false;
+            }
             $this->slot = $target->slot;
             $this->parent_id = $target->parent_id;
         
@@ -1405,24 +1414,17 @@ class View{
      */
     public static function preload( $page = ''){
         if ($page === 'coder_clipboard') {
+            $public = get_site_url();
+            $admin = self::adminurl();
             $style = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_URL);
             $style_path = sprintf('%shtml/admin/content/style.css', CODER_CLIPBOARD_DIR);
             $script = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_URL);
             $script_path = sprintf('%shtml/admin/content/script.js', CODER_CLIPBOARD_DIR);
-            // Register and enqueue CSS
             wp_enqueue_style('clipboard-style', $style, [], filemtime($style_path));
-
-            // Register and enqueue JS
-            wp_enqueue_script('clipboard-script', $script, ['jquery'], filemtime($script_path), true);
-
-            //$public = Content::manager()->clipdata();
-            $public = get_site_url();
-            $admin = self::adminurl();
-            // Optional: Pass variables to JS
+            wp_enqueue_script('clipboard-script', $script, [], filemtime($script_path), true);
             wp_localize_script('clipboard-script', 'CodersAPI', [
                 'public' => $public,
                 'admin' => $admin,
-                //'url' => admin_url('admin-ajax.php'),
                 'ajax' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('coder_nonce'),
             ]);
@@ -1577,8 +1579,20 @@ class MainView extends View{
      * @return string
      */
     public function actionDrive( $drive = 'content' ){
-        return View::adminurl(array('drive'=>$drive));
+        return self::adminurl(array('drive'=>$drive));
     }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function actionArrange( $id = ''){
+        $action = array('action' => 'arrange');
+        if($id){
+            $action['id'] = $id;
+        }
+        return self::adminurl ( $action );
+    }
+
     /**
      * @param string $id
      * @return string
@@ -1815,6 +1829,12 @@ class Text{
             'title' => __('Title', 'coder_clipboard'),
             'created' => __('Created', 'coder_clipboard'),
             'update' => __('Update', 'coder_clipboard'),
+            'copylayout' => __('Copy current layout to all items', 'coder_clipboard'),
+            'copyrole' => __('Copy current access role to all items', 'coder_clipboard'),
+            'copyname' => __('Copy current name and title to all items', 'coder_clipboard'),
+            'preview' => __('Preview', 'coder_clipboard'),
+            'previewdesc' => __('Open a preview', 'coder_clipboard'),
+            'nuke' => __('Reset Content Data','coder_clipboard'),
         );
     }
     /**

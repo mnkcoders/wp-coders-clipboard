@@ -1,13 +1,8 @@
 <?php defined('ABSPATH') or die; ?>
 <div class="wrap coders-clipboard main">
-    <?php if ($this->has_content()) : ?>
-        <?php $this->show_path() ?>
-    <?php else : ?>
-        <?php $this->show_title() ?>
-    <?php endif; ?>    
-    
+    <?php $this->show_title() ?>
+    <?php $this->show_path() ?>
     <?php $this->show_log() ?>
-
     <div class="content container <?php print $this->get_main() ?>">
         <?php if ($this->has_content()) : ?>
             <?php $this->show_attachment() ?>
