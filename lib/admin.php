@@ -443,7 +443,7 @@ class MainController extends Controller{
     /**
      * @return bool
      */
-    protected function renameallAction( ) : bool {
+    protected function copynameAction( ) : bool {
         $clip = Content::load( $this->id );
         if($clip){
             $count = $clip->copynames();
@@ -457,7 +457,7 @@ class MainController extends Controller{
     /**
      * @return bool
      */
-    protected function propagateAction( ) : bool {
+    protected function copyroleAction( ) : bool {
         $clip = Content::load( $this->id );
         if($clip){
             $count = $clip->copyroles();
@@ -471,7 +471,7 @@ class MainController extends Controller{
     /**
      * @return bool
      */
-    protected function layoutAction( )  : bool{
+    protected function copylayoutAction( )  : bool{
         $clip = Content::load( $this->id );
         if($clip){
             $count = $clip->copylayouts();
@@ -1733,7 +1733,35 @@ class MainView extends View{
      * @return string
      */
     public function actionRename($id = '') {
-        $action = ['action' => 'renameall'];
+        $action = ['action' => 'copyname'];
+        if($id){
+            $action['id'] = $id;
+        }
+        elseif($this->id){
+            $action['id'] = $this->id;
+        }
+        return $this->adminurl($action);
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function actionRole($id = '') {
+        $action = ['action' => 'copyrole'];
+        if($id){
+            $action['id'] = $id;
+        }
+        elseif($this->id){
+            $action['id'] = $this->id;
+        }
+        return $this->adminurl($action);
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function actionLayout($id = '') {
+        $action = ['action' => 'copylayout'];
         if($id){
             $action['id'] = $id;
         }

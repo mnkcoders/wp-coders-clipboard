@@ -8,13 +8,13 @@
             </a>
         </li> 
         <li class="item">
-            <a class="button" href="<?php print $this->action_propagate($this->get_id()) ?>" title="<?php
+            <a class="button" href="<?php print $this->action_role() ?>" title="<?php
                 print $this->copy_role ?>">
                 <span class="dashicons dashicons-admin-network"></span>
             </a>
         </li> 
         <li class="item">
-            <a class="button" href="<?php print $this->action_layout($this->get_id()) ?>" title="<?php
+            <a class="button" href="<?php print $this->action_layout() ?>" title="<?php
                 print $this->copy_layout ?>">
                 <span class="dashicons dashicons-admin-page"></span>
             </a>
