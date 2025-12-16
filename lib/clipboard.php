@@ -868,7 +868,6 @@ class Data{
                     array('slot' => $slot),    //update
                     array('id' => $id));        //where
             
-            $this->notify(sprintf('id %s slot: %s',$id,$slot),'debug');
             if( $updated !== false ){
                 return $updated;
             }
@@ -901,7 +900,6 @@ class Data{
             }
             //$query[] = "ORDER BY `slot` ASC";
             $count = $wpdb->query(implode(' ', $query));
-            $this->notify(implode(' ', $query),'debug');
             if(is_numeric($count)){
                 return $count;
             }
@@ -915,16 +913,22 @@ class Data{
      * @return int
      */
     public function count( $id = ''){
-        $wpdb = self::wpdb();
-        $table = self::table();
-        $update = strlen($id) ?
-                $wpdb->prepare("SELECT COUNT(*) AS `count` FROM `$table` WHERE `parent_id`='%s'", $id):
-                "SELECT COUNT(*) AS `count` FROM `$table` WHERE `parent_id` IS NULL";
-        $result = $wpdb->get_results(  $update , ARRAY_A );
+        $db = self::wpdb();
+        $query = array(sprintf("SELECT COUNT(*) AS `count` FROM `%s`",self::table()));
+        if( $id === true ){
+            //allow fetch all items in the table
+        }
+        elseif(is_string($id) && strlen($id)){
+            $query[] = sprintf("WHERE `parent_id`='%s'",$id);
+        }
+        else{
+            $query[] = "WHERE `parent_id` IS NULL OR `parent_id`=''";
+        }
+        $result = $db->get_results( implode(' ', $query), ARRAY_A );
         if( !is_null($result)){
             return count($result) ? intval( $result[0]['count'] ) : 0;
         }
-        $this->notify($wpdb->error, 'error');
+        $this->notify($db->error, 'error');
         return 0;
     }
     /**
@@ -1014,11 +1018,12 @@ class Data{
      * @return bool
      */
     public function update( array $data = array() , array $where = array() ){
+        if( isset($data['id'])){
+            unset($data['id']);
+        }
         $db = self::wpdb();
         $result = $db->update(self::table(), $data, $where );
         $this->notify($db->error,'error');
-        $this->notify(json_encode($data),'debug');
-        $this->notify(json_encode($where),'debug');
         return $result !== false ? $result : 0;
     }
     /**

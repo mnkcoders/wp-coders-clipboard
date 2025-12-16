@@ -50,7 +50,7 @@ class App {
             .register(new Notifier('div.notifier'))
             .register(new Collection('ul.collection'))
             .register(new Uploader('div.uploader'))
-            .register(new Toolbar('ul.tools'))
+            .register(new Toolbar('ul.toolbar'))
             .register(new NavigatorView('ul.path'))
             .register(new ToggleAjax('button.toggle-mode'));
     }
@@ -65,16 +65,16 @@ class App {
             .map(c => this._components[c])
             .filter(c => c instanceof ViewComponent)
             .forEach(c => c.initialize());
-
-        return this;
+        
+        return this.load( );
     }
     /**
      * @param {String} id 
      * @returns {App}
      */
-    reload( id = ''){
-        this._input.set('id',id);
-        App.clipview().load(this.id());
+    load( id = ''){
+        App.clipview().load(id || this.id() );
+        App.collection().clear().populate(id || this.id());
         return this;
     }
     /**
@@ -293,6 +293,13 @@ class CoderServer {
      */
     list(id = '', callback = nul) {
         return this.add(new ClipTask('list', id && { 'id': id } || {}, callback));
+    }
+    /**
+     * @param {Function} callback 
+     * @returns {CoderServer}
+     */
+    count(callback = null){
+        return this.add(new ClipTask('count',{},callback));
     }
     /**
      * @param {Function} callback 
@@ -1028,6 +1035,18 @@ class ViewComponent extends Component {
      * @param {String} selector 
      * @returns {Element}
      */
+    getnode( selector ){
+        if( selector) {
+            const path = this.rootnode();
+            path.push(selector);
+            return document.querySelector( path.join(' ') ) || null;
+        }
+        return null;
+    }
+    /**
+     * @param {String} selector 
+     * @returns {Element}
+     */
     selector(selector = '') {
         if (selector) {
             const query = this.rootnode();
@@ -1231,7 +1250,7 @@ class Collection extends ViewComponent {
         this.onDragEnd();
         this.onDragOver();
         this.onDrop();
-        this.populate();
+        //this.populate( );
 
         this._('sort', (content ) => {
             App.server().sort( content.id || '',  parseInt(content.slot) || 0, data => this.sortitem(ClipData.fromdata(data)) );
@@ -1242,10 +1261,11 @@ class Collection extends ViewComponent {
         });
     }
     /**
+     * @param {String} id
      * @returns {Collection}
      */
-    populate() {
-        App.server().list(App.client().id(), (r) => {
+    populate( id = '') {
+        App.server().list( id || App.client().id(), (r) => {
             this.fill(ClipData.fromlist((r.items || [])));
         });
         return this;
@@ -1315,17 +1335,14 @@ class Collection extends ViewComponent {
     fill(items = []) {
         const current = App.client().id();
         const listed = this.listids();
-        //console.log(this);
-        //console.log(listed);
-        //console.log(items.map(i => i.id()));
         //add only items matching current parent_id and not present in tje list
         (items || [])
             .filter(item => !listed.includes(item.id()))
             .filter(item => item.parent() === current)
             .forEach(data => this.add(data));
 
+        this.$('refresh', this.count());
         return this;
-        //return this.updatecounters( (items || [] ).filter( i => i.parent() !== current).map( i => i.parent()) );
     }
     /**
      * @returns {String[]}
@@ -1334,15 +1351,6 @@ class Collection extends ViewComponent {
         return this.components()
             .filter(c => !!c.id)
             .map(c => c.id());
-    }
-    /**
-     * @param {String[]} items 
-     * @returns {Collection}
-     */
-    updatecounters(items = []) {
-        const list = items && items.map(id => this.getitem(id)) || [];
-        console.log(list);
-        return this;
     }
     /**
      * 
@@ -1672,7 +1680,9 @@ class ClipView extends ViewComponent {
         element.addEventListener('click', e => {
             e.preventDefault();
             this.id() && App.server().replace(this.id(), r => {
-                App.client().reload(r.id || '');
+                const url = r.id && `${App.server().adminurl()}&id=${r.id}` || App.server().adminurl();
+                location.href = url;
+                //App.client().load(r.id || '');
             });
             return true;
         });
@@ -1779,7 +1789,33 @@ class ClipFormView extends ViewComponent {
      * 
      */
     initialize() {
-        this.load(App.client().id());
+        //this.load(App.client().id());
+        this.onChangeName();
+        this.setplaceholder( this.nameinput() && this.nameinput().value || 'Your clip' );
+    }
+    /**
+     * @returns {Element}
+     */
+    nameinput(){ return this.node() && this.node().querySelector('input.name') || null; }
+    /**
+     * 
+     */
+    onChangeName(){
+        const name = this.nameinput();
+        name && name.addEventListener('input', e => {
+                e.preventDefault();
+                this.setplaceholder(name.value);
+                return true;
+            });
+    }
+    /**
+     * @param {String} text 
+     * @returns {ClipFormView}
+     */
+    setplaceholder( text = ''){
+        const title = this.node() && this.node().querySelector('input.title') || null;
+        title && title.setAttribute('placeholder',text || 'your clip' );
+        return this;
     }
     /**
      * @returns {ClipFormView}
@@ -2154,27 +2190,54 @@ class Toolbar extends ViewComponent {
      */
     constructor(name = '') {
         super(name);
+        this._total = 0;
+        this._count = 0;
     }
     /**
      * 
      */
     initialize() {
         super.initialize();
-        App.collection()._('refresh', count => this.setcounter(count));
+        App.collection()._('refresh', count =>  this.count(count) );
+        //App.server().count( r => App.tools().total(r.count || 0));
     }
     /**
-     * @returns {Element}
+     * @param {Number} total 
+     * @returns {Toolbar}
      */
-    counter() { return this.node() && this.node().querySelector('.counter') || null; }
+    total( total = 0){
+        this._total = total;
+        return this.refresh();
+    } 
     /**
      * @param {Number} count 
      * @returns {Toolbar}
      */
-    setcounter(count = 0) {
-        const counter = this.counter();
+    count( count = 0 ){
+        this._count = count;
+        return this.refresh();
+    }
+    /**
+     * @returns {Element}
+     */
+    totalbar(){ return this.node() && this.node().querySelector('.total') || null; }
+    /**
+     * @returns {Element}
+     */
+    countbar() { return this.node() && this.node().querySelector('.counter') || null; }
+    /**
+     * @returns {Toolbar}
+     */
+    refresh() {
+        const counter = this.countbar();
+        //const total = this.totalbar();
         if (counter) {
-            counter.innerHTML = count;
+            counter.innerHTML = this._count;
         }
+        //if(total && this._total){
+        //    total.classList.remove('hide');
+        //    total.innerHTML = this._total;
+        //}
         return this;
     }
 }
@@ -2188,6 +2251,21 @@ class ToggleAjax extends ViewComponent {
     constructor(selector = '') {
         super(selector);
     }
+    /**
+     * @returns {Element}
+     */
+    total(){ return this.getnode('.options .info .total'); }
+    /**
+     * @param {Number} count 
+     * @returns {ToggleAjax}
+     */
+    updatetotal( count = 0){
+        const total = this.total();
+        if( total && count ){
+            total.innerHTML = count;
+        }
+        return this;
+    }
     create() {
         super.create();
     }
@@ -2198,6 +2276,7 @@ class ToggleAjax extends ViewComponent {
             App.uploader().toggle();
             return true;
         });
+        App.server().count( r => this.updatetotal(r.count || 0) );
     }
 }
 

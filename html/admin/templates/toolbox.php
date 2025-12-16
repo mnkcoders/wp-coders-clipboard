@@ -2,7 +2,7 @@
 <ul class="widefat tools inline">
         <li class="item">
             <a class="button" href="<?php
-                print $this->action_renameall($this->get_id()) ?>" title="<?php
+                print $this->action_rename() ?>" title="<?php
                 print $this->copy_name ?>">
                 <span class="dashicons dashicons-edit"></span>
             </a>

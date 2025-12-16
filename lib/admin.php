@@ -4,7 +4,10 @@ defined('ABSPATH') or die;
 
 add_action('admin_post_coder_clipboard', function() {
     $server = \CODERS\Clipboard\Admin\Controller::redirect('post',INPUT_POST);
-    wp_redirect(add_query_arg($server->response(), admin_url('admin.php')));
+
+    $id = $server->response()['id'] ?? '';
+    $redirect = \CODERS\Clipboard\Admin\View::adminurl(strlen($id) ? ['id'=>$id] : []);
+    wp_redirect($redirect);
     exit;        
 });
 
@@ -432,7 +435,7 @@ class MainController extends Controller{
     /**
      * @return bool
      */
-    protected function copynamesAction( ) : bool {
+    protected function renameallAction( ) : bool {
         $clip = Content::load( $this->id );
         if($clip){
             $count = $clip->copynames();
@@ -515,7 +518,7 @@ class PostController extends Controller{
      */
     function __construct($input = array()) {
         parent::__construct($input);
-        $this->put('page', 'coder_clipboard');
+        //$this->put('page', 'coder_clipboard');
         if( strlen($this->id)){
             $this->put('id',$this->id);
         }
@@ -524,18 +527,15 @@ class PostController extends Controller{
      * @return bool
      */
     protected function mainAction(): bool {
-        return false; 
+        return true; 
     }
     /**
      * @param array $input
      * @return boolean
      */
-    protected function saveAction( ){
+    protected function updateAction( ) : bool{
         $clip = Content::load($this->id);
-        if( $clip ){
-            $clip->override($this->data());
-        }
-        return false;
+        return $clip ? $clip->update($this->data()) : false;
     }
 }
 /**
@@ -567,6 +567,10 @@ class AjaxController extends Controller{
      */
     protected function mainAction(): bool {
         return $this->listAction();
+    }
+    protected function countAction() : bool {
+        $this->put('count',Content::manager()->db()->count(true));
+        return true;
     }
     /**
      * @return bool
@@ -960,24 +964,22 @@ class Content extends \CODERS\Clipboard\Clip{
      * @return boolean
      */
     public function update( array $data = array()){
-        
         foreach($data as $key => $val ){
             $this->$key = $val;
         }
-        //fetch db error if any?
         return $this->save();
     }
     /**
      * @return bool
      */
     public function save() {
-        $this->notify('Attempting to save ' . $this->name,'debug');
-        $this->notify( $this->isUpdated(),'debug');
         if($this->isUpdated()){
             $this->_updated = false;
-            return $this->db()->update(
-                $this->data() ,
-                array('id'=>$this->id));
+            $backup = $this->clone();
+            if( $this->db()->update($this->data(),['id'=>$this->id]) ){
+                return true;
+            }
+            $this->rollback($backup);
         }
         return false;
     }    
@@ -1008,8 +1010,20 @@ class Content extends \CODERS\Clipboard\Clip{
     /**
      * @return \CODERS\Clipboard\Admin\Content
      */
-    public function clone(){
+    private function clone(){
         return new Content($this->data());
+    }
+    /**
+     * 
+     * @param \CODERS\Clipboard\Admin\Content $copy
+     * @return bool
+     */
+    private function rollback( $copy = null ) {
+        if(get_class($copy) === self::class){
+            //
+            return true;
+        }
+        return false;
     }
 
         /**
@@ -1255,6 +1269,9 @@ class View{
             case preg_match('/^get_/', $name):
                 $get = sprintf('get%s', ucfirst(substr($name, 4)));
                 return method_exists($this, $get) ? $this->$get(...$args) : '';
+            case preg_match('/^check_/', $name):
+                $check = sprintf('check%s', ucfirst(substr($name, 6)));
+                return method_exists($this, $check) ? $this->$check(...$args) : false;
             case preg_match('/^count_/', $name):
                 $count = sprintf('count%s', ucfirst(substr($name, 6)));
                 return method_exists($this, $count) ? $this->$count(...$args) : 0;
@@ -1583,6 +1600,20 @@ class MainView extends View{
         return !$this->hasContent() && count(Content::list()) === 0;
     }
     /**
+     * @param string $acl
+     * @return string
+     */
+    protected function checkRole($acl = '') {
+        return strlen($acl) && $acl === $this->acl;
+    }
+    /**
+     * @param string $layout
+     * @return string
+     */
+    protected function checkLayout($layout = ''){
+        return strlen($layout) && $layout === $this->layout ;
+    }
+    /**
      * @return bool
      */
     public function isAjaxmode(){
@@ -1666,8 +1697,9 @@ class MainView extends View{
      * @param string $id
      * @return string
      */
-    public function actionArrange( $id = ''){
+    public function actionArrange( ){
         $action = array('action' => 'arrange');
+        $id = $this->id;
         if($id){
             $action['id'] = $id;
         }
@@ -1680,6 +1712,14 @@ class MainView extends View{
      */
     public function actionRemove( $id = '' ){
         return $this->adminurl(array('action'=>'remove','id'=>$id ? $id : ''));
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public function actionRename($id = '') {
+        $id = strlen($id) ? $id : $this->id;
+        return $id ? $this->adminurl(['action'=>'renameall','id'=>$id]) : '';
     }
 
     /**

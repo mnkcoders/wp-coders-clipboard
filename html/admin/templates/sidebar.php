@@ -2,6 +2,12 @@
 
 <ul class="options">
     <li class="item">
+        <h4 class="info widefat">
+            <span class="dashicons dashicons-info"></span>
+            <span class="total"></span>
+        </h4>
+    </li>
+    <li class="item">
         <button class="option button toggle-mode widefat"><?php
             print __('Toggle ajax mode','coder_clipboard');
             ?>
