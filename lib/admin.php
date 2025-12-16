@@ -607,16 +607,9 @@ class AjaxController extends Controller{
     protected function uploadAction( ) : bool{
         if($this->canupload()){
             $clips = Uploader::create( 'upload' )->items($this->id);
-            $this->notify(sprintf('%s items uploaded!',count($clips)));
-            $response = array(
-                'count' => count($clips),
-                'items' => $clips,
-                );
+            $response = array('count' => count($clips),'items' => $clips);
             $this->fill($response);
             return true;
-        }
-        else{
-            $this->notify('Cannot upload files', 'error');
         }
         return false;
     }
