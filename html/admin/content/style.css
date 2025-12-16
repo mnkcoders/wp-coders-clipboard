@@ -585,7 +585,20 @@
 
 
 #wpbody-content .coders-clipboard .container.uploader{
-    
+    position: relative;
+}
+#wpbody-content .coders-clipboard .container.uploader .tag{
+    display: block;
+    position: absolute;
+    top: 4px ; right:  4px;
+    border-radius: 4px;
+    border: 1px solid #9a9a9a;
+    opacity: 0.5;
+    color: #9a9a9a;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: default;
+    pointer-events: none;
 }
 @media only screen and (max-width: 767px){
     #wpbody-content .coders-clipboard .container.uploader .button-primary,

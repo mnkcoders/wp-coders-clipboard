@@ -386,7 +386,9 @@ class Clip{
         return array(
             'Content-Description: File Transfer',
             sprintf('Content-Type: %s',$this->type),
-            sprintf('Content-Disposition: %s; filename=%s',$this->getDisposition(),$this->getFilename()),
+            sprintf('Content-Disposition: %s; filename=%s',
+                    $this->getDisposition(),
+                    $this->getFilename(true)),
             sprintf('Content-Length: %s',$this->size()),
         );
     }
@@ -463,12 +465,20 @@ class Clip{
         return false;
     }
     /**
+     * @return string
+     */
+    public function getExtension(){
+        return explode('/', $this->type)[1] ?? 'txt';
+    }
+    /**
      * @return String
      */
-    public function getFilename(){
-        $extension = explode('/', $this->type)[1] ?? 'txt';
-        $filename = sprintf('%s.%s',basename($this->name),$extension);
-        return preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename );
+    public function getFilename($ext = false){
+        $name = explode('.',basename($this->name))[0];
+        return $ext ? sprintf('%s.%s',$name,$this->getExtension()) : $name;
+        //$extension = explode('/', $this->type)[1] ?? 'txt';
+        //$filename = sprintf('%s.%s',basename($this->name),$extension);
+        //return preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename );
     }
     /**
      * @return string

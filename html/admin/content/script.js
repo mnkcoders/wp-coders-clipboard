@@ -226,13 +226,17 @@ class CoderServer {
      */
     constructor(api = {}) {
         this._tasks = [];
-        this._api = { public: '', admin: '', ajax: ajaxurl, nonce: '' };
+        this._api = { public: '', admin: '', ajax: ajaxurl, nonce: '' , maxfilesize: 1000000 };
         Object.keys(this._api).forEach(key => this._api[key] = api[key] || '');
     }
     /**
      * @returns {Object}
      */
     api() { return this._api; }
+    /**
+     * @returns {Number}
+     */
+    maxfilesize(){ return this.api().maxfilesize; }
     /**
      * @returns {String}
      */
@@ -265,8 +269,17 @@ class CoderServer {
      * @param {Object[]} messages 
      * @returns {CoderServer}
      */
-    notify(messages = []) {
-        messages.forEach(m => App.notify(m.content || '', m.type || 'info'));
+    dumplog(messages = []) {
+        messages.forEach(m => this.notify(m.content || '', m.type || 'info'));
+        return this;
+    }
+    /**
+     * @param {String} message 
+     * @param {String} type 
+     * @returns {CoderServer}
+     */
+    notify( message , type = 'info'){
+        App.notify(message,type);
         return this;
     }
     /**
@@ -277,7 +290,7 @@ class CoderServer {
     add(task = null) {
         if (task instanceof ClipTask) {
             //notify?
-            task._('notify', messages => this.notify(messages));
+            task._('notify', messages => this.dumplog(messages));
             task.request();
         }
         return this;
@@ -324,11 +337,16 @@ class CoderServer {
      */
     upload(file = null, id = '', callback = null) {
         if (file instanceof File) {
-            const data = {};
-            if (id) {
-                data['id'] = id;
+            if( file.size < this.maxfilesize() ){
+                const data = {};
+                if (id) {
+                    data['id'] = id;
+                }
+                this.add(new UploadTask(file, data, callback));
             }
-            this.add(new UploadTask(file, data, callback));
+            else{
+                this.notify(`${file.name} cannot be uploaded because exceeds the size limit`,'warning');
+            }
         }
         return this;
     };
@@ -460,8 +478,10 @@ class ClipQueue extends Component {
      */
     send(files = []) {
         if (files && files.length && this.empty()) {
-            console.log(files);
-            this._items = files;
+            const maxsize = App.server().maxfilesize();
+            this._items = files.filter( file => file.size < maxsize);
+            const missing = files.length - this.count();
+            missing && App.notify( `${missing} files won't be uploaded`,'warning');
             this.reset().update();
         }
         return this;

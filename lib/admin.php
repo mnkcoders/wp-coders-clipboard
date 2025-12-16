@@ -281,6 +281,14 @@ class Controller{
 class MainController extends Controller{
 
     /**
+     * @return \CODERS\Clipboard\Admin\View
+     */
+    protected function view( ){
+        return new MainView($this->action());
+    }
+    
+    
+    /**
      * @return bool
      */
     protected function mainAction(): bool {
@@ -1506,6 +1514,13 @@ class View{
     public function getForm(){
         return esc_url(admin_url('admin-post.php'));
     }
+    /**
+     * @return int
+     */
+    public function getMaxfilesize(){
+        $max = wp_max_upload_size() / 1000000 ;
+        return sprintf('%s MB', number_format($max,2));
+    }
 
     /**
      * @param string $page
@@ -1525,6 +1540,7 @@ class View{
                 'admin' => $admin,
                 'ajax' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('coder_nonce'),
+                'maxfilesize' => wp_max_upload_size(),
             ]);
         }
     }
@@ -1671,10 +1687,7 @@ class MainView extends View{
      * @return string
      */
     public function getPost( $id = '' ){
-        if(strlen($id) === 0){
-            $id = $this->id;
-        }
-        return View::adminurl(array('id'=>$id));
+        return View::adminurl(array('id'=>$id ? $id : $this->id));
     }
     /**
      * @param string $id
@@ -1821,8 +1834,9 @@ class Uploader {
         if (count($files)) {
             if (is_array($files['name'])) {
                 for ($i = 0; $i < count($files['name']); $i++) {
+                    $name = explode('.',$files['name'][$i])[0] ?? 'clip-'.$i;
                     $output[] = array(
-                        'name' => $files['name'][$i],
+                        'name' => $name,
                         'tmp_name' => $files['tmp_name'][$i],
                         'type' => $files['type'][$i],
                         'error' => $files['error'][$i],

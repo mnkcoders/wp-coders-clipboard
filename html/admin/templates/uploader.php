@@ -17,10 +17,13 @@
                 <span class="dashicons dashicons-upload"></span>                        
                 <?php print __('Upload!', 'coder_clipboard'); ?>                        
             </button>
-            <input type="hidden" name="drive" value="<?php print $this->get_drive() ?>" />
             <?php if ($this->has_content()) : ?>
                 <input type="hidden" name="id" value="<?php print $this->id ?>" />
             <?php endif; ?>
+            <span class="sizelimit tag">
+                <span class="dashicons dashicons-info"></span>
+                <?php print $this->get_maxfilesize(); ?>
+            </span>
         </form>
     </div>
     <div class="gauge"> <span class="progress"></span> <span class="caption"></span></div>
