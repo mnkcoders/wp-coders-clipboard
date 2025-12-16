@@ -309,10 +309,8 @@ class MainController extends Controller{
      */
     protected function replaceAction() : bool{
         $clip = Content::load($this->id);
-        $target = Content::load($this->target);
-        if($clip && $clip->swap($target)){
-            $this->notify(sprintf('<b>%s</b> replaced by <b>%s</b>',
-                    $clip->name,$target->name), 'update');
+        if($clip && $clip->swap()){
+            $this->notify(sprintf('<b>%s</b> moved to collection cover', $clip->name), 'update');
         }
         return $this->mainAction();
     }
@@ -370,12 +368,12 @@ class MainController extends Controller{
      * @param array $input
      * @return bool
      */
-    protected function sortAction( array $input = array()) : bool {
+    protected function sortAction( ) : bool {
 
         $item = Content::load($this->id);
-        $index = $this->getInt('slot');
+        $slot = $this->getInt('slot');
         if (!is_null($item)) {
-            $count = $item->sort($index);
+            $count = $item->sort($slot);
             $this->notify(sprintf('%s items udpated',$count), 'update');
         }
         return $this->mainAction();
@@ -646,16 +644,20 @@ class AjaxController extends Controller{
      */
     protected function movetoAction( ) : bool{
         $clip = Content::load($this->id);
-        $this->put('id',$this->id);
+        $target = $this->target;
         if( !$clip ) {
             $this->notify('Invalid clip','warning');
             return false;
         }
-        if(!$clip->moveto($this->parent_id)){
+        if(strlen($target) === 0){
+            $this->notify('No target selected', 'warning');
+            return false;
+        }
+        if(!$clip->moveto($target)){
             $this->notify(sprintf('Unable to move <b>%s</b>',$this->id),'warning');
             return false;
         }
-        
+        $this->fill(array('id' => $this->id,'target'=>$target));
         return true;
     }
     /**
@@ -675,12 +677,28 @@ class AjaxController extends Controller{
     /**
      * @return bool
      */
+    protected function sortAction() : bool{
+        $clip = Content::load($this->id);
+        $slot = $this->getInt('slot');
+        if( !$clip){
+            $this->notify('Invalid clip','warning');
+            return false;
+        }
+        $count = $clip->sort($slot);
+        if ($count ){
+            $this->notify(sprintf('%s items updated',$count));
+            return true;
+        }
+        return false;
+    }
+    /**
+     * @return bool
+     */
     protected function replaceAction() : bool{
         $clip = Content::load($this->id);
-        $target = Content::load($this->target);
-        $this->put('id',$this->id)->put('target',$this->target);
-        if($clip && $target){
-            return $clip->swap($target);
+        $this->put('id',$this->id);
+        if($clip){
+            return $clip->swap();
         }
         return false;
     }
@@ -722,11 +740,35 @@ class AjaxController extends Controller{
  */
 class Content extends \CODERS\Clipboard\Clip{
     
+    /**
+     * @var bool
+     */
+    private $_updated = false;
     /*public function __construct($input = array(), $preload = false, $toplevel = '') {
         parent::__construct($input, $preload, $toplevel);
         //override with new attributes?
     }*/
-    
+    /**
+     * @param string $name
+     * @param string $value
+     * @return boolean
+     */
+    protected function set($name = '', $value = ''){
+        if( parent::set($name, $value)){
+            $this->_updated = true;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @param string $name
+     * @param string $value
+     */
+    public function __set($name, $value) {
+        $this->set($name,$value);
+    }
+
     /**
      * @return array
      */
@@ -739,15 +781,25 @@ class Content extends \CODERS\Clipboard\Clip{
     public function listIds() {
         return $this->db()->list($this->id, array('id'));
     }
+    /**
+     * @return \CODERS\Clipboard\Admin\Content
+     */
+    public function parent(){
+        return Content::load($this->parent_id);
+    }
     
     /**
      * @param string $parent_id
      * @param int $slot
-     * @param int $range
      * @return int
      */
-    public function arrange($slot = -1 , $range = 0 ){
-        return $this->db()->arrange($this->id, $slot, $range);
+    public function sort($slot = 0  ){
+        if( $slot ){
+            $count = $this->db()->arrange($this->parend_id,$slot);
+            $sort = $this->db()->sort($this->id, $slot);
+            return $count + $sort;
+        }
+        return 0;
     }    
 
     /**
@@ -808,8 +860,8 @@ class Content extends \CODERS\Clipboard\Clip{
             return false;
         }
         $data = array(
-            'parent_id' => strlen($upper_id) ? $upper_id : '',
-            'slot' => self::count($upper_id),
+            'parent_id' => strlen($toid) ? $toid: '',
+            'slot' => self::count($toid) + 1,
         );
         if ( !$this->db()->update($data, array('id' => $this->id)) ) {
             $this->notify(sprintf('Failed to move to parent <b>%s</b>', $toid),'warning');
@@ -903,26 +955,62 @@ class Content extends \CODERS\Clipboard\Clip{
         }
         return $this;
     }
+
     /**
-     * @param \CODERS\Clipboard\Admin\Content $target
+     * @return boolean
      */
-    public function swap($target = null) {
-        if(get_class($target) === self::class){
-            $parent = $this->parent_id;
-            $slot = $this->slot;
-            
-            if($target->parent_id === $this->id) {
-                $this->notify(sprintf('Cannot replace with a parent'), 'warning');
+    public function isUpdated(){
+        return $this->_updated;
+    }        
+    /**
+     * @param array $data
+     * @return boolean
+     */
+    public function update( array $data = array()){
+        
+        foreach($data as $key => $val ){
+            $this->$key = $val;
+        }
+        //fetch db error if any?
+        return $this->save();
+    }
+    /**
+     * @return bool
+     */
+    public function save() {
+        $this->notify('Attempting to save ' . $this->name,'debug');
+        $this->notify( $this->isUpdated(),'debug');
+        if($this->isUpdated()){
+            $this->_updated = false;
+            return $this->db()->update(
+                $this->data() ,
+                array('id'=>$this->id));
+        }
+        return false;
+    }    
+    /**
+     * Replace collection cover by current clip item
+     * @return bool
+     */
+    public function swap() {
+        $parent = $this->parent();
+        if( $parent && $parent->parent_id !== $this->id){
+            $this->parent_id = $parent->parent_id;
+            $parent->parent_id = $this->id;
+            if( !$this->save()){
+                $this->notify( sprintf('Cannot save <b>%s</b>',$this->name),'warning');
                 return false;
             }
-            $this->slot = $target->slot;
-            $this->parent_id = $target->parent_id;
-        
-            $target->slot = $slot;
-            $target->parent_id = $parent;
-            
-            return $this->save() && $target->save();
+            if( !$parent->save()){
+                $this->notify( sprintf('Cannot save <b>%s</b>',$parent->name),'warning');
+                return false;
+            }
+            //move from parent id's collection to current item id
+            $count = $this->db()->movecollection($parent->id,$this->id);
+            $this->notify(sprintf('<b>%s</b> items updated',$count),'update');
+            return true;
         }
+        return false;
     }
     /**
      * @return \CODERS\Clipboard\Admin\Content

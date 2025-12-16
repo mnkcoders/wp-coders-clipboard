@@ -69,6 +69,15 @@ class App {
         return this;
     }
     /**
+     * @param {String} id 
+     * @returns {App}
+     */
+    reload( id = ''){
+        this._input.set('id',id);
+        App.clipview().load(this.id());
+        return this;
+    }
+    /**
      * @returns {App}
      */
     loadattributes() {
@@ -178,6 +187,15 @@ class CoderInput {
     static create() { return new CoderInput(); }
     /**
      * @param {String} key 
+     * @param {String} value 
+     * @returns {CoderInput}
+     */
+    set( key = '' , value = '' ){
+        this._input[key] = value;
+        return this;
+    }
+    /**
+     * @param {String} key 
      * @returns {String}
      */
     get(key = '') { return key && this._input[key] || ''; }
@@ -248,7 +266,7 @@ class CoderServer {
      * @returns {CoderServer}
      */
     notify(messages = []) {
-        messages.forEach(m => App.notify(m.message || '', m.type || 'info'));
+        messages.forEach(m => App.notify(m.content || '', m.type || 'info'));
         return this;
     }
     /**
@@ -352,11 +370,8 @@ class CoderServer {
      * @param {Function} callback 
      * @returns {CoderServer}
      */
-    replace(id = '' , target  ='' , callback = null ){
-        return this.add(new ClipTask('replace',{
-            'id':id,
-            'target':target,
-        },callback ) );
+    replace(id = '' , callback = null ){
+        return this.add(new ClipTask('replace',{'id':id,},callback ) );
     }
     /**
      * @param {ClipData} id 
@@ -667,7 +682,8 @@ class ClipTask extends Component {
      */
     success(response = null) {
         if (response && response.success) {
-            console.log('RESPONSE', response.data);
+            const action = response.data && response.data._action || '';
+            console.log( `RESPONSE [${action}]`, response.data);
             this._response = response.data || {};
             this._status = ClipTask.State.Complete;
             this.$('response', this.response()).$('notify', this.log()).$('done', this);
@@ -1299,9 +1315,9 @@ class Collection extends ViewComponent {
     fill(items = []) {
         const current = App.client().id();
         const listed = this.listids();
-        console.log(this);
-        console.log(listed);
-        console.log(items.map(i => i.id()));
+        //console.log(this);
+        //console.log(listed);
+        //console.log(items.map(i => i.id()));
         //add only items matching current parent_id and not present in tje list
         (items || [])
             .filter(item => !listed.includes(item.id()))
@@ -1392,7 +1408,7 @@ class Collection extends ViewComponent {
 
             const id = item.dataset.id;
             const slot = item.dataset.slot;
-            console.log(item,id,slot);
+            //console.log(item,id,slot);
 
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData(
@@ -1450,7 +1466,7 @@ class Collection extends ViewComponent {
             const fromslot = parseInt(data.slot) || 0;
             const action = target.classList.contains('placeholder') && 'sort'
                 || target.classList.contains('caption') && 'move' || '';
-            console.log(data,action);
+            //console.log(data,action);
 
             switch (action) {
                 case 'move':
@@ -1607,7 +1623,7 @@ class ClipView extends ViewComponent {
      * @returns {Element}
      */
     render() {
-        console.log(this.parent());
+        //console.log(this.parent());
         const item = this.html('li', { 'class': 'item', 'data-id': this.id(), 'data-slot': this.slot() });
         item.appendChild(this.makeplaceholder());
         item.appendChild(this.makecontent());
@@ -1655,8 +1671,8 @@ class ClipView extends ViewComponent {
         const element = this.html('span', { 'class': 'task top-right dashicons dashicons-arrow-right-alt' });
         element.addEventListener('click', e => {
             e.preventDefault();
-            this.id() && App.server().replace(this.id(),this.parent(), r => {
-                this.remove();
+            this.id() && App.server().replace(this.id(), r => {
+                App.client().reload(r.id || '');
             });
             return true;
         });

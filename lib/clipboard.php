@@ -221,10 +221,6 @@ class Clip{
         'created_at' => '',
     );
     /**
-     * @var bool
-     */
-    private $_updated = false;
-    /**
      * @var array
      */
     private $_tree = array(
@@ -290,6 +286,18 @@ class Clip{
         return $this->_data;
     }
     /**
+     * @param string $name
+     * @param string $value
+     * @return boolean
+     */
+    protected function set( $name = '' , $value = ''){
+        if( $this->has($name) && $name !== 'id' ){
+            $this->_data[$name] = $value;
+            return true;
+        }
+        return false;
+    }
+    /**
      * @return String
      */
     public function __get( $name ){
@@ -325,16 +333,7 @@ class Clip{
         }
         return '';
     }
-    /**
-     * @param string $name
-     * @param string $value
-     */
-    public function __set($name, $value) {
-        if( $this->has($name) && $name !== 'id' ){
-            $this->_data[$name] = $value;
-            $this->_updated = true;
-        }
-    }
+
     /**
      * @param string $name
      * @return bool
@@ -440,12 +439,6 @@ class Clip{
         //return !Clipboard::acl($this->acl);
     }
     /**
-     * @return boolean
-     */
-    public function isUpdated(){
-        return $this->_updated;
-    }    
-    /**
      * @return Boolean
      */
     public function isImage( ){
@@ -542,31 +535,6 @@ class Clip{
         );        
     }
 
-    
-    /**
-     * @param array $data
-     * @return boolean
-     */
-    public function update( array $data = array()){
-        
-        foreach($data as $key => $val ){
-            $this->$key = $val;
-        }
-        //fetch db error if any?
-        return $this->save();
-    }
-    /**
-     * @return bool
-     */
-    public function save() {
-        if($this->isUpdated()){
-            $this->_updated = false;
-            return $this->db()->update(
-                $this->data() ,
-                array('id'=>$this->id));
-        }
-        return false;
-    }
     
     /**
      * @param bool $hidden
@@ -890,16 +858,17 @@ class Data{
 
     /**
      * @param string $id
-     * @param int $index
+     * @param int $slot
      * @return int
      */
-    public function sort( $id = '' , $index = 0 ){
+    public function sort( $id = '' , $slot = 0 ){
         $wpdb = self::wpdb();
             $updated = $wpdb->update(
                     self::table(),
-                    array('slot' => $index),    //update
+                    array('slot' => $slot),    //update
                     array('id' => $id));        //where
             
+            $this->notify(sprintf('id %s slot: %s',$id,$slot),'debug');
             if( $updated !== false ){
                 return $updated;
             }
@@ -912,7 +881,7 @@ class Data{
      * @param int $range
      * @return Int
      */
-    public function arrange($id = '', $slot = -1 , $range = 0 ){
+    public function arrange($id = '', $slot = 0 , $range = 0 ){
             $wpdb = self::wpdb();
             $table = self::table();
             // Set the variable
@@ -924,14 +893,15 @@ class Data{
             else{
                 $query[] = "WHERE `parent_id` IS NULL OR `parent_id` = ''";
             }
-            if( $slot >= 0 ){
+            if( $slot > 0 ){
                 $query[] = sprintf('AND `slot` >= %s',$slot);
             }
             if( $range ){
                 $query[] = sprintf('AND `slot` <= %s',$range);
             }
-            $query[] = "ORDER BY `slot` ASC";
+            //$query[] = "ORDER BY `slot` ASC";
             $count = $wpdb->query(implode(' ', $query));
+            $this->notify(implode(' ', $query),'debug');
             if(is_numeric($count)){
                 return $count;
             }
@@ -1021,17 +991,34 @@ class Data{
         return array();
     }
     /**
+     * @param array $ids
+     * @param string $toid
+     * @return int
+     */
+    public function movecollection( $fromid = '' , $toid = ''){
+        if( $fromid && $fromid !== $toid ){
+            $db = self::wpdb();
+            $updated = $db->update(
+                    self::table(),
+                    array('parent_id'=> $toid),
+                    array('parent_id' => $fromid) );
+            $this->notify($db->error,'error');
+            return $updated !== false ? $updated : 0;
+        }
+        return 0;
+    }
+
+    /**
      * @param array $data clip data
      * @param array $where filters
      * @return bool
      */
     public function update( array $data = array() , array $where = array() ){
-        $wpdb = self::wpdb();
-        $result = $wpdb->update(self::table(), $data, $where );
-        $error = $wpdb->error;
-        if($error && strlen($error)){
-            $this->notify($error,'error');
-        }
+        $db = self::wpdb();
+        $result = $db->update(self::table(), $data, $where );
+        $this->notify($db->error,'error');
+        $this->notify(json_encode($data),'debug');
+        $this->notify(json_encode($where),'debug');
         return $result !== false ? $result : 0;
     }
     /**
