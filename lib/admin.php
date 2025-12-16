@@ -1687,21 +1687,16 @@ class MainView extends View{
         return Content::manager()->clipdata($id);
     }
     /**
-     * @param string $drive
-     * @return string
-     */
-    public function actionDrive( $drive = 'content' ){
-        return self::adminurl(array('drive'=>$drive));
-    }
-    /**
      * @param string $id
      * @return string
      */
-    public function actionArrange( ){
+    public function actionArrange( $id = '' ){
         $action = array('action' => 'arrange');
-        $id = $this->id;
         if($id){
             $action['id'] = $id;
+        }
+        elseif($this->id){
+            $action['id'] = $this->id;
         }
         return self::adminurl ( $action );
     }
@@ -1711,15 +1706,28 @@ class MainView extends View{
      * @return string
      */
     public function actionRemove( $id = '' ){
-        return $this->adminurl(array('action'=>'remove','id'=>$id ? $id : ''));
+        $action = ['action'=>'remove'];
+        if($id){
+            $action['id'] = $id;
+        }
+        elseif($this->id){
+            $action['id'] = $this->id;
+        }
+        return $this->adminurl($action);
     }
     /**
      * @param string $id
      * @return string
      */
     public function actionRename($id = '') {
-        $id = strlen($id) ? $id : $this->id;
-        return $id ? $this->adminurl(['action'=>'renameall','id'=>$id]) : '';
+        $action = ['action' => 'renameall'];
+        if($id){
+            $action['id'] = $id;
+        }
+        elseif($this->id){
+            $action['id'] = $this->id;
+        }
+        return $this->adminurl($action);
     }
 
     /**
@@ -1727,10 +1735,14 @@ class MainView extends View{
      * @return string
      */
     public function actionMoveup( $id = ''){
-        if(strlen($id) === 0){
-            $id = $this->id;
+        $action = ['action'=>'moveup'];
+        if(strlen($id)){
+            $action['id'] = $id;
         }
-        return View::adminurl(array('id'=>$id,'action'=>'moveup'));
+        elseif($this->id){
+            $action['id'] = $this->id;
+        }
+        return View::adminurl($action);
     }
     /**
      * @param string $id
