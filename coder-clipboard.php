@@ -41,6 +41,12 @@ add_action('template_redirect', function(){
             \CODERS\Clipboard\Clipboard::request( $id );
             exit;
         }
+        $buffer = get_query_var('clipbuffer_id');
+        if( $buffer ){
+            //read more input vars if required for the streaming overloads
+            \CODERS\Clipboard\Clipboard::request( $buffer );
+            exit;
+        }
         $clipboard_id = get_query_var('clipboard_id');
         if( $clipboard_id ){
             //support path nodes

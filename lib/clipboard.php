@@ -183,26 +183,26 @@ class Clipboard{
      * Create content redirection
      */
     private static function rewritecontent(){
-        add_rewrite_tag('^clipboard/(.+)/?$', '(.+)');
-        $content = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_DATA);
+        //add_rewrite_tag('^clipboard/(.+)/?$', '(.+)');
+        add_rewrite_tag('^clip_id/(.+)/?$', '(.+)');
+        $content = '^'.CODER_CLIPBOARD_DATA.'/([a-zA-Z0-9_-]+)/?$';
         add_rewrite_rule( $content , 'index.php?clip_id=$matches[1]' , 'top');
     }
     /**
      * create streaming buffer redirection
      */
     private static function rewritebuffer(){
-        add_rewrite_tag('^clipbuffer/(.+)/?$', '(.+)');
-        $buffer = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_BUFFER);
-        add_rewrite_rule( $buffer , 'index.php?clip_id=$matches[1]' , 'top');
+        add_rewrite_tag('^clipbuffer_id/(.+)/?$', '(.+)');
+        $buffer = '^' . CODER_CLIPBOARD_BUFFER . '/([a-zA-Z0-9_-]+)/?$';
+        add_rewrite_rule( $buffer , 'index.php?clipbuffer_id=$matches[1]' , 'top');
     }
     /**
      * create data redirection
      */
     private static function rewritedata(){
-        //add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
-        add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
-        //$clipboard = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_VIEW);
-        $clipboard = sprintf('^%s/(.+)/?$', CODER_CLIPBOARD_VIEW);
+        //add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
+        add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
+        $clipboard = '^'. CODER_CLIPBOARD_VIEW.'/(.+)/?$';
         add_rewrite_rule( $clipboard, 'index.php?clipboard_id=$matches[1]', 'top');
     }
     /**
@@ -211,7 +211,7 @@ class Clipboard{
     public static function rewrite( $flush = false ){
         self::rewritecontent();
         self::rewritedata();
-        //self::rewritebuffer();
+        self::rewritebuffer();
 
         if( $flush ){
             flush_rewrite_rules();
