@@ -13,6 +13,7 @@
 define('CODER_CLIPBOARD_DIR', preg_replace('/\\\\/', '/',  plugin_dir_path(__FILE__)));
 define('CODER_CLIPBOARD_URL', plugin_dir_url(__FILE__));
 define('CODER_CLIPBOARD_DATA','clipdata');
+define('CODER_CLIPBOARD_BUFFER','clipbuffer');
 define('CODER_CLIPBOARD_VIEW','clipboard');
 
 require_once sprintf('%s/lib/clipboard.php', CODER_CLIPBOARD_DIR);
@@ -34,9 +35,10 @@ register_deactivation_hook(__FILE__, function() {
 // Redirect Handler
 add_action('template_redirect', function(){
     if( !is_admin()){
-        $clip_id = get_query_var('clip_id');
-        if( $clip_id ){
-            \CODERS\Clipboard\Clipboard::attach( $clip_id );
+        $id = get_query_var('clip_id');
+        if( $id ){
+            //read more input vars if required for the streaming overloads
+            \CODERS\Clipboard\Clipboard::request( $id );
             exit;
         }
         $clipboard_id = get_query_var('clipboard_id');

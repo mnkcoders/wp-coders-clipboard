@@ -34,6 +34,13 @@ class Clipboard{
      */
     public function log(){ return $this->_log; }
     /**
+     * @return string
+     */
+    public function lastmessage() {
+        $messages = $this->log();
+        return count($messages) ? $messages[count($messages)-1]['content'] : '';
+    }
+    /**
      * @param string $message
      * @param strint $type
      */
@@ -85,25 +92,20 @@ class Clipboard{
     }
 
     /**
-     * 
+     * @param string $id
      */
-    protected function error404(){
-        status_header(404);
-        wp_die(__('Clipboard item not found.', 'coder_clipboard'));
+    public static function request($id = '') {
+        $provider = ContentProvider::create(Clip::load($id));
+        if( !$provider->serve() ){
+            wp_die(self::instance()->lastmessage());
+        }
+        exit;
     }
-    /**
-     * 
-     */
-    protected function errorDenied(){
-        status_header(403);
-        wp_die(__('Access denied', 'coder_clipboard'));
-    }
-    
     
     /**
      * @param string $id
      */
-    public static function attach( $id = ''){
+    /*public static function attach( $id = ''){
         $clipboard = self::instance();
         $content = Clip::load($id);
         switch(true){
@@ -127,8 +129,9 @@ class Clipboard{
             readfile($content->getPath());
         }
         exit;
-    }
+    }*/
     /**
+     * call to the public clipboard view namespace
      * @param string $clipboard
      * @return true
      */
@@ -142,6 +145,7 @@ class Clipboard{
     }
     
     /**
+     * gets the clipboard display url, to render the full clip content gallery as defined
      * @param String $id
      * @return String
      */
@@ -152,11 +156,19 @@ class Clipboard{
             );
     }
     /**
+     * gets the clip content url to display (image/media/document ..
      * @param String $id
      * @return String
      */
     public static function clipdata( $id = ''){
         return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_DATA,$id));
+    }
+    /**
+     * @param string $id
+     * @return string
+     */
+    public  static function clipbuffer($id = '' ) {
+        return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_BUFFER,$id));
     }
     /**
      * @param string $id
@@ -166,21 +178,40 @@ class Clipboard{
     public static function route($id = '',$drive = 'content'){
         return self::instance()->storage($drive)->route($id);
     }
+    
     /**
-     * @param bool $flush
+     * Create content redirection
      */
-    public static function rewrite( $flush = false ){
-
+    private static function rewritecontent(){
         add_rewrite_tag('^clipboard/(.+)/?$', '(.+)');
         $content = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_DATA);
         add_rewrite_rule( $content , 'index.php?clip_id=$matches[1]' , 'top');
-
-        
+    }
+    /**
+     * create streaming buffer redirection
+     */
+    private static function rewritebuffer(){
+        add_rewrite_tag('^clipbuffer/(.+)/?$', '(.+)');
+        $buffer = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_BUFFER);
+        add_rewrite_rule( $buffer , 'index.php?clip_id=$matches[1]' , 'top');
+    }
+    /**
+     * create data redirection
+     */
+    private static function rewritedata(){
         //add_rewrite_tag('%clipboard_id%', '([a-zA-Z0-9_-]+)');
         add_rewrite_tag('%clip_id%', '([a-zA-Z0-9_-]+)');
         //$clipboard = sprintf('^%s/([a-zA-Z0-9_-]+)/?$', CODER_CLIPBOARD_VIEW);
         $clipboard = sprintf('^%s/(.+)/?$', CODER_CLIPBOARD_VIEW);
         add_rewrite_rule( $clipboard, 'index.php?clipboard_id=$matches[1]', 'top');
+    }
+    /**
+     * @param bool $flush
+     */
+    public static function rewrite( $flush = false ){
+        self::rewritecontent();
+        self::rewritedata();
+        //self::rewritebuffer();
 
         if( $flush ){
             flush_rewrite_rules();
@@ -382,7 +413,7 @@ class Clip{
     /**
      * @return String[]
      */
-    public function headers(){
+    /*public function headers(){
         return array(
             'Content-Description: File Transfer',
             sprintf('Content-Type: %s',$this->type),
@@ -391,7 +422,7 @@ class Clip{
                     $this->getFilename(true)),
             sprintf('Content-Length: %s',$this->size()),
         );
-    }
+    }*/
     
     /**
      * @return array
@@ -517,6 +548,32 @@ class Clip{
     /**
      * @return string
      */
+    public function getContentType(): string {
+        $type = strtolower((string) $this->type);
+
+        switch (true) {
+            case strpos($type, 'image/') === 0:
+                return 'image';
+
+            case strpos($type, 'video/') === 0:
+                return 'video';
+
+            case strpos($type, 'audio/') === 0:
+                return 'audio';
+
+            case strpos($type, 'text/') === 0:
+                return 'text';
+
+            case $type === 'application/pdf':
+                return 'document';
+
+            default:
+                return 'binary';
+        }
+    }
+    /**
+     * @return string
+     */
     public function getClipboard() { return self::clipboard($this->id); }
     /**
      * @return string
@@ -544,17 +601,6 @@ class Clip{
             'slot' => intval($this->slot),
         );        
     }
-
-    
-    /**
-     * @param bool $hidden
-     * @return \CODERS\Clipboard\ImageMapper
-     */
-    public function buffer($hidden = false) {
-        return $this->isImage() ?
-                new ImageMapper($this->getPath(),$this->type,$hidden) : null;
-    }
-    
 
     /**
      * @global wpdb $wpdb
@@ -597,60 +643,188 @@ class Clip{
         return get_site_url(null, sprintf('%s/%s', CODER_CLIPBOARD_DATA,$id));
     }
 }
-
+/**
+ * 
+ */
 class ContentProvider{
-    
+    /**
+     * 
+     * @var \CODERS\Clipboard\Clip
+     */
     private $_content = null;
-    
     /**
      * @param \CODERS\Clipboard\Clip $content
      */
-    private function __construct( Clip $content = null ) {
+    protected function __construct( Clip $content = null ) {
         $this->_content = $content;
-        $this->load();
     }
     /**
-     * @param \CODERS\Clipboardd\Clip $content
+     * 
+     * @return \CODERS\Clipboard\Clipboard
+     */
+    protected function clipboard() {
+        return Clipboard::instance();
+    }
+    /**
+     * @param string $message
+     * @return \CODERS\Clipboard\Clipboard
+     */
+    protected function error($message = '' ) {
+        $this->clipboard()->notify($message, 'error');
+        return $this;
+    }
+    /**
+     * 
+     */
+    protected function error404(){
+        status_header(404);
+        $this->error(__('Clipboard item not found.', 'coder_clipboard'));
+    }
+    /**
+     * 
+     */
+    protected function errorDenied(){
+        status_header(403);
+        $this->error(__('Access denied', 'coder_clipboard'));
+    }
+    
+    /**
+     * @return \CODERS\Clipboard\Clip
+     */
+    protected function content() {
+        return $this->_content;
+    }
+    /**
+     * @return bool
+     */
+    protected function ready() {
+        return !is_null($this->content()) && $this->content()->isReady(); 
+    }
+    /**
+     * @return bool
+     */
+    protected function denied() {
+        return $this->content() ? $this->content()->isDenied() : true;
+    }
+    /**
+     * @return int
+     */
+    protected function size() {
+        $content = $this->content();
+        return  $content ? filesize($content->getPath()) : 0;
+    }
+    /**
+     * @return string
+     */
+    protected function filename() {
+        $content = $this->content();
+        return $content ? $content->getFilename(true) : '';
+    }
+    /**
+     * @return string
+     */
+    protected function disposition() {
+        $content = $this->content();
+        return $content ? $content->getDisposition() : '';
+    }
+    /**
+     * @return string
+     */
+    protected function type() {
+        $content = $this->content();
+        return $content ? $content->type : '';
+    }
+    /**
+     * @return string
+     */
+    protected function path() {
+        $content = $this->content();
+        return $content ? $content->getPath() : '';
+    }
+    /**
+     * @return bool
+     */
+    protected function output() {
+        $path = $this->path();
+        return $path ? readfile($path) : false;
+    }
+    /**
+     * @return array
+     */
+    protected function headers() {
+        return array(
+            'Content-Description: File Transfer',
+            sprintf('Content-Type: %s',$this->type()),
+            sprintf('Content-Disposition: %s; filename=%s',
+                    $this->disposition(),
+                    $this->filename()),
+            sprintf('Content-Length: %s',$this->size()),
+        );
+    }
+   /**
      * @return \CODERS\Clipboard\ContentProvider
      */
-    public static function prepare( Clip $content) {
-        return new ContentProvider($content);
+    protected function heading() {
+        foreach ($this->headers() as $header) {
+            header($header);
+        }
+        return $this;
     }
-    
-    private function load() {
-        
+    /**
+     * @return bool
+     */
+    public function serve() {
+        if( !$this->ready()){
+            $this->error404();
+            return false;
+        }
+        return $this->heading()->output();
     }
-    
-    private function reduce( $buffer = null ){
-        
-    }
-    
-    public function output(){
-        
+   
+    /**
+     * @param \CODERS\Clipboard\Clip $content
+     * @return \CODERS\Clipboard\ContentProvider
+     */
+    public static function create( Clip $content = null ){
+        switch($content->getContentType()){
+            case 'video': return new StreamProvider($content);
+            case 'image': return new ImageProvider($content, 20);
+            //define providers as required
+            default: return new ContentProvider($content);
+        }
     }
 }
 /**
  * 
  */
-class ImageMapper{
+class ImageProvider extends ContentProvider{
     /**
-     * @var string
+     * @var \GdImage[]
      */
-    private $_path = '';
-    private $_type = '';
-    private $_hidden = false;
     private $_buffer = array();
     /**
-     * @param string $path
-     * @param string $type
-     * @param bool $hidden
+     * @var int
      */
-    public function __construct($path , $type = '' , $hidden = false) {
-        $this->_path = $path;
-        $this->_type = $type;
-        $this->_hidden = $hidden;
-        
-        $this->load( $this->_path, $this->_type,$this->_hidden);
+    private $_size = 10;
+
+    /**
+     * @param \CODERS\Clipboard\Clip $content
+     * @param int $size
+     */
+    protected function __construct( Clip $content = null , $size = 10 ) {
+        parent::__construct($content);
+        $this->_size = $size;
+    }
+
+    /**
+     * @param \GdImage $buffer
+     * @return \CODERS\Clipboard\ImageProvider
+     */
+    private function setbuffer($buffer) {
+        //if(get_class($buffer) === '\GdImage'){
+             $this->_buffer[] = $buffer;
+        //}
+        return $this;
     }
     /**
      * @return \GdImage
@@ -659,30 +833,30 @@ class ImageMapper{
         return count($this->_buffer) ? $this->_buffer[count($this->_buffer)-1] : null;
     }
     /**
-     * 
-     * @param string $path
-     * @param string $type
-     * @param string $hidden
-     * @return \GdImage
+     * @return \CODERS\Clipboard\ImageProvider
      */
-    private function load( $path ,$type , $hidden = false ) {
+    private function createbuffer( ) {
+        $type = $this->type();
+        $hidden = $this->denied();
+        $path = $this->path();
         // Load image based on type
         switch ($type) {
             case 'image/jpeg':
-                $this->_buffer[] = imagecreatefromjpeg($path);
+                $this->setbuffer(  imagecreatefromjpeg($path) );
                 break;
             case 'image/png':
-                $this->_buffer[] = imagecreatefrompng($path);
+                $this->setbuffer( imagecreatefrompng($path) );
                 break;
             case 'image/gif':
-                $this->_buffer[] = imagecreatefromgif($path);
+                $this->setbuffer( imagecreatefromgif($path ) );
                 break;
         }
         $buffer = $this->buffer();
         if( $buffer && $hidden ){
-            $this->_buffer[] = $this->reduce( $buffer );
+            //$this->reduce( $buffer );
+            $this->setbuffer( $this->reduce( $buffer , $this->_size ) );
         }
-        return !is_null($this->buffer());
+        return $this;
     }
     /**
      * 
@@ -710,7 +884,7 @@ class ImageMapper{
             $output = imagecreatetruecolor($w, $h);
             imagecopyresampled($output, $small, 0, 0, 0, 0, $w, $h, $small_w, $small_h);
             
-            $this->_buffer[] = $buffer;
+            $this->setbuffer( $buffer );
             return $output;
     }
     /**
@@ -728,10 +902,10 @@ class ImageMapper{
     /**
      * @return bool
      */
-    public function output() {
+    private function readbuffer() {
         $buffer = $this->buffer();
         if( $buffer ){
-            switch($this->_type){
+            switch($this->type()){
                 case 'image/png':
                     imagepng($buffer);
                 case 'image/gif':
@@ -739,7 +913,6 @@ class ImageMapper{
                 case 'image/jpeg':
                     imagejpeg($buffer, null,90);
             }
-
             // Cleanup
             $this->clear();
             return true;
@@ -755,7 +928,37 @@ class ImageMapper{
             }
             $this->_buffer = array();
     }
+    /**
+     * @return String[]
+     */
+    protected function headers() {
+        $headers = parent::headers();
+        //append more headers here for image display
+        return $headers;
+    }
+    /**
+     * @return bool
+     */
+    protected function output(){
+        return $this->denied() ? $this->createbuffer()->readbuffer() : parent::output();
+    }
 }
+/**
+ * 
+ */
+class StreamProvider extends ContentProvider{
+    /**
+     * @param \CODERS\Clipboard\Clip $content
+     */
+    protected function __construct( Clip $content = null) {
+        parent::__construct($content);
+    }
+    
+    private function buffer() {
+        
+    }
+}
+
 
 /**
  * ACL Role interaction with Coder Tiers Plugin
