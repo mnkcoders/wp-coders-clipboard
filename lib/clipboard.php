@@ -1097,7 +1097,7 @@ class Data{
             $wpdb = self::wpdb();
             $table = self::table();
             // Set the variable
-            $wpdb->query("SET @rownum = 0");
+            $wpdb->query("SET @rownum = $slot");
             $query = array( "UPDATE `$table` SET `slot` = (@rownum := @rownum + 1)" );
             if( $id ){
                 $query[] = sprintf("WHERE `parent_id` = '%s'",$id);
@@ -1112,6 +1112,7 @@ class Data{
                 $query[] = sprintf('AND `slot` <= %s',$range);
             }
             //$query[] = "ORDER BY `slot` ASC";
+            $this->notify(implode(' ', $query),'debug');
             $count = $wpdb->query(implode(' ', $query));
             if(is_numeric($count)){
                 return $count;
@@ -1144,6 +1145,62 @@ class Data{
         $this->notify($db->error, 'error');
         return 0;
     }
+    /**
+     * @param string $id
+     * @return array
+     */
+    public function slots( $id = ''){
+        $db = $this->wpdb();
+        $sql = array(sprintf("SELECT `id`,`slot` FROM `%s`",self::table()));
+        if( $id ){
+            $sql[] = sprintf("WHERE `parent_id` = '%s'",$id);
+        }
+        else{
+            $sql[] = "WHERE `parent_id` = '' OR `parent_id` IS NULL";
+        }
+        $sql[] = "ORDER BY `slot` ASC";
+        $result = $db->get_results(implode(' ', $sql),ARRAY_A);
+        $this->notify($db->error,'error');
+        $output = array();
+        if(is_array($result)){
+            foreach($result as $row ){
+                $output[$row['id']] = (int)$row['slot'];
+            }
+        }
+        return $output;
+    }
+
+    /**
+     * @param array $keys
+     * @param array $filter
+     * @param array $order
+     * @return array
+     */
+    public function select( $keys = [] , $filter = [], $order = []){
+        $db = $this->wpdb();
+        $where = array();
+        foreach($filter as $key => $value ){
+            $where[] = sprintf("`%s` = %s",
+                    $key,
+                    !is_numeric($value) ?  "'$value'" : $value);
+        }
+        $sql = array(
+            sprintf("SELECT `%s` FROM `%s`", implode('`,`', $keys),self::table()),
+        );
+        if(count($filter)){
+            $sql[] = sprintf("WHERE %s", implode(' ', $where));
+        }
+        if( count($order)){
+            $sql[] = sprintf("ORDER BY `%s`", implode('`,`', $order));
+        }
+        $result = $db->get_results(implode(' ', $sql),ARRAY_A);
+        //$this->notify(sprintf('%s : %s',implode(' ', $sql),count($result)),'debug');
+        
+        $this->notify($db->error,'error');
+        
+        return is_array($result) ? $result : [];
+    }
+
     /**
      * @param string $id
      * @param array $columns //leave empty to get them all

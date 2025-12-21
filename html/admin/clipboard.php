@@ -1,4 +1,5 @@
 <?php defined('ABSPATH') or die; ?>
+<?php var_dump($this->list_slots()) ?>
 <div class="wrap coders-clipboard main">
     <?php $this->show_title() ?>
     <?php $this->show_path() ?>

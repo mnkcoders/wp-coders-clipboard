@@ -691,6 +691,7 @@ class AjaxController extends Controller{
         }
         $count = $clip->sort($slot);
         if ($count ){
+            $this->put('list',Content::slots($clip->parent_id));
             $this->notify(sprintf('%s items updated',$count));
             return true;
         }
@@ -800,8 +801,14 @@ class Content extends \CODERS\Clipboard\Clip{
      */
     public function sort($slot = 0  ){
         if( $slot ){
+            $this->slot = $slot;
             $count = $this->db()->arrange($this->parend_id,$slot);
             $sort = $this->db()->sort($this->id, $slot);
+            //DEBHUG
+            $this->notify(sprintf('%s slot is now %s (%s)',
+                    $this->name,
+                    $this->slot,
+                    $this->isUpdated() ? 'updated' : 'not updated'),'debug');
             return $count + $sort;
         }
         return 0;
@@ -1033,8 +1040,14 @@ class Content extends \CODERS\Clipboard\Clip{
         }
         return false;
     }
-
-        /**
+    /**
+     * @param string $collection_id
+     * @return array
+     */
+    public static function slots( $collection_id = ''){
+        return self::db()->slots($collection_id);
+    }
+    /**
      * @param string $id
      * @return int
      */
@@ -1575,7 +1588,7 @@ class MainView extends View{
     /**
      * @return array
      */
-    public function listTiers(){
+    protected function listTiers(){
         //$tiers = apply_filters('coder_tiers', array());
         $tiers = Content::manager()->acl()->list();
         return is_array($tiers) ? $tiers : array();
@@ -1583,7 +1596,14 @@ class MainView extends View{
     /**
      * @return array
      */
-    public function listRoles(){
+    protected function listSlots(){
+        return Content::slots($this->id);
+    }
+
+    /**
+     * @return array
+     */
+    protected function listRoles(){
         $roles = array(
             'private' => __('Private (admin only)', 'coder_clipboard'),
             'public' => __('Public (everyone)', 'coder_clipboard'),
@@ -1597,7 +1617,7 @@ class MainView extends View{
     /**
      * @return array
      */
-    public function listLayouts(){
+    protected function listLayouts(){
         return array(
             'default' => __('Default', 'coder_clipboard'),
             'ecomic' => __('e-Comic', 'coder_clipboard'),

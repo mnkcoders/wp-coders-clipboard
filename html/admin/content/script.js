@@ -32,9 +32,14 @@ class App {
         //this._id = this.input().get('id') || '';
         this._components = {};
         this._attributes = [];
+        this._timeout = false;
         this.setup().initialize();
         console.log(this);
     }
+    /**
+     * @returns {Boolean}
+     */
+    timeout(){ return this._timeout; }
     /**
      * @returns {CoderInput}
      */
@@ -58,9 +63,6 @@ class App {
      * @returns {App}
      */
     initialize() {
-        //initialize views
-        //console.log('Initialize Components:', this.components());
-        //this.loadattributes();
         this.components()
             .map(c => this._components[c])
             .filter(c => c instanceof ViewComponent)
@@ -443,13 +445,18 @@ class Component {
         return this;
     }
     /**
-     * Run an event
+     * Run an event. Now allowing many params
      * @param {String} e 
-     * @param {*} data 
+     * @param {*} args 
      * @returns 
      */
-    $(e = '', data = false) {
-        e && this.__e[e] && this.__e[e].forEach(call => call(data));
+    $( ) {
+        const args = Array.from(arguments).slice();
+        const e = args.shift() || '';
+        //console.log( `Event ${e}: `, args );
+        e && this.__e[e] && this.__e[e].forEach(call => call( ... args ) );
+        //old version with one single param
+        //e && this.__e[e] && this.__e[e].forEach(call => call(args));
         return this;
     }
 }
@@ -1272,12 +1279,13 @@ class Collection extends ViewComponent {
         this.onDrop();
         //this.populate( );
 
-        this._('sort', (content ) => {
-            App.server().sort( content.id || '',  parseInt(content.slot) || 0, data => this.sortitem(ClipData.fromdata(data)) );
+        this._('sort', ( id , slot ) => {
+            App.server().sort( id || '',  parseInt(slot) || 0, r => r.list && this.sortitems(r.list) );
+            //App.server().sort( id || '',  parseInt(slot) || 0, r => r.data && this.sortitem(ClipData.fromdata(r.data)) );
         });
 
         this._('move', ( content  ) => {
-            App.server().moveto(content.id || '', content.target || '', r => this.removeitem(r.id || '') );            
+            App.server().moveto(content.id || '', content.target || '', r => this.removeitem(r.id || '') );
         });
     }
     /**
@@ -1302,6 +1310,18 @@ class Collection extends ViewComponent {
         const item = id && this.items().find( i => i.id() === id ) || null;
         //console.log('removing item ', item);
         item && item.remove();
+        return this;
+    }
+    /**
+     * @param {Object} data 
+     * @returns {Collection}
+     */
+    sortitems( data = {}){
+        if( data instanceof Object){
+            Object.keys(data).forEach( key => {
+                //console.log(`Sorting item ${key} to slot ${data[key]}`);
+            });
+        }
         return this;
     }
     /**
@@ -1394,18 +1414,6 @@ class Collection extends ViewComponent {
         });
         return this;
     }
-    /**
-     * @param {String} id 
-     * @param {Number} slot 
-     * @returns {Collection}
-     */
-    sort(id = '', slot = 0) {
-        App.server().sort(id, slot, data => {
-            this.arrange(ClipData.fromdata(data));
-        });
-        return this;
-    }
-
     /**
      * @returns {Collection}
      */
@@ -1504,7 +1512,7 @@ class Collection extends ViewComponent {
                 case 'sort':
                     const toslot = item && parseInt(item.dataset.slot) || 0;
                     console.log(item,toslot,fromslot);
-                    toslot && toslot !== fromslot && this.$('sort', {'id':fromid,'slot':toslot});
+                    toslot && toslot !== fromslot && this.$('sort', fromid, toslot );
                     break;
                 default:
                     //console.log(`No target selected`);
@@ -1538,7 +1546,7 @@ class Notifier extends ViewComponent {
     show(content = '', type = 'info') {
         console.log(`[${type}] ${content}`);
         if (content && this.node()) {
-            this.node().appendChild(this.newmessage(content, type, true));
+            this.node().appendChild(this.newmessage(content, type, App.client().timeout()));
         }
         return this;
     }
