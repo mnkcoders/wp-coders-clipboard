@@ -805,10 +805,10 @@ class Content extends \CODERS\Clipboard\Clip{
             $count = $this->db()->arrange($this->parend_id,$slot);
             $sort = $this->db()->sort($this->id, $slot);
             //DEBHUG
-            $this->notify(sprintf('%s slot is now %s (%s)',
-                    $this->name,
-                    $this->slot,
-                    $this->isUpdated() ? 'updated' : 'not updated'),'debug');
+            //$this->notify(sprintf('%s slot is now %s (%s)',
+            //        $this->name,
+            //        $this->slot,
+            //        $this->isUpdated() ? 'updated' : 'not updated'),'debug');
             return $count + $sort;
         }
         return 0;
@@ -1045,7 +1045,7 @@ class Content extends \CODERS\Clipboard\Clip{
      * @return array
      */
     public static function slots( $collection_id = ''){
-        return self::db()->slots($collection_id);
+        return array_keys(self::db()->slots($collection_id));
     }
     /**
      * @param string $id

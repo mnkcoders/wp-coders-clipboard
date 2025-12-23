@@ -343,21 +343,67 @@
 }
 
 #wpbody-content .coders-clipboard .collection > li.item{
-    
-    display: inline-block;
-    vertical-align: top;
-    float: left;
-    width: 22%;
-    margin: 0 4% 4% 0;
-    padding-bottom: 22%;
     position: relative;
     border-radius: 2px;
     box-shadow: 0 0 4px rgba(0,0,0,0.1);
     background: linear-gradient(#f5f5f5,#ffffff,#f5f5f5);
 }
-#wpbody-content .coders-clipboard .collection > li.item:nth-child(4n){
-    margin-right: 0;
+@media only screen and (max-width: 480px){
+    #wpbody-content .coders-clipboard .collection > li.item{
+        display: block;
+        width: 100%;
+        padding-bottom: 100%;
+    }
 }
+@media only screen and (min-width: 481px){
+    #wpbody-content .coders-clipboard .collection > li.item{
+        display: inline-block;
+        vertical-align: top;
+        float: left;
+    }
+}
+@media only screen and (min-width: 481px) and (max-width: 767px){
+    #wpbody-content .coders-clipboard .collection > li.item{
+        width: 48%;
+        margin: 0 4% 4% 0;
+        padding-bottom: 48%;
+    }
+    #wpbody-content .coders-clipboard .collection > li.item:nth-child(2n){
+        margin-right: 0;
+    }
+}
+@media only screen and (min-width: 768px) and (max-width: 959px){
+    #wpbody-content .coders-clipboard .collection > li.item{
+        width: 22%;
+        margin: 0 4% 4% 0;
+        padding-bottom: 22%;
+    }
+    #wpbody-content .coders-clipboard .collection > li.item:nth-child(4n){
+        margin-right: 0;
+    }
+}
+
+@media only screen and (min-width: 960px) and (max-width: 1199px){
+    #wpbody-content .coders-clipboard .collection > li.item{
+        width: 48%;
+        margin: 0 4% 4% 0;
+        padding-bottom: 48%;
+    }
+    #wpbody-content .coders-clipboard .collection > li.item:nth-child(2n){
+        margin-right: 0;
+    }
+}
+@media only screen and (min-width: 1200px){
+    #wpbody-content .coders-clipboard .collection > li.item{
+        width: 22%;
+        margin: 0 4% 4% 0;
+        padding-bottom: 22%;
+    }
+    #wpbody-content .coders-clipboard .collection > li.item:nth-child(4n){
+        margin-right: 0;
+    }
+}
+
 
 #wpbody-content .coders-clipboard .collection > li.item > .content{
     display: block;

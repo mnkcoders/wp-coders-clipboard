@@ -1112,7 +1112,7 @@ class Data{
                 $query[] = sprintf('AND `slot` <= %s',$range);
             }
             //$query[] = "ORDER BY `slot` ASC";
-            $this->notify(implode(' ', $query),'debug');
+            //$this->notify(implode(' ', $query),'debug');
             $count = $wpdb->query(implode(' ', $query));
             if(is_numeric($count)){
                 return $count;

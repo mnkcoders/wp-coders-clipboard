@@ -1,6 +1,6 @@
 <?php defined('ABSPATH') or die; ?>
 <!-- COLLECTION BLOCK -->
-<ul class="collection container drag-drop">
+<ul class="collection drag-drop">
     <?php if (!$this->is_empty()) : ?>
         <?php //foreach ($this->list_items() as $item) : ?>
         <?php foreach ( array() as $item) : ?>

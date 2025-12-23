@@ -1281,7 +1281,7 @@ class Collection extends ViewComponent {
 
         this._('sort', ( id , slot ) => {
             App.server().sort( id || '',  parseInt(slot) || 0, r => r.list && this.sortitems(r.list) );
-            //App.server().sort( id || '',  parseInt(slot) || 0, r => r.data && this.sortitem(ClipData.fromdata(r.data)) );
+            console.log('SORT',id,slot);
         });
 
         this._('move', ( content  ) => {
@@ -1313,14 +1313,19 @@ class Collection extends ViewComponent {
         return this;
     }
     /**
-     * @param {Object} data 
+     * @param {String[]} list 
      * @returns {Collection}
      */
-    sortitems( data = {}){
-        if( data instanceof Object){
-            Object.keys(data).forEach( key => {
-                //console.log(`Sorting item ${key} to slot ${data[key]}`);
-            });
+    sortitems( list = []){
+        console.log('SORT ITEMS',list);
+        if( list && list.length ){
+            const collection = this.node();
+            list.map( id => this.getitem( id ) )
+                .filter( (item, slot ) => !!item && item.setslot( slot + 1 ) )
+                .sort( (a , b)  =>  a.slot() - b.slot() );
+            //append back to collection node, this will move the real item's position  in the view actually
+            this.items().forEach( item => collection.appendChild(item.node()));
+            this.listslots();
         }
         return this;
     }
@@ -1395,11 +1400,9 @@ class Collection extends ViewComponent {
     /**
      * 
      * @param {String} id 
-     * @returns 
+     * @returns {ClipView}
      */
-    getitem(id = '') {
-        return this.components().find(c => c.id() === id) || null;
-    }
+    getitem(id = '') { return this.components().find(c => c.id() === id) || null; }
     /**
      * @param {String} id 
      * @param {String} target 
@@ -1521,6 +1524,9 @@ class Collection extends ViewComponent {
         });
         return this;
     }
+    listslots(){
+        this.items().forEach( item => console.log (item.id(),item.slot()) );
+    }
 }
 /**
  * 
@@ -1598,6 +1604,17 @@ class ClipView extends ViewComponent {
      */
     slot() { return this.data() && this.data().slot() || 0; }
     /**
+     * @param {Number} slot
+     * @returns {ClipView} 
+     */
+    setslot( slot = 0 ){
+        if( slot && this.data() ){
+            this.data().set('slot',slot);
+            this.$('slot',slot);
+        }
+        return this;
+    }
+    /**
      * @returns {Boolean}
      */
     isimage() { return this.type().indexOf('image/') >= 0; }
@@ -1647,21 +1664,17 @@ class ClipView extends ViewComponent {
     /**
      * @returns {Element}
      */
-    overlay() {
-        return this.html('a', {
-            'data-id': this.data().id(),
-            'href': this.data().post(),
-        }, this.data().title());
-    }
-
-
-    /**
-     * @returns {Element}
-     */
     render() {
         //console.log(this.parent());
         const item = this.html('li', { 'class': 'item', 'data-id': this.id(), 'data-slot': this.slot() });
-        item.appendChild(this.makeplaceholder());
+        
+        const placeholder = this.makeplaceholder();
+        this._('slot', slot => {
+            slot && item.setAttribute('data-slot',slot );
+            slot && placeholder.setAttribute('data-slot',slot );
+        });
+        
+        item.appendChild(placeholder);
         item.appendChild(this.makecontent());
         //item.appendChild(this.makecheck());
         item.appendChild(this.makereplace());
@@ -1673,9 +1686,7 @@ class ClipView extends ViewComponent {
     /**
      * @returns {Element}
      */
-    makeplaceholder() {
-        return this.html('span', { 'class': 'placeholder', 'data-slot': this.slot() });
-    }
+    makeplaceholder() { return this.html('span', { 'class': 'placeholder', 'data-slot': this.slot() }); }
     /**
      * @returns {Element}
      */
