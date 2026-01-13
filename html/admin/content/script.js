@@ -9,9 +9,7 @@
  * {filetask: file, id: string } uploads a file with a special task which includes the File object
  */
 //Loader
-document.addEventListener('DOMContentLoaded', function () {
-    App.client();
-});
+document.addEventListener('DOMContentLoaded', () => App.client());
 
 
 /**
@@ -1273,7 +1271,7 @@ class Collection extends ViewComponent {
     initialize() {
         super.initialize();
         //prepare all events
-        this.onDragStart();
+        //this.onDragStart();
         this.onDragEnd();
         this.onDragOver();
         this.onDrop();
@@ -1437,10 +1435,11 @@ class Collection extends ViewComponent {
      */
     onDragStart() {
         const node = this.node();
-        node && document.addEventListener('dragstart', e => {
+        node && node.addEventListener('dragstart', e => {
             /*e.preventDefault();*/
             const item = e.target.closest('li.item');
             if (!item || !node.contains(item)) return;
+            console.log(node,e.target,e.target.closest('li.item'));
 
             node.classList.add('move');
             item.classList.add('moving');
@@ -1504,7 +1503,7 @@ class Collection extends ViewComponent {
             const fromid = data.id || '';
             const fromslot = parseInt(data.slot) || 0;
             const action = target.classList.contains('placeholder') && 'sort'
-                || target.classList.contains('caption') && 'move' || '';
+                || target.classList.contains('cover') && 'move' || '';
             //console.log(data,action);
 
             switch (action) {
@@ -1590,6 +1589,58 @@ class ClipView extends ViewComponent {
     }
     initialize() {
         super.initialize();
+        this.onDragStart();
+    }
+    /**
+     * @returns {Collection}
+     */
+    onDragStart() {
+        const node = this.node();
+        node && node.addEventListener('dragstart', e => {
+            /*e.preventDefault();*/
+            const item = e.target.closest('li.item');
+            if (!item || !node.contains(item)) return;
+            console.log(node,e.target,e.target.closest('li.item'));
+
+            node.classList.add('move');
+            item.classList.add('moving');
+
+            const id = item.dataset.id;
+            const slot = item.dataset.slot;
+            //console.log(item,id,slot);
+
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData(
+                'application/json',
+                JSON.stringify({ 'id': id, 'slot': slot }));
+            // Create a custom drag image
+            const ghost = this.createGhost(item.querySelector('img.media'));
+            // Wait for the browser to render the ghost before setting it as the drag image
+            if( ghost ){
+                e.dataTransfer.setDragImage(ghost, 0, 0);
+                // Optional cleanup
+                setTimeout(() => ghost.remove(), 1000);
+            }
+
+        });
+    }
+    /**
+     * @param {Element} image 
+     * @returns {Collection}
+     */
+    createGhost(image = null) {
+        if (image instanceof Element) {
+            const ghost = image.cloneNode(true);
+            ghost.style.borderRadius = '50%';
+            ghost.style.position = 'absolute';
+            ghost.style.top = '-1000px';
+            ghost.style.left = '-1000px';
+            ghost.style.zIndex = '-1'; // avoid blocking other elements
+            ghost.style.pointerEvents = 'none';
+            document.body.appendChild(ghost);
+            return ghost;
+        }
+        return null;
     }
     /**
      * @returns {ClipData}
@@ -1666,7 +1717,12 @@ class ClipView extends ViewComponent {
      */
     render() {
         //console.log(this.parent());
-        const item = this.html('li', { 'class': 'item', 'data-id': this.id(), 'data-slot': this.slot() });
+        const item = this.html('li', {
+             'class': 'item',
+             'data-id': this.id(),
+             'data-slot': this.slot(),
+             'draggable': 'true',
+        });
         
         const placeholder = this.makeplaceholder();
         this._('slot', slot => {
@@ -1767,7 +1823,10 @@ class ClipView extends ViewComponent {
      */
     makecontent() {
         const data = this.data();
-        const content = this.html('div', { 'class': 'content', 'draggable': 'true' });
+        const content = this.html('div', {
+            'class': 'content',
+            //'draggable': 'true'
+        });
         if (data) {
             switch (true) {
                 case this.isimage():
@@ -1778,7 +1837,7 @@ class ClipView extends ViewComponent {
                     break;
             }
             content.appendChild(this.html('a', {
-                'class': 'caption',
+                'class': 'cover',
                 'data-id': data.id(),
                 'href': data.adminlink()
             }, data.title()));
@@ -1966,7 +2025,7 @@ class Uploader extends ViewComponent {
      * @returns {Element}
      */
     changetext(text = '') {
-        const element = this.node() && this.node().querySelector('.files > span.caption') || null;
+        const element = this.node() && this.node().querySelector('.files > span.status') || null;
         if (text && element) {
             element.innerHTML = text;
         }
@@ -2009,7 +2068,7 @@ class Uploader extends ViewComponent {
     /**
      * @returns {Element}
      */
-    textbar() { return this.gaugebar().querySelector('.caption'); }
+    textbar() { return this.gaugebar().querySelector('.status'); }
     /**
      * @param {Number} progress 
      * @returns {Uploader}

@@ -26,5 +26,5 @@
             </span>
         </form>
     </div>
-    <div class="gauge"> <span class="progress"></span> <span class="caption"></span></div>
+    <div class="gauge"> <span class="progress"></span> <span class="status"></span></div>
 </div>
