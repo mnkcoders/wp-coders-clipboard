@@ -984,7 +984,7 @@ class ClipData extends Component {
      * @returns {String[]}
      */
     tags() { return this.getlist('tags', ' '); }
-    /**
+    /**d
      * @returns {Number}
      */
     slot() { return this.getint('slot'); }
@@ -1272,7 +1272,7 @@ class Collection extends ViewComponent {
         super.initialize();
         //prepare all events
         //this.onDragStart();
-        this.onDragEnd();
+        //this.onDragEnd();
         this.onDragOver();
         this.onDrop();
         //this.populate( );
@@ -1361,6 +1361,36 @@ class Collection extends ViewComponent {
         return this;
     }
     /**
+     * @param {ClipView} item 
+     * @returns {Collection}
+     */
+    append( item = null ){
+        if( item instanceof ClipView){
+            super.append(item);
+            //this.onDragEnd(item);
+            item._('dragstart', id => this.togglemove(true,id))._('dragend', id => this.togglemove(false,id));
+        }
+        return this;
+    }
+    /**
+     * @param {Boolean} move 
+     * @param {String} id
+     * @returns {Collection}
+     */    
+    togglemove( move = false , id  = ''){
+        const collection = this.node();
+        if( collection ){
+            if( move ){
+                collection.classList.add('move');
+            }
+            else{
+                collection.classList.remove('move');
+            }
+            console.log('Moving items in collection' , id , collection.className);
+        }
+        return this;
+    }
+    /**
      * @returns {ClipData}
      */
     clip() { return App.clipview(); }
@@ -1414,73 +1444,6 @@ class Collection extends ViewComponent {
             item && item.remove();
         });
         return this;
-    }
-    /**
-     * @returns {Collection}
-     */
-    onDragEnd() {
-        document.addEventListener('dragend', e => {
-            e.preventDefault();
-            const node = this.node();
-            if( node ){
-                node.classList.remove('move');
-                const source = node.querySelector('li.item.moving');
-                source.classList.remove('moving');
-            }
-        });
-        return this;
-    }
-    /**
-     * @returns {Collection}
-     */
-    onDragStart() {
-        const node = this.node();
-        node && node.addEventListener('dragstart', e => {
-            /*e.preventDefault();*/
-            const item = e.target.closest('li.item');
-            if (!item || !node.contains(item)) return;
-            console.log(node,e.target,e.target.closest('li.item'));
-
-            node.classList.add('move');
-            item.classList.add('moving');
-
-            const id = item.dataset.id;
-            const slot = item.dataset.slot;
-            //console.log(item,id,slot);
-
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData(
-                'application/json',
-                JSON.stringify({ 'id': id, 'slot': slot }));
-            // Create a custom drag image
-            const ghost = this.createGhost(item.querySelector('img.media'));
-            // Wait for the browser to render the ghost before setting it as the drag image
-            if( ghost ){
-                e.dataTransfer.setDragImage(ghost, 0, 0);
-                // Optional cleanup
-                setTimeout(() => ghost.remove(), 1000);
-            }
-
-        });
-        return this;
-    }
-    /**
-     * @param {Element} image 
-     * @returns {Collection}
-     */
-    createGhost(image = null) {
-        if (image instanceof Element) {
-            const ghost = image.cloneNode(true);
-            ghost.style.borderRadius = '50%';
-            ghost.style.position = 'absolute';
-            ghost.style.top = '-1000px';
-            ghost.style.left = '-1000px';
-            ghost.style.zIndex = '-1'; // avoid blocking other elements
-            ghost.style.pointerEvents = 'none';
-            document.body.appendChild(ghost);
-            return ghost;
-        }
-        return null;
     }
     /**
      * @returns {Collection}
@@ -1583,6 +1546,7 @@ class ClipView extends ViewComponent {
     constructor(data = null) {
         super();
         this._data = data && data instanceof ClipData ? data : null;
+        this._handle = null;
     }
     create() {
         super.create();
@@ -1590,31 +1554,52 @@ class ClipView extends ViewComponent {
     initialize() {
         super.initialize();
         this.onDragStart();
+        this.onDragEnd();
     }
     /**
-     * @returns {Collection}
+     * @returns {Element}
+     */
+    handle(){ return this._handle || null; }
+    /**
+     * @returns {ClipView}
+     */
+    onDragEnd( ) {
+        const handle = this.handle();
+        const item = this.node();
+        console.log(handle,item);
+        handle && handle.addEventListener('dragend', e => {
+            item.classList.remove('moving');
+            this.$('dragend',this.id());
+        });
+        return this;
+    }    
+
+    /**
+     * @returns {ClipView}
      */
     onDragStart() {
-        const node = this.node();
-        node && node.addEventListener('dragstart', e => {
+        const item = this.node();
+        item && item.addEventListener('dragstart', e => {
+            console.log(item);
             /*e.preventDefault();*/
-            const item = e.target.closest('li.item');
-            if (!item || !node.contains(item)) return;
-            console.log(node,e.target,e.target.closest('li.item'));
+            const draggable = e.target.closest('li.item');
+            if (!draggable || !item.contains(draggable)) return;
+            //console.log(node,e.target,e.target.closest('li.item'));
 
-            node.classList.add('move');
-            item.classList.add('moving');
+            item.classList.add('move');
+            draggable.classList.add('moving');
+            //this._handle = draggable;
 
-            const id = item.dataset.id;
-            const slot = item.dataset.slot;
-            //console.log(item,id,slot);
+            const id = draggable.dataset.id;
+            const slot = draggable.dataset.slot;
+            console.log('Moving',id,slot,item.className);
 
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData(
                 'application/json',
                 JSON.stringify({ 'id': id, 'slot': slot }));
             // Create a custom drag image
-            const ghost = this.createGhost(item.querySelector('img.media'));
+            const ghost = this.createGhost(draggable.querySelector('img.media'));
             // Wait for the browser to render the ghost before setting it as the drag image
             if( ghost ){
                 e.dataTransfer.setDragImage(ghost, 0, 0);
@@ -1626,7 +1611,7 @@ class ClipView extends ViewComponent {
     }
     /**
      * @param {Element} image 
-     * @returns {Collection}
+     * @returns {Element}
      */
     createGhost(image = null) {
         if (image instanceof Element) {
@@ -1642,6 +1627,7 @@ class ClipView extends ViewComponent {
         }
         return null;
     }
+
     /**
      * @returns {ClipData}
      */
@@ -1836,11 +1822,13 @@ class ClipView extends ViewComponent {
                     content.appendChild(this.makeattachment());
                     break;
             }
-            content.appendChild(this.html('a', {
+            const handle = this.html('a', {
                 'class': 'cover',
                 'data-id': data.id(),
                 'href': data.adminlink()
-            }, data.title()));
+            }, data.title());
+            content.appendChild(handle);
+            this._handle = handle;
         }
         return content;
     }
